@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Bell, Menu, User, ChartBarIcon, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,6 +14,8 @@ import {
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import Sidebar from './Sidebar';
+import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
 
 interface NavbarProps {
   showSidebarToggle?: boolean;
@@ -22,6 +24,19 @@ interface NavbarProps {
 const Navbar = ({ showSidebarToggle = true }: NavbarProps) => {
   const isMobile = useIsMobile();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success("Logged out successfully");
+      navigate('/login');
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Failed to log out. Please try again.");
+    }
+  };
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-white px-4 shadow-sm">
@@ -86,10 +101,11 @@ const Navbar = ({ showSidebarToggle = true }: NavbarProps) => {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/logout" className="cursor-pointer text-red-500 focus:text-red-500">
-                  Logout
-                </Link>
+              <DropdownMenuItem 
+                className="cursor-pointer text-red-500 focus:text-red-500"
+                onClick={handleLogout}
+              >
+                Logout
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

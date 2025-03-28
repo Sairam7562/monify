@@ -1,4 +1,3 @@
-
 import { ReactNode, useEffect, useState } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -213,6 +212,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         toast.error(error.message);
         return;
       }
+      
+      // We don't need to manually update state here since onAuthStateChange will handle it
+      console.log("Logout successful");
     } catch (error) {
       console.error("Logout error:", error);
       toast.error("Logout failed");
