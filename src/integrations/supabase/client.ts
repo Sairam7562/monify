@@ -31,12 +31,42 @@ export const supabase = createClient<Database>(
   }
 );
 
+// Add error handling for database schema issues
+const checkConnection = async () => {
+  try {
+    // Try a simple query to validate connection
+    const { data, error } = await supabase.from('profiles').select('id').limit(1);
+    
+    if (error) {
+      if (error.code === 'PGRST106') {
+        console.error('Database schema error detected:', error.message);
+        // Store a flag in session storage indicating schema issue
+        sessionStorage.setItem('db_schema_error', 'true');
+      } else {
+        console.error('Database connection error:', error.message);
+      }
+    } else {
+      // Clear any previous schema error flag
+      sessionStorage.removeItem('db_schema_error');
+      console.log('Database connection successful');
+    }
+  } catch (err) {
+    console.error('Error checking database connection:', err);
+  }
+};
+
+// Check connection on initial load
+checkConnection();
+
 // Configure the redirect URL for authentication
 supabase.auth.onAuthStateChange((event, session) => {
   if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
     // Set redirect URL for the current origin
     const redirectTo = `${window.location.origin}/verify-email`;
     console.log("Setting redirect URL to:", redirectTo);
+    
+    // Check connection again after sign in
+    checkConnection();
   }
 });
 

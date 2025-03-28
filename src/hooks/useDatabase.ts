@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -16,6 +17,12 @@ export function useDatabase() {
     return true;
   }, [user, session]);
 
+  // Helper to check for database schema issues
+  const hasSchemaIssue = () => {
+    return sessionStorage.getItem('db_schema_error') === 'true';
+  };
+
+  // Modified version of savePersonalInfo that handles schema errors better
   const savePersonalInfo = async (data: any) => {
     try {
       setLoading(true);
@@ -32,6 +39,21 @@ export function useDatabase() {
         return { error: 'Invalid user ID' };
       }
       
+      // Check for known schema issues before attempting database operation
+      if (hasSchemaIssue()) {
+        console.log("Known database schema issue, using local storage");
+        // Save to local storage
+        const localStorageKey = `personal_info_${userId}`;
+        localStorage.setItem(localStorageKey, JSON.stringify({
+          ...data,
+          user_id: userId,
+          updated_at: new Date().toISOString()
+        }));
+        
+        toast.success('Information saved locally. It will be synced when the database is available.');
+        return { data: null, error: null, localSaved: true };
+      }
+      
       try {
         // Try to check if the table exists first
         const { data: existingData, error: fetchError } = await supabase
@@ -42,8 +64,10 @@ export function useDatabase() {
 
         if (fetchError) {
           // Check if it's a schema error (PGRST106)
-          if (fetchError.code === 'PGRST106') {
+          if (fetchError.code === 'PGRST106' || fetchError.message.includes('schema must be one of the following')) {
             console.log("Database schema error - table might not exist yet. Saving to local storage for now.");
+            // Mark schema error in session storage
+            sessionStorage.setItem('db_schema_error', 'true');
             
             // Save to local storage as fallback
             const localStorageKey = `personal_info_${userId}`;
@@ -100,9 +124,15 @@ export function useDatabase() {
         toast.success('Personal information saved successfully');
         return { data: result.data, error: null };
       } catch (err: any) {
-        // Fallback to local storage if there's a database error
-        console.error("Database error, using local storage fallback:", err);
+        // Handle specific errors
+        if (err.code === 'PGRST106' || (err.message && err.message.includes('schema must be one of the following'))) {
+          console.error("Database schema error, using local storage fallback:", err);
+          sessionStorage.setItem('db_schema_error', 'true');
+        } else {
+          console.error("Database error, using local storage fallback:", err);
+        }
         
+        // Fallback to local storage for any database error
         const localStorageKey = `personal_info_${userId}`;
         localStorage.setItem(localStorageKey, JSON.stringify({
           ...data,
@@ -635,7 +665,7 @@ export function useDatabase() {
 
   return {
     loading,
-    isAdmin,
+    isAdmin: user?.role === 'admin' || user?.role === 'Admin',
     savePersonalInfo,
     saveAssets,
     saveLiabilities,
@@ -646,6 +676,10 @@ export function useDatabase() {
     fetchLiabilities,
     fetchIncome,
     fetchExpenses,
+    saveAssets,
+    saveLiabilities,
+    saveIncome, 
+    saveExpenses,
     adminFetchAllUsers,
     adminFetchUserData
   };
