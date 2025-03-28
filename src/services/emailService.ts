@@ -18,6 +18,37 @@ export const sendRegistrationEmail = async (email: string, name: string): Promis
   }
 };
 
+export const sendVerificationEmail = async (email: string, name: string): Promise<boolean> => {
+  try {
+    // In a real app, this would send an actual email
+    console.log(`SENDING VERIFICATION EMAIL to ${name} (${email})`);
+    console.log(`Email Subject: Verify Your Monify Account`);
+    console.log(`Email Content: Hi ${name}, please click the link below to verify your email address.`);
+    console.log(`Verification Link: https://app.monify.com/verify-email?token=mock-token-${Date.now()}`);
+    
+    // Simulate email sending success
+    return true;
+  } catch (error) {
+    console.error("Failed to send verification email:", error);
+    return false;
+  }
+};
+
+export const sendWelcomeEmail = async (email: string, name: string): Promise<boolean> => {
+  try {
+    // In a real app, this would send an actual welcome email
+    console.log(`SENDING WELCOME EMAIL to ${name} (${email})`);
+    console.log(`Email Subject: Welcome to Monify!`);
+    console.log(`Email Content: Hi ${name}, welcome to Monify! We're excited to have you on board.`);
+    
+    // Simulate email sending success
+    return true;
+  } catch (error) {
+    console.error("Failed to send welcome email:", error);
+    return false;
+  }
+};
+
 export const sendInvitationEmail = async (email: string, name: string, temporaryPassword?: string): Promise<boolean> => {
   try {
     // In a real app, this would send an actual email
