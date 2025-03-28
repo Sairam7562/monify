@@ -30,6 +30,7 @@ interface Liability {
   type: string;
   amount: string;
   interestRate: string;
+  ownershipPercentage?: string;
   associatedAssetId?: number; // To link liabilities to specific assets
 }
 
@@ -43,6 +44,7 @@ const AssetLiabilityForm = () => {
   ]);
 
   const [calculatedAssetValue, setCalculatedAssetValue] = useState<{[key: number]: string}>({});
+  const [calculatedLiabilityAmount, setCalculatedLiabilityAmount] = useState<{[key: number]: string}>({});
 
   useEffect(() => {
     // Calculate adjusted asset values based on ownership percentage
@@ -60,6 +62,23 @@ const AssetLiabilityForm = () => {
     
     setCalculatedAssetValue(calculated);
   }, [assets]);
+
+  useEffect(() => {
+    // Calculate adjusted liability amounts based on ownership percentage
+    const calculated: {[key: number]: string} = {};
+    
+    liabilities.forEach(liability => {
+      if (liability.type === 'mortgage' || liability.type === 'business_loan' || liability.type === 'real_estate') {
+        const amount = parseFloat(liability.amount) || 0;
+        const percentage = parseFloat(liability.ownershipPercentage || '100') / 100;
+        calculated[liability.id] = (amount * percentage).toFixed(2);
+      } else {
+        calculated[liability.id] = liability.amount;
+      }
+    });
+    
+    setCalculatedLiabilityAmount(calculated);
+  }, [liabilities]);
 
   const addAsset = () => {
     const newId = assets.length > 0 ? Math.max(...assets.map(a => a.id)) + 1 : 1;
@@ -108,6 +127,17 @@ const AssetLiabilityForm = () => {
     setLiabilities(liabilities.map(liability => 
       liability.id === id ? { ...liability, [field]: value } : liability
     ));
+
+    // If changing type to real_estate or mortgage or business_loan, add ownership percentage field if not exists
+    if (field === 'type' && (value === 'real_estate' || value === 'mortgage' || value === 'business_loan')) {
+      setLiabilities(liabilities.map(liability => 
+        liability.id === id ? { 
+          ...liability, 
+          [field]: value as string,
+          ownershipPercentage: liability.ownershipPercentage || '100'
+        } : liability
+      ));
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -117,7 +147,10 @@ const AssetLiabilityForm = () => {
         ...asset,
         adjustedValue: calculatedAssetValue[asset.id]
       })), 
-      liabilities 
+      liabilities: liabilities.map(liability => ({
+        ...liability,
+        adjustedAmount: calculatedLiabilityAmount[liability.id]
+      }))
     });
     toast.success("Financial information saved successfully!");
   };
@@ -317,6 +350,7 @@ const AssetLiabilityForm = () => {
                           <SelectItem value="loan">Personal Loan</SelectItem>
                           <SelectItem value="student_loan">Student Loan</SelectItem>
                           <SelectItem value="auto_loan">Auto Loan</SelectItem>
+                          <SelectItem value="real_estate">Real Estate Liability</SelectItem>
                           <SelectItem value="business_loan">Business Loan</SelectItem>
                           <SelectItem value="tax">Tax Debt</SelectItem>
                           <SelectItem value="other">Other Debt</SelectItem>
@@ -325,23 +359,39 @@ const AssetLiabilityForm = () => {
                     </div>
                   </div>
                   
-                  {(liability.type === 'mortgage' || liability.type === 'business_loan') && (
-                    <div className="space-y-2">
-                      <Label htmlFor={`liability-asset-${liability.id}`}>Associated Asset</Label>
-                      <Select 
-                        value={liability.associatedAssetId?.toString() || "0"} 
-                        onValueChange={(value) => updateLiability(liability.id, 'associatedAssetId', parseInt(value))}
-                      >
-                        <SelectTrigger id={`liability-asset-${liability.id}`}>
-                          <SelectValue placeholder="Select associated asset" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {getAssetOptions().map(option => (
-                            <SelectItem key={option.id} value={option.id.toString()}>{option.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  {(liability.type === 'mortgage' || liability.type === 'business_loan' || liability.type === 'real_estate') && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor={`liability-asset-${liability.id}`}>Associated Asset</Label>
+                        <Select 
+                          value={liability.associatedAssetId?.toString() || "0"} 
+                          onValueChange={(value) => updateLiability(liability.id, 'associatedAssetId', parseInt(value))}
+                        >
+                          <SelectTrigger id={`liability-asset-${liability.id}`}>
+                            <SelectValue placeholder="Select associated asset" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {getAssetOptions().map(option => (
+                              <SelectItem key={option.id} value={option.id.toString()}>{option.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor={`liability-ownership-${liability.id}`}>Ownership Percentage (%)</Label>
+                        <Input
+                          id={`liability-ownership-${liability.id}`}
+                          type="number"
+                          value={liability.ownershipPercentage || '100'}
+                          onChange={(e) => updateLiability(liability.id, 'ownershipPercentage', e.target.value)}
+                          placeholder="100"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                        />
+                      </div>
+                    </>
                   )}
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -371,6 +421,14 @@ const AssetLiabilityForm = () => {
                       />
                     </div>
                   </div>
+                  
+                  {(liability.type === 'mortgage' || liability.type === 'business_loan' || liability.type === 'real_estate') && 
+                    calculatedLiabilityAmount[liability.id] && (
+                    <div className="bg-gray-50 p-3 rounded-md">
+                      <p className="text-sm text-gray-500">Your portion based on ownership percentage:</p>
+                      <p className="font-medium text-lg">${parseFloat(calculatedLiabilityAmount[liability.id]).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

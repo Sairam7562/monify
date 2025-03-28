@@ -213,4 +213,19 @@
     padding-left: 1em;
     border-left: 2px solid #ddd !important;
   }
+  
+  /* Show ownership percentage calculation details */
+  .bg-gray-50 {
+    background-color: white !important;
+    border: 1px solid #eee !important;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+  }
+  
+  /* Ensure ownership calculations are clearly visible */
+  .ownership-calculation {
+    font-style: italic !important;
+    color: #555 !important;
+    margin-top: 0.25em !important;
+  }
 }
