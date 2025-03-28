@@ -40,7 +40,7 @@ export function useDatabase() {
             state: data.state,
             zip_code: data.zipCode,
             birth_date: data.birthDate,
-            updated_at: new Date()
+            updated_at: new Date().toISOString() // Convert Date to ISO string
           })
           .eq('id', existingData.id);
       } else {
@@ -424,3 +424,4 @@ export function useDatabase() {
     adminFetchUserData
   };
 }
+
