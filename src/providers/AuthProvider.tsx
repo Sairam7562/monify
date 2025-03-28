@@ -1,3 +1,4 @@
+
 import { ReactNode, useEffect, useState } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,38 +17,59 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log("Setting up auth state listener");
+    
+    // Set up the auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setSupabaseUser(session?.user ?? null);
-        setUser(session?.user ? supabaseUserToUser(session.user) : null);
+      (event, newSession) => {
+        console.log("Auth state change event:", event);
+        setSession(newSession);
+        setSupabaseUser(newSession?.user ?? null);
+        setUser(newSession?.user ? supabaseUserToUser(newSession.user) : null);
+        
+        if (event === 'SIGNED_IN') {
+          toast.success("Signed in successfully!");
+        } else if (event === 'SIGNED_OUT') {
+          toast.success("Signed out successfully");
+        } else if (event === 'TOKEN_REFRESHED') {
+          console.log("Auth token refreshed");
+        }
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setSupabaseUser(session?.user ?? null);
-      setUser(session?.user ? supabaseUserToUser(session.user) : null);
+    // Then check for existing session
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      console.log("Retrieved session:", currentSession ? "Session exists" : "No session");
+      setSession(currentSession);
+      setSupabaseUser(currentSession?.user ?? null);
+      setUser(currentSession?.user ? supabaseUserToUser(currentSession.user) : null);
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log("Cleaning up auth subscription");
+      subscription.unsubscribe();
+    };
   }, []);
 
   const loginWithEmail = async (email: string, password: string): Promise<User | null> => {
     try {
+      setLoading(true);
+      console.log("Attempting to login with email:", email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        console.error("Login error:", error);
         toast.error(error.message);
         return null;
       }
 
       if (data.user) {
-        toast.success("Login successful");
+        console.log("Login successful for user:", data.user.id);
         return supabaseUserToUser(data.user);
       }
       return null;
@@ -55,6 +77,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       console.error("Login error:", error);
       toast.error("Login failed");
       return null;
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -65,6 +89,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     enableTwoFactor: boolean
   ): Promise<User | null> => {
     try {
+      setLoading(true);
+      console.log("Attempting to register user:", email);
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -80,11 +107,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       if (error) {
+        console.error("Registration error:", error);
         toast.error(error.message);
         return null;
       }
 
       if (data.user) {
+        console.log("Registration successful for user:", data.user.id);
         toast.success("Registration successful");
         return supabaseUserToUser(data.user);
       }
@@ -93,13 +122,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       console.error("Registration error:", error);
       toast.error("Registration failed");
       return null;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const loginWithSocial = async (provider: 'google' | 'github' | 'apple'): Promise<void> => {
+  const loginWithSocial = async (provider: 'google' | 'github' | 'apple' | 'microsoft'): Promise<void> => {
     try {
+      setLoading(true);
+      console.log(`Attempting to login with ${provider}`);
+      
       const validProvider = provider === 'google' ? 'google' : 
-                          provider === 'github' ? 'github' : 'apple';
+                          provider === 'github' ? 'github' : 
+                          provider === 'microsoft' ? 'azure' : 'apple';
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: validProvider,
@@ -109,27 +144,34 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       });
 
       if (error) {
+        console.error(`${provider} login error:`, error);
         toast.error(error.message);
       }
     } catch (error) {
       console.error(`${provider} login error:`, error);
       toast.error(`${provider} login failed`);
+    } finally {
+      setLoading(false);
     }
   };
 
   const logout = async (): Promise<void> => {
     try {
+      setLoading(true);
+      console.log("Attempting to log out");
+      
       const { error } = await supabase.auth.signOut();
       
       if (error) {
+        console.error("Logout error:", error);
         toast.error(error.message);
         return;
       }
-      
-      toast.success("Logged out successfully");
     } catch (error) {
       console.error("Logout error:", error);
       toast.error("Logout failed");
+    } finally {
+      setLoading(false);
     }
   };
 

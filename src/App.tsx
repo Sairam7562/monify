@@ -18,11 +18,20 @@ import FinancialStatementsPage from "./pages/FinancialStatementsPage";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 import MasterAdminPage from "./pages/MasterAdminPage";
+import RouteGuard from "./components/auth/RouteGuard";
+import Index from "./pages/Index";
 
 // Add print styles to handle printing financial statements
 import "./styles/print.css";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30000,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -36,15 +45,55 @@ const App = () => (
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<LoginPage />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/personal-info" element={<PersonalInfoPage />} />
-              <Route path="/assets-liabilities" element={<AssetsLiabilitiesPage />} />
-              <Route path="/income-expenses" element={<IncomeExpensesPage />} />
-              <Route path="/business-dashboard" element={<BusinessDashboardPage />} />
-              <Route path="/financial-statements" element={<FinancialStatementsPage />} />
-              <Route path="/ai-advisor" element={<AIAdvisorPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/admin" element={<MasterAdminPage />} />
+              <Route path="/index" element={<Index />} />
+              
+              {/* Protected routes */}
+              <Route path="/dashboard" element={
+                <RouteGuard>
+                  <Dashboard />
+                </RouteGuard>
+              } />
+              <Route path="/personal-info" element={
+                <RouteGuard>
+                  <PersonalInfoPage />
+                </RouteGuard>
+              } />
+              <Route path="/assets-liabilities" element={
+                <RouteGuard>
+                  <AssetsLiabilitiesPage />
+                </RouteGuard>
+              } />
+              <Route path="/income-expenses" element={
+                <RouteGuard>
+                  <IncomeExpensesPage />
+                </RouteGuard>
+              } />
+              <Route path="/business-dashboard" element={
+                <RouteGuard>
+                  <BusinessDashboardPage />
+                </RouteGuard>
+              } />
+              <Route path="/financial-statements" element={
+                <RouteGuard>
+                  <FinancialStatementsPage />
+                </RouteGuard>
+              } />
+              <Route path="/ai-advisor" element={
+                <RouteGuard>
+                  <AIAdvisorPage />
+                </RouteGuard>
+              } />
+              <Route path="/settings" element={
+                <RouteGuard>
+                  <SettingsPage />
+                </RouteGuard>
+              } />
+              <Route path="/admin" element={
+                <RouteGuard requireAdmin={true}>
+                  <MasterAdminPage />
+                </RouteGuard>
+              } />
+              
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

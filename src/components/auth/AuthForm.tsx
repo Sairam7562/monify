@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/hooks/useAuth';
 import { toast as sonnerToast } from 'sonner';
+import { Spinner } from "@/components/ui/spinner";
 
 const AuthForm = () => {
   const [email, setEmail] = useState('');
@@ -20,53 +21,77 @@ const AuthForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isRegisterPage = location.pathname === '/register';
+  const from = location.state?.from || '/dashboard';
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsLoading(true);
 
-    if (isRegisterPage) {
-      // Registration logic
-      if (!name) {
-        toast({
-          title: "Registration Failed",
-          description: "Please enter your name.",
-        });
-        setIsLoading(false);
-        return;
-      }
+    try {
+      if (isRegisterPage) {
+        // Registration logic
+        if (!name) {
+          toast({
+            title: "Registration Failed",
+            description: "Please enter your name.",
+          });
+          return;
+        }
 
-      const user = await registerUser(name, email, password, enableTwoFactor);
-      if (user) {
-        toast({
-          title: "Registration Successful",
-          description: "You have successfully registered.",
-        });
-        navigate('/dashboard');
+        if (!email || !password) {
+          toast({
+            title: "Registration Failed",
+            description: "Please enter both email and password.",
+          });
+          return;
+        }
+
+        const user = await registerUser(name, email, password, enableTwoFactor);
+        if (user) {
+          toast({
+            title: "Registration Successful",
+            description: "You have successfully registered.",
+          });
+          navigate('/dashboard');
+        }
+      } else {
+        // Login logic
+        if (!email || !password) {
+          toast({
+            title: "Login Failed",
+            description: "Please enter both email and password.",
+          });
+          return;
+        }
+
+        const user = await loginWithEmail(email, password);
+        if (user) {
+          toast({
+            title: "Login Successful",
+            description: "You have successfully logged in.",
+          });
+          navigate(from);
+        }
       }
-    } else {
-      // Login logic
-      const user = await loginWithEmail(email, password);
-      if (user) {
-        toast({
-          title: "Login Successful",
-          description: "You have successfully logged in.",
-        });
-        navigate('/dashboard');
-      }
+    } catch (error) {
+      console.error('Authentication error:', error);
+      toast({
+        variant: "destructive",
+        title: isRegisterPage ? "Registration Failed" : "Login Failed",
+        description: error instanceof Error ? error.message : "An unexpected error occurred"
+      });
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
-  const handleSocialLogin = async (provider: "google" | "github" | "apple") => {
+  const handleSocialLogin = async (provider: "google" | "github" | "apple" | "microsoft") => {
     setIsLoading(true);
     try {
       await loginWithSocial(provider);
       // Redirect will be handled by the auth state change listener
     } catch (error) {
       console.error(`${provider} login error:`, error);
-      // Replace toast.error with toast({ variant: "destructive" })
       toast({
         variant: "destructive",
         title: "Login Failed",
@@ -98,6 +123,7 @@ const AuthForm = () => {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
+                    disabled={isLoading}
                   />
                 </div>
               )}
@@ -109,6 +135,7 @@ const AuthForm = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
                 />
               </div>
               <div className="grid gap-2">
@@ -119,24 +146,33 @@ const AuthForm = () => {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
                 />
               </div>
               {isRegisterPage && (
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 mt-2">
                   <input
                     type="checkbox"
                     id="two-factor"
                     className="h-4 w-4"
                     checked={enableTwoFactor}
                     onChange={(e) => setEnableTwoFactor(e.target.checked)}
+                    disabled={isLoading}
                   />
                   <Label htmlFor="two-factor">Enable Two-Factor Authentication</Label>
                 </div>
               )}
             </div>
-            <CardFooter className="flex justify-between mt-6">
+            <CardFooter className="flex justify-between mt-6 px-0">
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Loading" : isRegisterPage ? "Create Account" : "Sign In"}
+                {isLoading ? (
+                  <>
+                    <Spinner className="mr-2 h-4 w-4" /> 
+                    {isRegisterPage ? "Creating Account..." : "Signing In..."}
+                  </>
+                ) : (
+                  isRegisterPage ? "Create Account" : "Sign In"
+                )}
               </Button>
               {isRegisterPage ? (
                 <Link to="/login" className="text-sm underline">
@@ -151,8 +187,16 @@ const AuthForm = () => {
           </form>
         </CardContent>
         <CardContent>
-          <div className="grid gap-2">
-            <div className="flex flex-col space-y-3">
+          <div className="grid gap-2 mt-4">
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-gray-300"></span>
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-gray-500">Or continue with</span>
+              </div>
+            </div>
+            <div className="flex flex-col space-y-3 mt-4">
               <Button 
                 variant="outline" 
                 onClick={() => handleSocialLogin("google")}
@@ -164,12 +208,12 @@ const AuthForm = () => {
               </Button>
               <Button 
                 variant="outline" 
-                onClick={() => handleSocialLogin("github")}
+                onClick={() => handleSocialLogin("microsoft")}
                 disabled={isLoading} 
                 className="w-full"
               >
-                <img src="/github-logo.png" alt="GitHub" className="w-5 h-5 mr-2" />
-                Continue with GitHub
+                <img src="/microsoft-logo.png" alt="Microsoft" className="w-5 h-5 mr-2" />
+                Continue with Microsoft
               </Button>
               <Button 
                 variant="outline" 

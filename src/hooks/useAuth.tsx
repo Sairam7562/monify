@@ -1,8 +1,6 @@
 
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
-import { useState, useEffect, createContext, useContext } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { createContext, useContext } from 'react';
 import { User } from '@/services/userService';
 
 // Define the auth context type
@@ -13,7 +11,7 @@ type AuthContextType = {
   loading: boolean;
   loginWithEmail: (email: string, password: string) => Promise<User | null>;
   registerUser: (name: string, email: string, password: string, enableTwoFactor: boolean) => Promise<User | null>;
-  loginWithSocial: (provider: 'google' | 'github' | 'apple') => Promise<void>;
+  loginWithSocial: (provider: 'google' | 'github' | 'apple' | 'microsoft') => Promise<void>;
   logout: () => Promise<void>;
 };
 

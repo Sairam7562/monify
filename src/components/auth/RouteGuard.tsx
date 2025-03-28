@@ -3,6 +3,7 @@ import { ReactNode, useEffect, useState } from 'react';
 import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Spinner } from '@/components/ui/spinner';
+import { toast } from 'sonner';
 
 interface RouteGuardProps {
   children: ReactNode;
@@ -21,14 +22,25 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
       // Wait for auth loading to finish
       if (loading) return;
       
+      console.log("Route guard checking auth:", { 
+        requireAuth, 
+        requireAdmin, 
+        userExists: !!user, 
+        userRole: user?.role 
+      });
+      
       // If page requires authentication and user is not logged in, redirect to login
       if (requireAuth && !user) {
+        toast.error("Please log in to access this page");
         navigate('/login', { state: { from: location.pathname } });
+        return;
       }
       
       // If page requires admin and user is not an admin, redirect to dashboard
       if (requireAdmin && user?.role !== 'admin' && user?.role !== 'Admin') {
+        toast.error("You don't have permission to access this page");
         navigate('/dashboard');
+        return;
       }
       
       setIsChecking(false);
@@ -42,7 +54,7 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
     return (
       <div className="h-screen flex items-center justify-center">
         <Spinner size="lg" />
-        <span className="ml-2">Loading...</span>
+        <span className="ml-2">Verifying access...</span>
       </div>
     );
   }

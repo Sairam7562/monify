@@ -1,25 +1,32 @@
-
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
 export function useDatabase() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [loading, setLoading] = useState(false);
+
+  const verifyAuth = useCallback(() => {
+    if (!user || !session) {
+      console.error("Authentication required: No user or session found");
+      toast.error("Authentication required. Please log in again.");
+      return false;
+    }
+    return true;
+  }, [user, session]);
 
   const savePersonalInfo = async (data: any) => {
     try {
       setLoading(true);
       
-      if (!user) {
-        toast.error('You must be logged in to save information');
+      if (!verifyAuth()) {
         return { error: 'Not authenticated' };
       }
       
       console.log("Attempting to save personal info for user:", user.id);
+      console.log("Personal info data:", data);
       
-      // Check if personal info already exists for this user
       const { data: existingData, error: fetchError } = await supabase
         .from('personal_info')
         .select('*')
@@ -27,28 +34,33 @@ export function useDatabase() {
         .maybeSingle();
 
       if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error("Error checking existing personal info:", fetchError);
         throw fetchError;
       }
 
       let result;
+      
+      const formattedData = {
+        first_name: data.firstName,
+        last_name: data.lastName,
+        email: data.email,
+        phone: data.phone,
+        address: data.address,
+        city: data.city,
+        state: data.state,
+        zip_code: data.zipCode,
+        birth_date: data.birthDate instanceof Date 
+          ? data.birthDate.toISOString().split('T')[0] 
+          : data.birthDate,
+        updated_at: new Date().toISOString()
+      };
       
       if (existingData) {
         // Update existing record
         console.log("Updating existing record:", existingData.id);
         result = await supabase
           .from('personal_info')
-          .update({
-            first_name: data.firstName,
-            last_name: data.lastName,
-            email: data.email,
-            phone: data.phone,
-            address: data.address,
-            city: data.city,
-            state: data.state,
-            zip_code: data.zipCode,
-            birth_date: data.birthDate,
-            updated_at: new Date().toISOString() // Convert Date to ISO string
-          })
+          .update(formattedData)
           .eq('id', existingData.id);
       } else {
         // Insert new record
@@ -56,16 +68,8 @@ export function useDatabase() {
         result = await supabase
           .from('personal_info')
           .insert({
-            user_id: user.id,
-            first_name: data.firstName,
-            last_name: data.lastName,
-            email: data.email,
-            phone: data.phone,
-            address: data.address,
-            city: data.city,
-            state: data.state,
-            zip_code: data.zipCode,
-            birth_date: data.birthDate
+            ...formattedData,
+            user_id: user.id
           });
       }
 
@@ -74,7 +78,7 @@ export function useDatabase() {
         throw result.error;
       }
       
-      console.log("Save operation successful:", result.data);
+      console.log("Save operation successful");
       toast.success('Personal information saved successfully');
       return { data: result.data, error: null };
     } catch (error: any) {
@@ -91,13 +95,11 @@ export function useDatabase() {
     
     setLoading(true);
     try {
-      // Delete existing assets for this user
       await supabase
         .from('assets')
         .delete()
         .eq('user_id', user.id);
       
-      // Insert new assets
       const formattedAssets = assets.map(asset => ({
         user_id: user.id,
         name: asset.name || 'Unnamed Asset',
@@ -129,13 +131,11 @@ export function useDatabase() {
     
     setLoading(true);
     try {
-      // Delete existing liabilities for this user
       await supabase
         .from('liabilities')
         .delete()
         .eq('user_id', user.id);
       
-      // Insert new liabilities
       const formattedLiabilities = liabilities.map(liability => ({
         user_id: user.id,
         name: liability.name || 'Unnamed Liability',
@@ -169,13 +169,11 @@ export function useDatabase() {
     
     setLoading(true);
     try {
-      // Delete existing income records for this user
       await supabase
         .from('income')
         .delete()
         .eq('user_id', user.id);
       
-      // Insert new income records
       const formattedIncome = incomeData.map(income => ({
         user_id: user.id,
         source: income.source || 'Unnamed Source',
@@ -206,13 +204,11 @@ export function useDatabase() {
     
     setLoading(true);
     try {
-      // Delete existing expense records for this user
       await supabase
         .from('expenses')
         .delete()
         .eq('user_id', user.id);
       
-      // Insert new expense records
       const formattedExpenses = expensesData.map(expense => ({
         user_id: user.id,
         name: expense.name || 'Unnamed Expense',
@@ -239,21 +235,46 @@ export function useDatabase() {
   };
 
   const fetchPersonalInfo = async () => {
-    if (!user) return { error: 'Not authenticated' };
+    if (!verifyAuth()) {
+      return { error: 'Not authenticated' };
+    }
     
     setLoading(true);
     try {
+      console.log("Fetching personal info for user:", user.id);
+      
       const { data, error } = await supabase
         .from('personal_info')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error && error.code !== 'PGRST116') {
+        console.error("Error fetching personal info:", error);
+        throw error;
+      }
+
+      console.log("Personal info fetched:", data);
       
-      return { data, error: null };
+      if (data) {
+        const transformedData = {
+          firstName: data.first_name,
+          lastName: data.last_name,
+          email: data.email,
+          phone: data.phone,
+          address: data.address,
+          city: data.city,
+          state: data.state,
+          zipCode: data.zip_code,
+          birthDate: data.birth_date,
+        };
+        return { data: transformedData, error: null };
+      }
+      
+      return { data: null, error: null };
     } catch (error: any) {
       console.error('Error fetching personal info:', error);
+      toast.error('Failed to load personal information');
       return { data: null, error: error.message };
     } finally {
       setLoading(false);
@@ -344,7 +365,6 @@ export function useDatabase() {
     }
   };
 
-  // Admin functions
   const isAdmin = user?.role === 'admin' || user?.role === 'Admin';
 
   const adminFetchAllUsers = async () => {
@@ -367,7 +387,6 @@ export function useDatabase() {
     }
   };
 
-  // Function to fetch user data by user ID (for admin)
   const adminFetchUserData = async (userId: string) => {
     if (!user || !isAdmin) return { error: 'Not authorized' };
     
@@ -420,7 +439,6 @@ export function useDatabase() {
   return {
     loading,
     isAdmin,
-    // User data operations
     savePersonalInfo,
     saveAssets,
     saveLiabilities,
@@ -431,7 +449,6 @@ export function useDatabase() {
     fetchLiabilities,
     fetchIncome,
     fetchExpenses,
-    // Admin operations
     adminFetchAllUsers,
     adminFetchUserData
   };
