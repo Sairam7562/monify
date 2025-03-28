@@ -22,6 +22,7 @@ const Navbar = ({ showSidebarToggle = true }: NavbarProps) => {
     if (user) {
       // Check role in a case-insensitive way
       const adminRole = 
+        user && 
         typeof user.role === 'string' && 
         user.role.toLowerCase() === 'admin';
       

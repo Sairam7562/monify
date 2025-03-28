@@ -28,8 +28,11 @@ const AdminRedirect = () => {
         
         // Check for admin role in a case-insensitive way
         const isAdmin = 
+          user && 
           typeof user.role === 'string' && 
           user.role.toLowerCase() === 'admin';
+        
+        console.log('Admin check:', user.role, isAdmin);
         
         if (isAdmin) {
           console.log('Admin user detected, redirecting to admin dashboard');

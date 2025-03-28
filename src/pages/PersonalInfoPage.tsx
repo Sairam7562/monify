@@ -1,14 +1,129 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import PersonalInfoForm from '@/components/finance/PersonalInfoForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { InfoIcon } from 'lucide-react';
+import { InfoIcon, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { Spinner } from '@/components/ui/spinner';
+import { useDatabase } from '@/hooks/useDatabase';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 const PersonalInfoPage = () => {
   const { user } = useAuth();
+  const { fetchPersonalInfo } = useDatabase();
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasDatabaseError, setHasDatabaseError] = useState(false);
+  const [attemptCount, setAttemptCount] = useState(0);
+
+  useEffect(() => {
+    // Check the database connection early and handle schema errors
+    const checkDatabase = async () => {
+      if (!user) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        const { error } = await fetchPersonalInfo();
+        
+        // Check for the specific schema error
+        if (error && typeof error === 'string' && error.includes('schema must be one of the following')) {
+          console.log('Database schema not yet available:', error);
+          setHasDatabaseError(true);
+        } else if (error) {
+          console.error('Database error:', error);
+          setHasDatabaseError(true);
+        }
+      } catch (err) {
+        console.error('Error checking database:', err);
+        setHasDatabaseError(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    // Only try to check database a few times to avoid infinite loading
+    if (attemptCount < 2) {
+      checkDatabase();
+      setAttemptCount(prev => prev + 1);
+    } else {
+      setIsLoading(false);
+    }
+  }, [user, fetchPersonalInfo, attemptCount]);
+
+  const handleManualRetry = () => {
+    setHasDatabaseError(false);
+    setIsLoading(true);
+    setAttemptCount(0);
+    toast.info("Retrying database connection...");
+  };
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12">
+          <Spinner size="lg" />
+          <p className="mt-4 text-muted-foreground">Loading your information...</p>
+        </div>
+      );
+    }
+    
+    if (!user) {
+      return (
+        <Alert>
+          <InfoIcon className="h-4 w-4" />
+          <AlertTitle>Authentication Required</AlertTitle>
+          <AlertDescription>
+            You need to be logged in to view and edit your personal information.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    if (hasDatabaseError) {
+      return (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Database Connection Issue</AlertTitle>
+          <AlertDescription>
+            <p className="mb-4">There was an error connecting to the database. This might happen if you're using the app for the first time and the database tables haven't been fully set up yet.</p>
+            <p className="mb-4">You can still fill out your information below, and it will be saved once the database is ready.</p>
+            <Button onClick={handleManualRetry} variant="outline" size="sm">
+              Retry Connection
+            </Button>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    return (
+      <>
+        <Card>
+          <CardHeader>
+            <CardTitle>Instructions</CardTitle>
+            <CardDescription>
+              Fill out your personal information to begin building your financial profile. You can optionally include spouse information.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="list-disc pl-5 space-y-2">
+              <li>All fields marked with * are required</li>
+              <li>Your Social Security Number (SSN) is optional but may be needed for some financial documents</li>
+              <li>You can toggle on spouse information if you want to include it in your statements</li>
+              <li>For business owners, you can add one business for free (additional businesses are $1.99 each)</li>
+              <li>All data is encrypted using AES-256 and stored securely</li>
+            </ul>
+          </CardContent>
+        </Card>
+        
+        <PersonalInfoForm />
+      </>
+    );
+  };
 
   return (
     <MainLayout>
@@ -20,37 +135,7 @@ const PersonalInfoPage = () => {
           </p>
         </div>
         
-        {user ? (
-          <>
-            <Card>
-              <CardHeader>
-                <CardTitle>Instructions</CardTitle>
-                <CardDescription>
-                  Fill out your personal information to begin building your financial profile. You can optionally include spouse information.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="list-disc pl-5 space-y-2">
-                  <li>All fields marked with * are required</li>
-                  <li>Your Social Security Number (SSN) is optional but may be needed for some financial documents</li>
-                  <li>You can toggle on spouse information if you want to include it in your statements</li>
-                  <li>For business owners, you can add one business for free (additional businesses are $1.99 each)</li>
-                  <li>All data is encrypted using AES-256 and stored securely</li>
-                </ul>
-              </CardContent>
-            </Card>
-            
-            <PersonalInfoForm />
-          </>
-        ) : (
-          <Alert>
-            <InfoIcon className="h-4 w-4" />
-            <AlertTitle>Authentication Required</AlertTitle>
-            <AlertDescription>
-              You need to be logged in to view and edit your personal information.
-            </AlertDescription>
-          </Alert>
-        )}
+        {renderContent()}
       </div>
     </MainLayout>
   );
