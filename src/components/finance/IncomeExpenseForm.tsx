@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,10 +11,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2, Save, Check, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useDatabase } from '@/hooks/useDatabase';
 import { Spinner } from '@/components/ui/spinner';
+import { toast } from '@/hooks/use-toast';
 
 interface Income {
   id: number;
@@ -21,6 +23,8 @@ interface Income {
   type: string;
   amount: string;
   frequency: string;
+  saved?: boolean;
+  saving?: boolean;
 }
 
 interface Expense {
@@ -29,6 +33,8 @@ interface Expense {
   category: string;
   amount: string;
   frequency: string;
+  saved?: boolean;
+  saving?: boolean;
 }
 
 const IncomeExpenseForm = () => {
@@ -50,6 +56,8 @@ const IncomeExpenseForm = () => {
   ]);
   
   const [formLoading, setFormLoading] = useState(true);
+  const [savingAll, setSavingAll] = useState(false);
+  const [allSaved, setAllSaved] = useState(false);
 
   useEffect(() => {
     loadExistingData();
@@ -67,7 +75,8 @@ const IncomeExpenseForm = () => {
           source: income.source,
           type: income.type,
           amount: income.amount.toString(),
-          frequency: income.frequency
+          frequency: income.frequency,
+          saved: true
         }));
         setIncomes(formattedIncome);
       }
@@ -79,7 +88,8 @@ const IncomeExpenseForm = () => {
           name: expense.name,
           category: expense.category,
           amount: expense.amount.toString(),
-          frequency: expense.frequency
+          frequency: expense.frequency,
+          saved: true
         }));
         setExpenses(formattedExpenses);
       }
@@ -93,49 +103,231 @@ const IncomeExpenseForm = () => {
   const addIncome = () => {
     const newId = incomes.length > 0 ? Math.max(...incomes.map(i => i.id)) + 1 : 1;
     setIncomes([...incomes, { id: newId, source: '', type: 'salary', amount: '', frequency: 'monthly' }]);
+    setAllSaved(false);
   };
 
   const removeIncome = (id: number) => {
     if (incomes.length > 1) {
       setIncomes(incomes.filter(income => income.id !== id));
+      setAllSaved(false);
     }
   };
 
   const updateIncome = (id: number, field: keyof Income, value: string) => {
     setIncomes(incomes.map(income => 
-      income.id === id ? { ...income, [field]: value } : income
+      income.id === id ? { ...income, [field]: value, saved: false } : income
     ));
+    setAllSaved(false);
   };
 
   const addExpense = () => {
     const newId = expenses.length > 0 ? Math.max(...expenses.map(e => e.id)) + 1 : 1;
     setExpenses([...expenses, { id: newId, name: '', category: 'housing', amount: '', frequency: 'monthly' }]);
+    setAllSaved(false);
   };
 
   const removeExpense = (id: number) => {
     if (expenses.length > 1) {
       setExpenses(expenses.filter(expense => expense.id !== id));
+      setAllSaved(false);
     }
   };
 
   const updateExpense = (id: number, field: keyof Expense, value: string) => {
     setExpenses(expenses.map(expense => 
-      expense.id === id ? { ...expense, [field]: value } : expense
+      expense.id === id ? { ...expense, [field]: value, saved: false } : expense
     ));
+    setAllSaved(false);
+  };
+
+  const saveIndividualIncome = async (id: number) => {
+    if (!user) {
+      toast({
+        title: "Not authenticated",
+        description: "Please log in to save your data",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const incomeToSave = incomes.find(income => income.id === id);
+    if (!incomeToSave) return;
+    
+    if (!incomeToSave.source.trim()) {
+      toast({
+        title: "Missing information",
+        description: "Income source is required",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!incomeToSave.amount.trim() || isNaN(Number(incomeToSave.amount))) {
+      toast({
+        title: "Invalid amount",
+        description: "Please enter a valid amount",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Mark this income as saving
+    setIncomes(incomes.map(income => 
+      income.id === id ? { ...income, saving: true } : income
+    ));
+    
+    try {
+      // Save just this income with the current state of others
+      await saveIncome(incomes);
+      
+      // Mark as saved
+      setIncomes(incomes.map(income => 
+        income.id === id ? { ...income, saving: false, saved: true } : income
+      ));
+      
+      toast({
+        title: "Income saved",
+        description: "Income source has been saved successfully",
+      });
+      
+      // Check if all incomes and expenses are now saved
+      checkIfAllSaved();
+    } catch (error) {
+      console.error("Error saving income:", error);
+      setIncomes(incomes.map(income => 
+        income.id === id ? { ...income, saving: false } : income
+      ));
+      
+      toast({
+        title: "Error saving income",
+        description: "There was an error saving your income",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const saveIndividualExpense = async (id: number) => {
+    if (!user) {
+      toast({
+        title: "Not authenticated",
+        description: "Please log in to save your data",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const expenseToSave = expenses.find(expense => expense.id === id);
+    if (!expenseToSave) return;
+    
+    if (!expenseToSave.name.trim()) {
+      toast({
+        title: "Missing information",
+        description: "Expense name is required",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!expenseToSave.amount.trim() || isNaN(Number(expenseToSave.amount))) {
+      toast({
+        title: "Invalid amount",
+        description: "Please enter a valid amount",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Mark this expense as saving
+    setExpenses(expenses.map(expense => 
+      expense.id === id ? { ...expense, saving: true } : expense
+    ));
+    
+    try {
+      // Save just this expense with the current state of others
+      await saveExpenses(expenses);
+      
+      // Mark as saved
+      setExpenses(expenses.map(expense => 
+        expense.id === id ? { ...expense, saving: false, saved: true } : expense
+      ));
+      
+      toast({
+        title: "Expense saved",
+        description: "Expense has been saved successfully",
+      });
+      
+      // Check if all incomes and expenses are now saved
+      checkIfAllSaved();
+    } catch (error) {
+      console.error("Error saving expense:", error);
+      setExpenses(expenses.map(expense => 
+        expense.id === id ? { ...expense, saving: false } : expense
+      ));
+      
+      toast({
+        title: "Error saving expense",
+        description: "There was an error saving your expense",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const checkIfAllSaved = () => {
+    const allIncomesSaved = incomes.every(income => income.saved);
+    const allExpensesSaved = expenses.every(expense => expense.saved);
+    setAllSaved(allIncomesSaved && allExpensesSaved);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!user) {
+      toast({
+        title: "Not authenticated",
+        description: "Please log in to save your data",
+        variant: "destructive"
+      });
       return;
     }
+    
+    // Validate inputs
+    const hasEmptyIncome = incomes.some(income => !income.source.trim() || !income.amount.trim());
+    const hasEmptyExpense = expenses.some(expense => !expense.name.trim() || !expense.amount.trim());
+    
+    if (hasEmptyIncome || hasEmptyExpense) {
+      toast({
+        title: "Missing information",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setSavingAll(true);
     
     try {
       await saveIncome(incomes);
       await saveExpenses(expenses);
+      
+      // Mark all as saved
+      setIncomes(incomes.map(income => ({ ...income, saved: true })));
+      setExpenses(expenses.map(expense => ({ ...expense, saved: true })));
+      
+      setAllSaved(true);
+      
+      toast({
+        title: "Data saved",
+        description: "Income and expense information saved successfully",
+      });
     } catch (error) {
       console.error("Error saving income and expenses:", error);
+      toast({
+        title: "Error saving data",
+        description: "There was an error saving your information",
+        variant: "destructive"
+      });
+    } finally {
+      setSavingAll(false);
     }
   };
 
@@ -162,16 +354,41 @@ const IncomeExpenseForm = () => {
               <div key={income.id} className="p-4 border rounded-lg bg-white">
                 <div className="flex justify-between items-center mb-4">
                   <h4 className="font-medium">Income Source #{index + 1}</h4>
-                  {incomes.length > 1 && (
+                  <div className="flex gap-2">
                     <Button 
-                      type="button" 
-                      variant="destructive" 
-                      size="sm" 
-                      onClick={() => removeIncome(income.id)}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => saveIndividualIncome(income.id)}
+                      disabled={income.saving || (income.saved && !!income.source.trim())}
+                      className={income.saved ? "bg-green-50 text-green-700 border-green-300" : ""}
                     >
-                      <Trash2 className="h-4 w-4 mr-1" /> Remove
+                      {income.saving ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Saving...
+                        </>
+                      ) : income.saved ? (
+                        <>
+                          <Check className="h-4 w-4 mr-1" /> Saved
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-1" /> Save
+                        </>
+                      )}
                     </Button>
-                  )}
+                    
+                    {incomes.length > 1 && (
+                      <Button 
+                        type="button" 
+                        variant="destructive" 
+                        size="sm" 
+                        onClick={() => removeIncome(income.id)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" /> Remove
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="grid gap-4">
@@ -258,16 +475,41 @@ const IncomeExpenseForm = () => {
               <div key={expense.id} className="p-4 border rounded-lg bg-white">
                 <div className="flex justify-between items-center mb-4">
                   <h4 className="font-medium">Expense #{index + 1}</h4>
-                  {expenses.length > 1 && (
+                  <div className="flex gap-2">
                     <Button 
-                      type="button" 
-                      variant="destructive" 
-                      size="sm" 
-                      onClick={() => removeExpense(expense.id)}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => saveIndividualExpense(expense.id)}
+                      disabled={expense.saving || (expense.saved && !!expense.name.trim())}
+                      className={expense.saved ? "bg-green-50 text-green-700 border-green-300" : ""}
                     >
-                      <Trash2 className="h-4 w-4 mr-1" /> Remove
+                      {expense.saving ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Saving...
+                        </>
+                      ) : expense.saved ? (
+                        <>
+                          <Check className="h-4 w-4 mr-1" /> Saved
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-1" /> Save
+                        </>
+                      )}
                     </Button>
-                  )}
+                    
+                    {expenses.length > 1 && (
+                      <Button 
+                        type="button" 
+                        variant="destructive" 
+                        size="sm" 
+                        onClick={() => removeExpense(expense.id)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" /> Remove
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="grid gap-4">
@@ -357,10 +599,20 @@ const IncomeExpenseForm = () => {
       <div className="mt-6">
         <Button 
           type="submit" 
-          className="w-full bg-navido-blue-500 hover:bg-navido-blue-600"
-          disabled={loading}
+          className={`w-full ${allSaved ? 'bg-green-600 hover:bg-green-700' : 'bg-navido-blue-500 hover:bg-navido-blue-600'}`}
+          disabled={loading || savingAll}
         >
-          {loading ? "Saving..." : "Save Income & Expenses"}
+          {savingAll ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving All...
+            </>
+          ) : allSaved ? (
+            <>
+              <Check className="h-4 w-4 mr-2" /> All Income & Expenses Saved
+            </>
+          ) : (
+            <>Save All Income & Expenses</>
+          )}
         </Button>
       </div>
     </form>

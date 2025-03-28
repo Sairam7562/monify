@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowUp, ArrowDown, ChartBar } from 'lucide-react';
+import { ArrowUp, ArrowDown, DollarSign } from 'lucide-react';
 
 interface IncomeExpenseCardProps {
   totalIncome: number;
@@ -18,19 +18,22 @@ const IncomeExpenseCard = ({ totalIncome, totalExpenses, percentChange }: Income
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium">Monthly Cash Flow</CardTitle>
-        <ChartBar className="h-4 w-4 text-muted-foreground" />
+        <DollarSign className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">
           <span className={isPositive ? 'text-navido-green-600' : 'text-red-500'}>
             ${Math.abs(netIncome).toLocaleString()}
           </span>
+          <span className="text-xs text-muted-foreground ml-1">
+            {isPositive ? 'surplus' : 'deficit'}
+          </span>
         </div>
         <p className="text-xs text-muted-foreground">
-          Total Income: ${totalIncome.toLocaleString()}
+          Total Income: <span className="font-medium text-navido-green-600">${totalIncome.toLocaleString()}</span>
         </p>
         <p className="text-xs text-muted-foreground">
-          Total Expenses: ${totalExpenses.toLocaleString()}
+          Total Expenses: <span className="font-medium text-red-500">${totalExpenses.toLocaleString()}</span>
         </p>
         <div className="flex items-center pt-2 text-sm">
           {changeIsPositive ? (

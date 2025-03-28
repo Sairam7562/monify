@@ -21,7 +21,7 @@ const IncomeExpensesPage = () => {
           <Info className="h-4 w-4 text-monify-purple-500" />
           <AlertTitle>Financial Insights</AlertTitle>
           <AlertDescription>
-            Recording all your income sources and expenses helps create accurate financial statements and provides valuable insights for future financial planning.
+            Recording all your income sources and expenses helps create accurate financial statements and provides valuable insights for future financial planning. Use the save buttons to save each item individually or use the "Save All" button at the bottom.
           </AlertDescription>
         </Alert>
         
