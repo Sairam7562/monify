@@ -37,7 +37,7 @@ const checkConnection = async () => {
     console.log('Checking Supabase database connection...');
     
     // Perform more specific table checks to detect schema issues early
-    const tables = ['profiles', 'personal_info', 'assets', 'liabilities', 'income', 'expenses'];
+    const tables = ['profiles', 'personal_info', 'assets', 'liabilities', 'income', 'expenses', 'business_info'];
     let allTablesOk = true;
     let firstError = null;
     
@@ -64,6 +64,30 @@ const checkConnection = async () => {
       console.error('Exception checking personal_info table:', err);
       allTablesOk = false;
       firstError = firstError || err;
+    }
+    
+    // Check for business_info table
+    try {
+      const { data: businessInfoTest, error: businessInfoError } = await supabase
+        .from('business_info')
+        .select('id')
+        .limit(1);
+        
+      if (businessInfoError) {
+        console.error('Error checking business_info table:', businessInfoError);
+        if (businessInfoError.code === 'PGRST116' || businessInfoError.message.includes('relation "business_info" does not exist')) {
+          console.log('Business info table does not exist yet - this is expected for new installations');
+          // This is normal for new installations, don't mark as schema error
+        } else if (businessInfoError.code === 'PGRST106' || businessInfoError.message.includes('schema must be one of the following')) {
+          console.error('Database schema error detected in business_info table');
+          sessionStorage.setItem('db_schema_error', 'true');
+        }
+      } else {
+        console.log('business_info table check successful');
+      }
+    } catch (err) {
+      console.error('Exception checking business_info table:', err);
+      // Don't fail the whole connection check for business_info table
     }
     
     // Try a simple query to validate connection

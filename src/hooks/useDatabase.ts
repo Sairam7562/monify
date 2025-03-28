@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { supabase, checkConnection } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -32,7 +31,7 @@ export function useDatabase() {
   const debugLocalStorage = (userId: string) => {
     if (!userId) return;
     
-    const keys = ['personal_info', 'assets', 'liabilities', 'income', 'expenses'];
+    const keys = ['personal_info', 'assets', 'liabilities', 'income', 'expenses', 'business_info'];
     console.group('Local Storage Data');
     keys.forEach(key => {
       const localKey = getLocalStorageKey(userId, key);
@@ -129,7 +128,7 @@ export function useDatabase() {
           birth_date: data.birthDate instanceof Date 
             ? data.birthDate.toISOString().split('T')[0] 
             : data.birthDate,
-          // New fields we added to the database
+          // Fields added to the database
           occupation: data.occupation,
           annual_income: data.annualIncome ? parseFloat(data.annualIncome) : null,
           profile_image: data.profileImage,
@@ -192,6 +191,219 @@ export function useDatabase() {
       setLastError(error);
       toast.error('Could not save personal information: ' + error.message);
       return { data: null, error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // New function to save business information
+  const saveBusinessInfo = async (businesses: any[]) => {
+    try {
+      setLoading(true);
+      setLastError(null);
+      
+      if (!verifyAuth()) {
+        return { error: 'Not authenticated' };
+      }
+      
+      console.log("Attempting to save business info for user:", user.id);
+      console.log("Business info data:", businesses);
+      
+      const userId = user.id?.toString();
+      if (!userId) {
+        return { error: 'Invalid user ID' };
+      }
+      
+      // Try to check database connection first
+      const connectionStatus = await checkConnection();
+      console.log("Database connection status:", connectionStatus);
+      
+      // Check for known schema issues or if table doesn't exist yet
+      if (!connectionStatus.connected || hasSchemaIssue()) {
+        console.log("Database unavailable, using local storage");
+        // Save to local storage
+        const localStorageKey = getLocalStorageKey(userId, 'business_info');
+        localStorage.setItem(localStorageKey, JSON.stringify({
+          businesses: businesses,
+          user_id: userId,
+          updated_at: new Date().toISOString()
+        }));
+        
+        debugLocalStorage(userId);
+        
+        toast.success('Business information saved locally. It will be synced when the database is available.');
+        return { data: businesses, error: null, localSaved: true };
+      }
+      
+      try {
+        // Check if the business_info table exists
+        const { error: tableCheckError } = await supabase
+          .from('business_info')
+          .select('id')
+          .limit(1);
+          
+        if (tableCheckError) {
+          if (tableCheckError.code === 'PGRST116' || tableCheckError.message.includes('relation "business_info" does not exist')) {
+            console.log("Business info table does not exist, using local storage fallback");
+            // Save to local storage as fallback
+            const localStorageKey = getLocalStorageKey(userId, 'business_info');
+            localStorage.setItem(localStorageKey, JSON.stringify({
+              businesses: businesses,
+              user_id: userId,
+              updated_at: new Date().toISOString()
+            }));
+            
+            debugLocalStorage(userId);
+            
+            toast.success('Business information saved locally. It will be synced when the database is available.');
+            return { data: businesses, error: null, localSaved: true };
+          }
+        }
+        
+        // Delete existing business records for this user
+        const { error: deleteError } = await supabase
+          .from('business_info')
+          .delete()
+          .eq('user_id', userId);
+          
+        if (deleteError) {
+          console.error("Error deleting existing business info:", deleteError);
+          throw deleteError;
+        }
+        
+        // Insert new business records
+        for (const business of businesses) {
+          const { error: insertError } = await supabase
+            .from('business_info')
+            .insert({
+              ...business,
+              user_id: userId
+            });
+            
+          if (insertError) {
+            console.error("Error inserting business info:", insertError);
+            throw insertError;
+          }
+        }
+        
+        console.log("Business info save operation successful");
+        toast.success('Business information saved successfully');
+        return { data: businesses, error: null };
+        
+      } catch (err: any) {
+        console.error("Database error during business info save:", err);
+        setLastError(err);
+        
+        // Fallback to local storage for any database error
+        const localStorageKey = getLocalStorageKey(userId, 'business_info');
+        localStorage.setItem(localStorageKey, JSON.stringify({
+          businesses: businesses,
+          user_id: userId,
+          updated_at: new Date().toISOString()
+        }));
+        
+        debugLocalStorage(userId);
+        
+        toast.success('Business information saved locally. It will be synced to the database when available.');
+        return { data: businesses, error: err.message, localSaved: true };
+      }
+    } catch (error: any) {
+      console.error('Error saving business info:', error);
+      setLastError(error);
+      toast.error('Could not save business information: ' + error.message);
+      return { data: null, error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // New function to fetch business information
+  const fetchBusinessInfo = async () => {
+    if (!verifyAuth()) {
+      return { error: 'Not authenticated' };
+    }
+    
+    setLoading(true);
+    try {
+      console.log("Fetching business info for user:", user.id);
+      
+      const userId = user.id?.toString();
+      if (!userId) {
+        return { error: 'Invalid user ID' };
+      }
+      
+      // Check database connection first
+      const connectionStatus = await checkConnection();
+      console.log("Database connection status before fetch:", connectionStatus);
+      
+      // First check local storage
+      const localStorageKey = getLocalStorageKey(userId, 'business_info');
+      const localData = localStorage.getItem(localStorageKey);
+      let localBusinesses = null;
+      
+      if (localData) {
+        console.log("Found local business data:", localData.substring(0, 50) + "...");
+        try {
+          const parsedData = JSON.parse(localData);
+          if (parsedData.businesses && Array.isArray(parsedData.businesses)) {
+            localBusinesses = parsedData.businesses;
+          }
+        } catch (err) {
+          console.error("Error parsing local business data:", err);
+        }
+      }
+      
+      // If we have a database connection issue or known schema issue, return local data if available
+      if (!connectionStatus.connected || hasSchemaIssue()) {
+        console.log("Database connection issue, using local business data");
+        return { data: localBusinesses || [], error: null, localData: true };
+      }
+      
+      // Try database if we have a connection
+      if (connectionStatus.connected) {
+        try {
+          console.log("Attempting to fetch business info from database");
+          const { data, error } = await supabase
+            .from('business_info')
+            .select('*')
+            .eq('user_id', userId);
+  
+          if (error) {
+            // Check if it's because the table doesn't exist
+            if (error.code === 'PGRST116' || error.message.includes('relation "business_info" does not exist')) {
+              console.log("Business info table doesn't exist yet:", error);
+              return { data: localBusinesses || [], error: null, localData: !!localBusinesses };
+            }
+            
+            // Check if it's a schema error
+            if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
+              console.log("Schema error fetching business info:", error);
+              sessionStorage.setItem('db_schema_error', 'true');
+              return { data: localBusinesses || [], error: null, localData: !!localBusinesses };
+            }
+            
+            throw error;
+          }
+  
+          console.log("Business info fetched from database:", data);
+          
+          // If we got data from the database, it should take precedence over local data
+          if (data && data.length > 0) {
+            return { data, error: null };
+          }
+        } catch (dbError) {
+          console.error("Database error fetching business info:", dbError);
+        }
+      }
+      
+      // Return local data if database fetch failed or returned no data
+      return { data: localBusinesses || [], error: null, localData: !!localBusinesses };
+      
+    } catch (error: any) {
+      console.error('Error fetching business info:', error);
+      setLastError(error);
+      toast.error('Failed to load business information');
+      return { data: [], error: error.message };
     } finally {
       setLoading(false);
     }
@@ -729,7 +941,7 @@ export function useDatabase() {
     }
     
     let success = true;
-    const dataTypes = ['personal_info', 'assets', 'liabilities', 'income', 'expenses'];
+    const dataTypes = ['personal_info', 'assets', 'liabilities', 'income', 'expenses', 'business_info'];
     const results: Record<string, any> = {};
     
     for (const dataType of dataTypes) {
@@ -759,6 +971,8 @@ export function useDatabase() {
     checkDatabaseStatus,
     syncLocalData,
     savePersonalInfo,
+    saveBusinessInfo,
+    fetchBusinessInfo,
     saveAssets,
     saveLiabilities,
     saveIncome,

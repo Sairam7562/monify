@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import PersonalInfoForm from '@/components/finance/PersonalInfoForm';
+import BusinessInfoForm from '@/components/finance/BusinessInfoForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { InfoIcon, AlertCircle, RefreshCw, DatabaseIcon, CheckCircle } from 'lucide-react';
@@ -11,6 +12,7 @@ import { useDatabase } from '@/hooks/useDatabase';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { checkConnection } from '@/integrations/supabase/client';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const PersonalInfoPage = () => {
   const { user } = useAuth();
@@ -20,6 +22,7 @@ const PersonalInfoPage = () => {
   const [connectionStatus, setConnectionStatus] = useState<boolean | null>(null);
   const [attemptCount, setAttemptCount] = useState(0);
   const [diagnosticInfo, setDiagnosticInfo] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("personal");
 
   // Function to check local storage for debug purposes
   const checkLocalStorage = () => {
@@ -181,9 +184,9 @@ const PersonalInfoPage = () => {
     <MainLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Personal Information</h1>
+          <h1 className="text-2xl font-bold">Personal & Business Information</h1>
           <p className="text-muted-foreground">
-            Enter your personal details to generate accurate financial statements. All sensitive information is encrypted and secure.
+            Enter your personal and business details to generate accurate financial statements. All sensitive information is encrypted and secure.
           </p>
         </div>
         
@@ -233,22 +236,32 @@ const PersonalInfoPage = () => {
           <CardHeader>
             <CardTitle>Instructions</CardTitle>
             <CardDescription>
-              Fill out your personal information to begin building your financial profile. You can optionally include spouse information.
+              Fill out your personal and business information to begin building your financial profile.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="list-disc pl-5 space-y-2">
               <li>All fields marked with * are required</li>
               <li>Your Social Security Number (SSN) is optional but may be needed for some financial documents</li>
-              <li>You can toggle on spouse information if you want to include it in your statements</li>
-              <li>For business owners, you can add one business for free (additional businesses are $1.99 each)</li>
+              <li>You can toggle between Personal and Business Information using the tabs below</li>
+              <li>For business owners, add your business information to include in financial statements</li>
               <li>All data is encrypted using AES-256 and stored securely</li>
             </ul>
           </CardContent>
         </Card>
         
-        {/* Always render the form regardless of database status */}
-        <PersonalInfoForm />
+        <Tabs defaultValue="personal" value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="personal">Personal Information</TabsTrigger>
+            <TabsTrigger value="business">Business Information</TabsTrigger>
+          </TabsList>
+          <TabsContent value="personal">
+            <PersonalInfoForm onSave={() => setActiveTab("business")} />
+          </TabsContent>
+          <TabsContent value="business">
+            <BusinessInfoForm />
+          </TabsContent>
+        </Tabs>
       </div>
     </MainLayout>
   );
