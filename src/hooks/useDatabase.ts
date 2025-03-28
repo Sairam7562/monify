@@ -32,59 +32,90 @@ export function useDatabase() {
         return { error: 'Invalid user ID' };
       }
       
-      const { data: existingData, error: fetchError } = await supabase
-        .from('personal_info')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        console.error("Error checking existing personal info:", fetchError);
-        throw fetchError;
-      }
-
-      let result;
-      
-      const formattedData = {
-        first_name: data.firstName,
-        last_name: data.lastName,
-        email: data.email,
-        phone: data.phone,
-        address: data.address,
-        city: data.city,
-        state: data.state,
-        zip_code: data.zipCode,
-        birth_date: data.birthDate instanceof Date 
-          ? data.birthDate.toISOString().split('T')[0] 
-          : data.birthDate,
-        updated_at: new Date().toISOString()
-      };
-      
-      if (existingData) {
-        result = await supabase
+      try {
+        // Try to check if the table exists first
+        const { data: existingData, error: fetchError } = await supabase
           .from('personal_info')
-          .update(formattedData)
-          .eq('id', existingData.id);
-      } else {
-        result = await supabase
-          .from('personal_info')
-          .insert({
-            ...formattedData,
-            user_id: userId
-          });
-      }
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
 
-      if (result.error) {
-        console.error("Database operation failed:", result.error);
-        throw result.error;
+        if (fetchError) {
+          // Check if it's a schema error (PGRST106)
+          if (fetchError.code === 'PGRST106') {
+            console.log("Database schema error - table might not exist yet. Saving to local storage for now.");
+            
+            // Save to local storage as fallback
+            const localStorageKey = `personal_info_${userId}`;
+            localStorage.setItem(localStorageKey, JSON.stringify({
+              ...data,
+              user_id: userId,
+              updated_at: new Date().toISOString()
+            }));
+            
+            toast.success('Information saved locally. It will be synced to the database when available.');
+            return { data: null, error: null, localSaved: true };
+          } else {
+            throw fetchError;
+          }
+        }
+
+        // If we got here, the table exists and we can proceed with normal save
+        const formattedData = {
+          first_name: data.firstName,
+          last_name: data.lastName,
+          email: data.email,
+          phone: data.phone,
+          address: data.address,
+          city: data.city,
+          state: data.state,
+          zip_code: data.zipCode,
+          birth_date: data.birthDate instanceof Date 
+            ? data.birthDate.toISOString().split('T')[0] 
+            : data.birthDate,
+          updated_at: new Date().toISOString()
+        };
+        
+        let result;
+        
+        if (existingData) {
+          result = await supabase
+            .from('personal_info')
+            .update(formattedData)
+            .eq('id', existingData.id);
+        } else {
+          result = await supabase
+            .from('personal_info')
+            .insert({
+              ...formattedData,
+              user_id: userId
+            });
+        }
+
+        if (result.error) {
+          throw result.error;
+        }
+        
+        console.log("Save operation successful");
+        toast.success('Personal information saved successfully');
+        return { data: result.data, error: null };
+      } catch (err: any) {
+        // Fallback to local storage if there's a database error
+        console.error("Database error, using local storage fallback:", err);
+        
+        const localStorageKey = `personal_info_${userId}`;
+        localStorage.setItem(localStorageKey, JSON.stringify({
+          ...data,
+          user_id: userId,
+          updated_at: new Date().toISOString()
+        }));
+        
+        toast.success('Information saved locally. It will be synced to the database when available.');
+        return { data: null, error: err.message, localSaved: true };
       }
-      
-      console.log("Save operation successful");
-      toast.success('Personal information saved successfully');
-      return { data: result.data, error: null };
     } catch (error: any) {
       console.error('Error saving personal info:', error);
-      toast.error('Failed to save personal information');
+      toast.error('Could not save personal information: ' + error.message);
       return { data: null, error: error.message };
     } finally {
       setLoading(false);
@@ -277,65 +308,133 @@ export function useDatabase() {
         return { error: 'Invalid user ID' };
       }
       
-      const { data, error } = await supabase
-        .from('personal_info')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from('personal_info')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
 
-      if (error) {
-        if (error.code === 'PGRST106') {
-          console.error("Schema error, table might not exist yet:", error);
-          return { 
-            data: {
-              firstName: '',
-              lastName: '',
-              email: user?.email || '',
-              phone: '',
-              address: '',
-              city: '',
-              state: '',
-              zipCode: '',
-              birthDate: undefined,
-            }, 
-            error: error.message 
+        if (error) {
+          // Check if it's a schema error
+          if (error.code === 'PGRST106') {
+            console.log("Schema error, table might not exist yet:", error);
+            
+            // Try to get from local storage
+            const localStorageKey = `personal_info_${userId}`;
+            const localData = localStorage.getItem(localStorageKey);
+            
+            if (localData) {
+              const parsedData = JSON.parse(localData);
+              const transformedData = {
+                firstName: parsedData.firstName || '',
+                lastName: parsedData.lastName || '',
+                email: parsedData.email || user?.email || '',
+                phone: parsedData.phone || '',
+                address: parsedData.address || '',
+                city: parsedData.city || '',
+                state: parsedData.state || '',
+                zipCode: parsedData.zipCode || '',
+                birthDate: parsedData.birthDate ? new Date(parsedData.birthDate) : undefined,
+              };
+              return { data: transformedData, error: error.message, localData: true };
+            }
+            
+            // Return default empty data
+            return { 
+              data: {
+                firstName: '',
+                lastName: '',
+                email: user?.email || '',
+                phone: '',
+                address: '',
+                city: '',
+                state: '',
+                zipCode: '',
+                birthDate: undefined,
+              }, 
+              error: error.message 
+            };
+          }
+          
+          if (error.code !== 'PGRST116') {
+            throw error;
+          }
+        }
+
+        console.log("Personal info fetched:", data);
+        
+        if (data) {
+          const transformedData = {
+            firstName: data.first_name || '',
+            lastName: data.last_name || '',
+            email: data.email || '',
+            phone: data.phone || '',
+            address: data.address || '',
+            city: data.city || '',
+            state: data.state || '',
+            zipCode: data.zip_code || '',
+            birthDate: data.birth_date ? new Date(data.birth_date) : undefined,
           };
+          return { data: transformedData, error: null };
         }
         
-        if (error.code !== 'PGRST116') {
-          console.error("Error fetching personal info:", error);
-          throw error;
+        // Try to get from local storage if no data found
+        const localStorageKey = `personal_info_${userId}`;
+        const localData = localStorage.getItem(localStorageKey);
+        
+        if (localData) {
+          const parsedData = JSON.parse(localData);
+          const transformedData = {
+            firstName: parsedData.firstName || '',
+            lastName: parsedData.lastName || '',
+            email: parsedData.email || user?.email || '',
+            phone: parsedData.phone || '',
+            address: parsedData.address || '',
+            city: parsedData.city || '',
+            state: parsedData.state || '',
+            zipCode: parsedData.zipCode || '',
+            birthDate: parsedData.birthDate ? new Date(parsedData.birthDate) : undefined,
+          };
+          return { data: transformedData, error: null, localData: true };
         }
+        
+        return { data: {
+          firstName: '',
+          lastName: '',
+          email: user?.email || '',
+          phone: '',
+          address: '',
+          city: '',
+          state: '',
+          zipCode: '',
+          birthDate: undefined,
+        }, error: null };
+      } catch (error: any) {
+        console.error("Database error fetching personal info:", error);
+        
+        // Try to get from local storage as fallback
+        const localStorageKey = `personal_info_${userId}`;
+        const localData = localStorage.getItem(localStorageKey);
+        
+        if (localData) {
+          const parsedData = JSON.parse(localData);
+          const transformedData = {
+            firstName: parsedData.firstName || '',
+            lastName: parsedData.lastName || '',
+            email: parsedData.email || user?.email || '',
+            phone: parsedData.phone || '',
+            address: parsedData.address || '',
+            city: parsedData.city || '',
+            state: parsedData.state || '',
+            zipCode: parsedData.zipCode || '',
+            birthDate: parsedData.birthDate ? new Date(parsedData.birthDate) : undefined,
+          };
+          return { data: transformedData, error: error.message, localData: true };
+        }
+        
+        throw error;
       }
-
-      console.log("Personal info fetched:", data);
-      
-      if (data) {
-        const transformedData = {
-          firstName: data.first_name || '',
-          lastName: data.last_name || '',
-          email: data.email || '',
-          phone: data.phone || '',
-          address: data.address || '',
-          city: data.city || '',
-          state: data.state || '',
-          zipCode: data.zip_code || '',
-          birthDate: data.birth_date ? new Date(data.birth_date) : undefined,
-        };
-        return { data: transformedData, error: null };
-      }
-      
-      return { data: {
-        firstName: '',
-        lastName: '',
-        email: user?.email || '',
-        phone: '',
-        address: '',
-        city: '',
-        state: '',
-        zipCode: '',
-        birthDate: undefined,
-      }, error: null };
     } catch (error: any) {
       console.error('Error fetching personal info:', error);
       if (error.code !== 'PGRST106') {

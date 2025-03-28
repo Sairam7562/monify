@@ -20,6 +20,11 @@ export const supabase = createClient<Database>(
       flowType: 'pkce',
       storage: localStorage,
     },
+    global: {
+      headers: {
+        'Accept-Profile': 'public',
+      },
+    },
     db: {
       schema: 'public',
     },

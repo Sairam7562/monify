@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 const PersonalInfoPage = () => {
   const { user } = useAuth();
   const { fetchPersonalInfo } = useDatabase();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [hasDatabaseError, setHasDatabaseError] = useState(false);
   const [attemptCount, setAttemptCount] = useState(0);
 
@@ -31,7 +31,10 @@ const PersonalInfoPage = () => {
         const { error } = await fetchPersonalInfo();
         
         // Check for the specific schema error
-        if (error && typeof error === 'string' && error.includes('schema must be one of the following')) {
+        if (error && typeof error === 'string' && (
+          error.includes('schema must be one of the following') || 
+          error.includes('PGRST106')
+        )) {
           console.log('Database schema not yet available:', error);
           setHasDatabaseError(true);
         } else if (error) {
@@ -42,22 +45,15 @@ const PersonalInfoPage = () => {
         console.error('Error checking database:', err);
         setHasDatabaseError(true);
       } finally {
-        // Always set loading to false after a short timeout to ensure UI renders
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 500);
+        // Always set loading to false immediately to ensure form renders
+        setIsLoading(false);
       }
     };
 
-    // Only check database once
-    if (attemptCount < 1) {
+    // Only check database on first load
+    if (attemptCount === 0) {
       checkDatabase();
       setAttemptCount(1);
-    } else if (isLoading) {
-      // Ensure we exit loading state if something went wrong
-      setTimeout(() => {
-        setIsLoading(false);
-      }, 1000);
     }
   }, [user, fetchPersonalInfo, attemptCount]);
 
