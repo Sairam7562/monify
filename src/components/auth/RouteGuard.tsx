@@ -1,0 +1,59 @@
+
+import { ReactNode, useEffect, useState } from 'react';
+import { Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { Spinner } from '@/components/ui/spinner';
+
+interface RouteGuardProps {
+  children: ReactNode;
+  requireAuth?: boolean;
+  requireAdmin?: boolean;
+}
+
+const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: RouteGuardProps) => {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [isChecking, setIsChecking] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      // Wait for auth loading to finish
+      if (loading) return;
+      
+      // If page requires authentication and user is not logged in, redirect to login
+      if (requireAuth && !user) {
+        navigate('/login', { state: { from: location.pathname } });
+      }
+      
+      // If page requires admin and user is not an admin, redirect to dashboard
+      if (requireAdmin && user?.role !== 'admin' && user?.role !== 'Admin') {
+        navigate('/dashboard');
+      }
+      
+      setIsChecking(false);
+    };
+
+    checkAuth();
+  }, [user, loading, requireAuth, requireAdmin, navigate, location]);
+
+  // Show loading spinner while checking authentication
+  if (loading || isChecking) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <Spinner size="lg" />
+        <span className="ml-2">Loading...</span>
+      </div>
+    );
+  }
+
+  // If page doesn't require auth or user is logged in correctly, render the children
+  if (!requireAuth || (user && (!requireAdmin || (requireAdmin && (user.role === 'admin' || user.role === 'Admin'))))) {
+    return <>{children}</>;
+  }
+
+  // If we reach here without redirecting, show 404 or unauthorized page
+  return <Navigate to="/404" />;
+};
+
+export default RouteGuard;

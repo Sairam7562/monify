@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +12,9 @@ import {
 } from '@/components/ui/select';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+import { useDatabase } from '@/hooks/useDatabase';
+import { Spinner } from '@/components/ui/spinner';
 
 interface Asset {
   id: number;
@@ -35,6 +37,15 @@ interface Liability {
 }
 
 const AssetLiabilityForm = () => {
+  const { user } = useAuth();
+  const { 
+    saveAssets, 
+    saveLiabilities, 
+    fetchAssets, 
+    fetchLiabilities,
+    loading 
+  } = useDatabase();
+  
   const [assets, setAssets] = useState<Asset[]>([
     { id: 1, name: '', type: 'cash', value: '' },
   ]);
@@ -45,9 +56,52 @@ const AssetLiabilityForm = () => {
 
   const [calculatedAssetValue, setCalculatedAssetValue] = useState<{[key: number]: string}>({});
   const [calculatedLiabilityAmount, setCalculatedLiabilityAmount] = useState<{[key: number]: string}>({});
+  const [formLoading, setFormLoading] = useState(true);
 
   useEffect(() => {
-    // Calculate adjusted asset values based on ownership percentage
+    loadExistingData();
+  }, [user]);
+
+  const loadExistingData = async () => {
+    if (!user) return;
+    
+    setFormLoading(true);
+    try {
+      const assetsResult = await fetchAssets();
+      if (assetsResult.data && assetsResult.data.length > 0) {
+        const formattedAssets = assetsResult.data.map((asset: any, index: number) => ({
+          id: index + 1,
+          name: asset.name,
+          type: asset.type,
+          value: asset.value.toString(),
+          ownershipPercentage: asset.ownership_percentage?.toString(),
+          description: asset.description
+        }));
+        setAssets(formattedAssets);
+      }
+
+      const liabilitiesResult = await fetchLiabilities();
+      if (liabilitiesResult.data && liabilitiesResult.data.length > 0) {
+        const formattedLiabilities = liabilitiesResult.data.map((liability: any, index: number) => ({
+          id: index + 1,
+          name: liability.name,
+          type: liability.type,
+          amount: liability.amount.toString(),
+          interestRate: liability.interest_rate?.toString() || '0',
+          ownershipPercentage: liability.ownership_percentage?.toString(),
+          associatedAssetId: liability.associated_asset_id ? parseInt(liability.associated_asset_id) : undefined
+        }));
+        setLiabilities(formattedLiabilities);
+      }
+    } catch (error) {
+      console.error("Error loading existing data:", error);
+      toast.error("Failed to load your existing financial data");
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  useEffect(() => {
     const calculated: {[key: number]: string} = {};
     
     assets.forEach(asset => {
@@ -64,7 +118,6 @@ const AssetLiabilityForm = () => {
   }, [assets]);
 
   useEffect(() => {
-    // Calculate adjusted liability amounts based on ownership percentage
     const calculated: {[key: number]: string} = {};
     
     liabilities.forEach(liability => {
@@ -89,7 +142,6 @@ const AssetLiabilityForm = () => {
     if (assets.length > 1) {
       setAssets(assets.filter(asset => asset.id !== id));
       
-      // Remove any liabilities associated with this asset
       setLiabilities(liabilities.filter(liability => liability.associatedAssetId !== id));
     }
   };
@@ -99,7 +151,6 @@ const AssetLiabilityForm = () => {
       asset.id === id ? { ...asset, [field]: value } : asset
     ));
     
-    // If changing type to real_estate or business, add ownership percentage field if not exists
     if (field === 'type' && (value === 'real_estate' || value === 'business')) {
       setAssets(assets.map(asset => 
         asset.id === id ? { 
@@ -128,7 +179,6 @@ const AssetLiabilityForm = () => {
       liability.id === id ? { ...liability, [field]: value } : liability
     ));
 
-    // If changing type to real_estate or mortgage or business_loan, add ownership percentage field if not exists
     if (field === 'type' && (value === 'real_estate' || value === 'mortgage' || value === 'business_loan')) {
       setLiabilities(liabilities.map(liability => 
         liability.id === id ? { 
@@ -140,19 +190,22 @@ const AssetLiabilityForm = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log({ 
-      assets: assets.map(asset => ({
-        ...asset,
-        adjustedValue: calculatedAssetValue[asset.id]
-      })), 
-      liabilities: liabilities.map(liability => ({
-        ...liability,
-        adjustedAmount: calculatedLiabilityAmount[liability.id]
-      }))
-    });
-    toast.success("Financial information saved successfully!");
+    
+    if (!user) {
+      toast.error("You must be logged in to save financial information");
+      return;
+    }
+    
+    try {
+      await saveAssets(assets);
+      await saveLiabilities(liabilities);
+      toast.success("Financial information saved successfully!");
+    } catch (error) {
+      console.error("Error saving financial data:", error);
+      toast.error("Failed to save financial information. Please try again.");
+    }
   };
 
   const getAssetOptions = () => {
@@ -165,6 +218,15 @@ const AssetLiabilityForm = () => {
     
     return [{ id: 0, name: 'None (General Liability)' }, ...options];
   };
+
+  if (formLoading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <Spinner size="lg" />
+        <span className="ml-2">Loading your financial data...</span>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit}>
@@ -442,8 +504,12 @@ const AssetLiabilityForm = () => {
       </Tabs>
       
       <div className="mt-6">
-        <Button type="submit" className="w-full bg-navido-blue-500 hover:bg-navido-blue-600">
-          Save Financial Information
+        <Button 
+          type="submit" 
+          className="w-full bg-navido-blue-500 hover:bg-navido-blue-600"
+          disabled={loading}
+        >
+          {loading ? "Saving..." : "Save Financial Information"}
         </Button>
       </div>
     </form>

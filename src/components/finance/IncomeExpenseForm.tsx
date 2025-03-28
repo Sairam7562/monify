@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +11,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { PlusCircle, Trash2 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { useDatabase } from '@/hooks/useDatabase';
+import { Spinner } from '@/components/ui/spinner';
 
 interface Income {
   id: number;
@@ -30,6 +32,15 @@ interface Expense {
 }
 
 const IncomeExpenseForm = () => {
+  const { user } = useAuth();
+  const { 
+    saveIncome, 
+    saveExpenses, 
+    fetchIncome, 
+    fetchExpenses,
+    loading 
+  } = useDatabase();
+  
   const [incomes, setIncomes] = useState<Income[]>([
     { id: 1, source: '', type: 'salary', amount: '', frequency: 'monthly' },
   ]);
@@ -37,6 +48,47 @@ const IncomeExpenseForm = () => {
   const [expenses, setExpenses] = useState<Expense[]>([
     { id: 1, name: '', category: 'housing', amount: '', frequency: 'monthly' },
   ]);
+  
+  const [formLoading, setFormLoading] = useState(true);
+
+  useEffect(() => {
+    loadExistingData();
+  }, [user]);
+
+  const loadExistingData = async () => {
+    if (!user) return;
+    
+    setFormLoading(true);
+    try {
+      const incomeResult = await fetchIncome();
+      if (incomeResult.data && incomeResult.data.length > 0) {
+        const formattedIncome = incomeResult.data.map((income: any, index: number) => ({
+          id: index + 1,
+          source: income.source,
+          type: income.type,
+          amount: income.amount.toString(),
+          frequency: income.frequency
+        }));
+        setIncomes(formattedIncome);
+      }
+
+      const expensesResult = await fetchExpenses();
+      if (expensesResult.data && expensesResult.data.length > 0) {
+        const formattedExpenses = expensesResult.data.map((expense: any, index: number) => ({
+          id: index + 1,
+          name: expense.name,
+          category: expense.category,
+          amount: expense.amount.toString(),
+          frequency: expense.frequency
+        }));
+        setExpenses(formattedExpenses);
+      }
+    } catch (error) {
+      console.error("Error loading existing data:", error);
+    } finally {
+      setFormLoading(false);
+    }
+  };
 
   const addIncome = () => {
     const newId = incomes.length > 0 ? Math.max(...incomes.map(i => i.id)) + 1 : 1;
@@ -72,11 +124,29 @@ const IncomeExpenseForm = () => {
     ));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log({ incomes, expenses });
-    // Here you would typically send this data to your API
+    
+    if (!user) {
+      return;
+    }
+    
+    try {
+      await saveIncome(incomes);
+      await saveExpenses(expenses);
+    } catch (error) {
+      console.error("Error saving income and expenses:", error);
+    }
   };
+
+  if (formLoading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <Spinner size="lg" />
+        <span className="ml-2">Loading your income and expenses data...</span>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit}>
@@ -285,8 +355,12 @@ const IncomeExpenseForm = () => {
       </Tabs>
       
       <div className="mt-6">
-        <Button type="submit" className="w-full bg-navido-blue-500 hover:bg-navido-blue-600">
-          Save Income & Expenses
+        <Button 
+          type="submit" 
+          className="w-full bg-navido-blue-500 hover:bg-navido-blue-600"
+          disabled={loading}
+        >
+          {loading ? "Saving..." : "Save Income & Expenses"}
         </Button>
       </div>
     </form>
