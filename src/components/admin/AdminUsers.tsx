@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -42,11 +43,17 @@ const AdminUsers = () => {
   const [resetEmailSent, setResetEmailSent] = useState(false);
 
   useEffect(() => {
-    setUsers(getAllUsers());
+    const loadUsers = async () => {
+      const usersList = await getAllUsers();
+      setUsers(usersList);
+    };
+    
+    loadUsers();
   }, []);
 
-  const refreshUsers = () => {
-    setUsers(getAllUsers());
+  const refreshUsers = async () => {
+    const usersList = await getAllUsers();
+    setUsers(usersList);
     toast.success("User list refreshed");
   };
 
@@ -87,11 +94,12 @@ const AdminUsers = () => {
     }
   };
 
-  const confirmDeleteUser = () => {
+  const confirmDeleteUser = async () => {
     if (userToDelete) {
-      const success = deleteUser(userToDelete.id);
+      const success = await deleteUser(userToDelete.id);
       if (success) {
-        setUsers(getAllUsers());
+        const updatedUsers = await getAllUsers();
+        setUsers(updatedUsers);
         setIsDeleteModalOpen(false);
         toast.success(`${userToDelete.name} has been removed from the system.`);
       } else {
@@ -100,10 +108,11 @@ const AdminUsers = () => {
     }
   };
 
-  const handleToggleUserStatus = (userId: string) => {
-    const updatedUser = toggleUserStatus(userId);
+  const handleToggleUserStatus = async (userId: string) => {
+    const updatedUser = await toggleUserStatus(userId);
     if (updatedUser) {
-      setUsers(getAllUsers());
+      const updatedUsers = await getAllUsers();
+      setUsers(updatedUsers);
       toast.success(`${updatedUser.name}'s account is now ${updatedUser.status}.`);
     } else {
       toast.error("Failed to update user status");
@@ -141,7 +150,8 @@ const AdminUsers = () => {
           tempPassword
         );
         
-        setUsers(getAllUsers());
+        const updatedUsers = await getAllUsers();
+        setUsers(updatedUsers);
         setIsAddUserModalOpen(false);
         setNewUser({ name: '', email: '', role: 'User', plan: 'Basic', enableTwoFactor: false });
         toast.success(`${newUser.name} has been added successfully and an invitation email has been sent.`);

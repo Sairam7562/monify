@@ -32,14 +32,16 @@ export const getCurrentUser = (): User | null => {
 // Authentication functions
 export const loginWithEmail = async (email: string, password: string): Promise<User | null> => {
   try {
-    const user = getUserByEmail(email);
+    const user = await getUserByEmail(email);
     
     if (!user) {
       toast.error("User not found");
       return null;
     }
     
-    const isPasswordValid = await verifyPassword(password, user.password || "");
+    // Since user.password might not exist in the Supabase user object
+    const storedPassword = user.password || "";
+    const isPasswordValid = await verifyPassword(password, storedPassword);
     
     if (!isPasswordValid) {
       toast.error("Invalid password");
@@ -47,9 +49,11 @@ export const loginWithEmail = async (email: string, password: string): Promise<U
     }
     
     // Update last login time
-    updateUser(user.id, {
-      lastLogin: new Date().toISOString().split('T')[0]
-    });
+    if (user.id) {
+      await updateUser(user.id, {
+        lastLogin: new Date().toISOString().split('T')[0]
+      });
+    }
     
     toast.success("Login successful");
     return user;

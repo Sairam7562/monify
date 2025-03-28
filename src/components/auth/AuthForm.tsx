@@ -64,7 +64,7 @@ const AuthForm = () => {
       // Redirect will be handled by the auth state change listener
     } catch (error) {
       console.error(`${provider} login error:`, error);
-      toast.error(`${provider} login failed`);
+      toast.error(error.message || "An error occurred");
     } finally {
       setIsLoading(false);
     }

@@ -32,6 +32,13 @@ export const useAuth = () => {
 // Helper function to convert Supabase user to our User type
 export const supabaseUserToUser = (supabaseUser: SupabaseUser | null): User | null => {
   if (!supabaseUser) return null;
+
+  // Ensure the status is properly typed by checking if it's a valid value or defaulting to 'active'
+  const userStatus = supabaseUser.user_metadata?.status;
+  const status: 'active' | 'inactive' | 'suspended' = 
+    userStatus === 'active' || userStatus === 'inactive' || userStatus === 'suspended' 
+      ? userStatus 
+      : 'active';
   
   return {
     id: supabaseUser.id,
@@ -39,7 +46,7 @@ export const supabaseUserToUser = (supabaseUser: SupabaseUser | null): User | nu
     email: supabaseUser.email || '',
     role: supabaseUser.user_metadata?.role || 'User',
     plan: supabaseUser.user_metadata?.plan || 'Basic',
-    status: (supabaseUser.user_metadata?.status as 'active' | 'inactive' | 'suspended') || 'active',
+    status: status,
     lastLogin: new Date().toISOString().split('T')[0],
     twoFactorEnabled: supabaseUser.user_metadata?.twoFactorEnabled || false
   };

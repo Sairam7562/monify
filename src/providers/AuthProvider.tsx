@@ -1,6 +1,5 @@
-
 import { ReactNode, useEffect, useState } from 'react';
-import { User as SupabaseUser, Session, Provider } from '@supabase/supabase-js';
+import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/services/userService';
 import AuthContext, { supabaseUserToUser } from '@/hooks/useAuth';
@@ -16,9 +15,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Initialize auth state
   useEffect(() => {
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
@@ -27,7 +24,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
     );
 
-    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setSupabaseUser(session?.user ?? null);
@@ -38,7 +34,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Login with email and password
   const loginWithEmail = async (email: string, password: string): Promise<User | null> => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -63,7 +58,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  // Register a new user
   const registerUser = async (
     name: string, 
     email: string, 
@@ -102,11 +96,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  // Login with social provider
   const loginWithSocial = async (provider: 'google' | 'github' | 'apple'): Promise<void> => {
     try {
-      const validProvider: Provider = provider === 'google' ? 'google' : 
-                                       provider === 'github' ? 'github' : 'apple';
+      const validProvider = provider === 'google' ? 'google' : 
+                          provider === 'github' ? 'github' : 'apple';
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: validProvider,
@@ -124,7 +117,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
-  // Logout
   const logout = async (): Promise<void> => {
     try {
       const { error } = await supabase.auth.signOut();
