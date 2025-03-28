@@ -161,6 +161,7 @@ export type Database = {
       personal_info: {
         Row: {
           address: string | null
+          annual_income: number | null
           birth_date: string | null
           city: string | null
           created_at: string | null
@@ -168,7 +169,9 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          occupation: string | null
           phone: string | null
+          profile_image: string | null
           state: string | null
           updated_at: string | null
           user_id: string
@@ -176,6 +179,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          annual_income?: number | null
           birth_date?: string | null
           city?: string | null
           created_at?: string | null
@@ -183,7 +187,9 @@ export type Database = {
           first_name: string
           id?: string
           last_name: string
+          occupation?: string | null
           phone?: string | null
+          profile_image?: string | null
           state?: string | null
           updated_at?: string | null
           user_id: string
@@ -191,6 +197,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          annual_income?: number | null
           birth_date?: string | null
           city?: string | null
           created_at?: string | null
@@ -198,7 +205,9 @@ export type Database = {
           first_name?: string
           id?: string
           last_name?: string
+          occupation?: string | null
           phone?: string | null
+          profile_image?: string | null
           state?: string | null
           updated_at?: string | null
           user_id?: string

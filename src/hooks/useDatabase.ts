@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 import { supabase, checkConnection } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -128,6 +129,10 @@ export function useDatabase() {
           birth_date: data.birthDate instanceof Date 
             ? data.birthDate.toISOString().split('T')[0] 
             : data.birthDate,
+          // New fields we added to the database
+          occupation: data.occupation,
+          annual_income: data.annualIncome ? parseFloat(data.annualIncome) : null,
+          profile_image: data.profileImage,
           updated_at: new Date().toISOString()
         };
         
@@ -401,6 +406,10 @@ export function useDatabase() {
             state: parsedData.state || '',
             zipCode: parsedData.zipCode || '',
             birthDate: parsedData.birthDate ? new Date(parsedData.birthDate) : undefined,
+            // Add new fields for retrieval from local storage
+            occupation: parsedData.occupation || '',
+            annualIncome: parsedData.annualIncome || '',
+            profileImage: parsedData.profileImage || null,
           };
           return { data: transformedData, error: null, localData: true };
         }
@@ -442,6 +451,10 @@ export function useDatabase() {
               state: data.state || '',
               zipCode: data.zip_code || '',
               birthDate: data.birth_date ? new Date(data.birth_date) : undefined,
+              // Add new fields
+              occupation: data.occupation || '',
+              annualIncome: data.annual_income?.toString() || '',
+              profileImage: data.profile_image || null,
             };
             return { data: transformedData, error: null };
           }
@@ -468,6 +481,10 @@ export function useDatabase() {
           state: parsedData.state || '',
           zipCode: parsedData.zipCode || '',
           birthDate: parsedData.birthDate ? new Date(parsedData.birthDate) : undefined,
+          // Add new fields for retrieval from local storage
+          occupation: parsedData.occupation || '',
+          annualIncome: parsedData.annualIncome || '',
+          profileImage: parsedData.profileImage || null,
         };
         return { data: transformedData, error: null, localData: true };
       }
@@ -483,6 +500,10 @@ export function useDatabase() {
         state: '',
         zipCode: '',
         birthDate: undefined,
+        // Add new fields with defaults
+        occupation: '',
+        annualIncome: '',
+        profileImage: null,
       }, error: null };
     } catch (error: any) {
       console.error('Error fetching personal info:', error);
@@ -502,6 +523,10 @@ export function useDatabase() {
         state: '',
         zipCode: '',
         birthDate: undefined,
+        // Add new fields with defaults
+        occupation: '',
+        annualIncome: '',
+        profileImage: null,
       }, error: error.message };
     } finally {
       setLoading(false);

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -13,6 +13,13 @@ interface ProfileImageUploaderProps {
 
 const ProfileImageUploader = ({ defaultImage, onImageChange }: ProfileImageUploaderProps) => {
   const [imageUrl, setImageUrl] = useState<string | null>(defaultImage || null);
+
+  // Add effect to sync with parent when default image changes
+  useEffect(() => {
+    if (defaultImage !== undefined) {
+      setImageUrl(defaultImage);
+    }
+  }, [defaultImage]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -35,6 +42,9 @@ const ProfileImageUploader = ({ defaultImage, onImageChange }: ProfileImageUploa
       const result = reader.result as string;
       setImageUrl(result);
       onImageChange(result);
+      
+      // Add confirmation message
+      toast.success("Image uploaded successfully");
     };
     reader.readAsDataURL(file);
   };
@@ -42,6 +52,7 @@ const ProfileImageUploader = ({ defaultImage, onImageChange }: ProfileImageUploa
   const removeImage = () => {
     setImageUrl(null);
     onImageChange(null);
+    toast.info("Image removed");
   };
 
   return (

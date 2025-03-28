@@ -194,6 +194,9 @@ const PersonalInfoForm = () => {
             state: data.state || '',
             zipCode: data.zipCode || '',
             dateOfBirth: data.birthDate ? new Date(data.birthDate) : undefined,
+            occupation: data.occupation || '',
+            annualIncome: data.annualIncome || '',
+            profileImage: data.profileImage || null
           }));
         }
       } catch (err) {
@@ -299,7 +302,9 @@ const PersonalInfoForm = () => {
         firstName: personalInfo.firstName,
         lastName: personalInfo.lastName,
         email: personalInfo.email,
-        // other fields...
+        occupation: personalInfo.occupation,
+        annualIncome: personalInfo.annualIncome,
+        profileImage: personalInfo.profileImage ? "Image data exists" : "No image",
       });
       
       const personalInfoData = {
@@ -312,6 +317,9 @@ const PersonalInfoForm = () => {
         state: personalInfo.state,
         zipCode: personalInfo.zipCode,
         birthDate: personalInfo.dateOfBirth ? format(personalInfo.dateOfBirth, 'yyyy-MM-dd') : null,
+        occupation: personalInfo.occupation,
+        annualIncome: personalInfo.annualIncome,
+        profileImage: personalInfo.profileImage,
       };
       
       const { error } = await savePersonalInfo(personalInfoData);
