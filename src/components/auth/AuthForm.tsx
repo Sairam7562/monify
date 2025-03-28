@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Input } from "@/components/ui/input";
@@ -6,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/hooks/useAuth';
+import { toast as sonnerToast } from 'sonner';
 
 const AuthForm = () => {
   const [email, setEmail] = useState('');
@@ -64,7 +66,12 @@ const AuthForm = () => {
       // Redirect will be handled by the auth state change listener
     } catch (error) {
       console.error(`${provider} login error:`, error);
-      toast.error(error.message || "An error occurred");
+      // Replace toast.error with toast({ variant: "destructive" })
+      toast({
+        variant: "destructive",
+        title: "Login Failed",
+        description: error instanceof Error ? error.message : "An error occurred"
+      });
     } finally {
       setIsLoading(false);
     }
