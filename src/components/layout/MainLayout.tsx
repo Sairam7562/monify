@@ -17,7 +17,11 @@ const MainLayout = ({ children, showSidebar = true }: MainLayoutProps) => {
   
   // Ensure branding is applied when the layout mounts
   useEffect(() => {
-    applyBrandingSettings();
+    try {
+      applyBrandingSettings();
+    } catch (error) {
+      console.error("Error applying branding settings:", error);
+    }
   }, [applyBrandingSettings]);
   
   return (
