@@ -302,7 +302,7 @@ export function useDatabase() {
       console.log("Personal info fetched:", data);
       
       if (data) {
-        // Safely handle data with proper type checking
+        // Transform the database column names to match form field names
         const transformedData = {
           firstName: data?.first_name || '',
           lastName: data?.last_name || '',

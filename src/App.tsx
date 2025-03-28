@@ -19,6 +19,7 @@ import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 import MasterAdminPage from "./pages/MasterAdminPage";
 import RouteGuard from "./components/auth/RouteGuard";
+import AdminRedirect from "./components/auth/AdminRedirect";
 import Index from "./pages/Index";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/register" element={<LoginPage />} />
               <Route path="/index" element={<Index />} />
               <Route path="/verify-email" element={<VerifyEmailPage />} />
+              <Route path="/admin-check" element={<AdminRedirect />} />
               
               {/* Protected routes */}
               <Route path="/dashboard" element={

@@ -1,36 +1,21 @@
-
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Bell, Menu, User, ChartBarIcon, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import Sidebar from './Sidebar';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Menu } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-interface NavbarProps {
-  showSidebarToggle?: boolean;
-}
-
-const Navbar = ({ showSidebarToggle = true }: NavbarProps) => {
-  const isMobile = useIsMobile();
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+const Navbar = () => {
   const { user, logout } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.role === 'Admin';
   const navigate = useNavigate();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     try {
       await logout();
-      toast.success("Logged out successfully");
+      toast.success("You have been logged out successfully");
       navigate('/login');
     } catch (error) {
       console.error("Logout error:", error);
@@ -38,79 +23,108 @@ const Navbar = ({ showSidebarToggle = true }: NavbarProps) => {
     }
   };
 
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center border-b bg-white px-4 shadow-sm">
-      <div className="flex flex-1 items-center justify-between">
-        <div className="flex items-center gap-2">
-          {showSidebarToggle && isMobile && (
-            <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden">
-                  <Menu className="h-5 w-5" />
-                  <span className="sr-only">Toggle Menu</span>
+    <header className="border-b">
+      <nav className="mx-auto flex items-center justify-between px-4 py-3">
+        <Link to="/" className="font-bold text-xl">
+          Monify
+        </Link>
+        
+        <div className="hidden md:flex items-center gap-6">
+          <Link to="/dashboard" className="hover:text-monify-purple-500 transition-colors">Dashboard</Link>
+          <Link to="/personal-info" className="hover:text-monify-purple-500 transition-colors">Personal Info</Link>
+          <Link to="/assets-liabilities" className="hover:text-monify-purple-500 transition-colors">Assets/Liabilities</Link>
+          <Link to="/income-expenses" className="hover:text-monify-purple-500 transition-colors">Income/Expenses</Link>
+          <Link to="/financial-statements" className="hover:text-monify-purple-500 transition-colors">Statements</Link>
+          <Link to="/ai-advisor" className="hover:text-monify-purple-500 transition-colors">AI Advisor</Link>
+          <Link to="/settings" className="hover:text-monify-purple-500 transition-colors">Settings</Link>
+          
+          {user && (
+            <>
+              {isAdmin && (
+                <Button variant="outline" onClick={() => navigate('/admin-check')}>
+                  Admin Dashboard
                 </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="p-0">
-                <Sidebar />
-              </SheetContent>
-            </Sheet>
-          )}
-
-          <Link to="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-monify-purple-600 to-monify-pink-600">
-              Monify
-            </span>
-          </Link>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-monify-pink-500 text-[10px] text-white">
-              3
-            </span>
-            <span className="sr-only">Notifications</span>
-          </Button>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full">
-                <User className="h-5 w-5" />
-                <span className="sr-only">User Menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/profile" className="cursor-pointer">
-                  <User className="mr-2 h-4 w-4" />
-                  Profile
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/dashboard" className="cursor-pointer">
-                  <ChartBarIcon className="mr-2 h-4 w-4" />
-                  Dashboard
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/settings" className="cursor-pointer">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                className="cursor-pointer text-red-500 focus:text-red-500"
-                onClick={handleLogout}
-              >
+              )}
+              <Button variant="ghost" onClick={handleLogout}>
                 Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </Button>
+            </>
+          )}
+          
+          {!user && (
+            <>
+              <Link to="/login">
+                <Button variant="outline">
+                  Log In
+                </Button>
+              </Link>
+              <Link to="/register">
+                <Button>
+                  Register
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
-      </div>
+        
+        <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" className="md:hidden" onClick={toggleMobileMenu}>
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-full sm:w-64">
+            <SheetHeader className="text-left">
+              <SheetTitle>Menu</SheetTitle>
+              <SheetDescription>
+                Navigate through the application.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="grid gap-4 py-4">
+              <Link to="/dashboard" className="hover:text-monify-purple-500 transition-colors block py-2">Dashboard</Link>
+              <Link to="/personal-info" className="hover:text-monify-purple-500 transition-colors block py-2">Personal Info</Link>
+              <Link to="/assets-liabilities" className="hover:text-monify-purple-500 transition-colors block py-2">Assets/Liabilities</Link>
+              <Link to="/income-expenses" className="hover:text-monify-purple-500 transition-colors block py-2">Income/Expenses</Link>
+              <Link to="/financial-statements" className="hover:text-monify-purple-500 transition-colors block py-2">Statements</Link>
+              <Link to="/ai-advisor" className="hover:text-monify-purple-500 transition-colors block py-2">AI Advisor</Link>
+              <Link to="/settings" className="hover:text-monify-purple-500 transition-colors block py-2">Settings</Link>
+              
+              {user && (
+                <>
+                  {isAdmin && (
+                    <Button variant="outline" onClick={() => {navigate('/admin-check'); setIsMobileMenuOpen(false);}} className="w-full">
+                      Admin Dashboard
+                    </Button>
+                  )}
+                  <Button variant="ghost" onClick={() => {handleLogout(); setIsMobileMenuOpen(false);}} className="w-full">
+                    Logout
+                  </Button>
+                </>
+              )}
+              
+              {!user && (
+                <>
+                  <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>
+                    <Button variant="outline" className="w-full">
+                      Log In
+                    </Button>
+                  </Link>
+                  <Link to="/register" onClick={() => setIsMobileMenuOpen(false)}>
+                    <Button className="w-full">
+                      Register
+                    </Button>
+                  </Link>
+                </>
+              )}
+            </div>
+          </SheetContent>
+        </Sheet>
+      </nav>
     </header>
   );
 };

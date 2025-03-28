@@ -25,6 +25,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { useAuth } from '@/hooks/useAuth';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { InfoIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface PersonalInfo {
   // Personal Details
@@ -94,6 +95,7 @@ interface Business {
 const PersonalInfoForm = () => {
   const { savePersonalInfo, fetchPersonalInfo, loading } = useDatabase();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [formSubmitting, setFormSubmitting] = useState(false);
   
@@ -311,6 +313,9 @@ const PersonalInfoForm = () => {
         toast.error("Failed to save personal information: " + error);
       } else {
         toast.success("Personal information saved successfully!");
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 1500);
       }
     } catch (err) {
       console.error("Error in handleSubmit:", err);
