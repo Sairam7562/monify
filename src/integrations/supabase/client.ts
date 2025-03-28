@@ -19,7 +19,17 @@ export const supabase = createClient<Database>(
       detectSessionInUrl: true,
       flowType: 'pkce',
       storage: localStorage,
-      redirectTo: window.location.origin + '/verify-email',
+      // Use cookieOptions for redirectTo instead of direct property
+      cookieOptions: {
+        path: '/',
+        sameSite: 'lax',
+        secure: true
+      }
     },
   }
 );
+
+// Set the site URL for redirection after authentication
+supabase.auth.setSettings({
+  redirectTo: `${window.location.origin}/verify-email`,
+});

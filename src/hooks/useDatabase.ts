@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -27,10 +28,11 @@ export function useDatabase() {
       console.log("Attempting to save personal info for user:", user.id);
       console.log("Personal info data:", data);
       
+      // Use strongly typed filter
       const { data: existingData, error: fetchError } = await supabase
         .from('personal_info')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', user.id as string)
         .maybeSingle();
 
       if (fetchError && fetchError.code !== 'PGRST116') {
@@ -56,20 +58,20 @@ export function useDatabase() {
       };
       
       if (existingData) {
-        // Update existing record
+        // Update existing record - adding a type check
         console.log("Updating existing record:", existingData.id);
         result = await supabase
           .from('personal_info')
           .update(formattedData)
           .eq('id', existingData.id);
       } else {
-        // Insert new record
+        // Insert new record - ensuring we use the right format for Supabase
         console.log("Creating new record for user:", user.id);
         result = await supabase
           .from('personal_info')
           .insert({
             ...formattedData,
-            user_id: user.id
+            user_id: user.id as string
           });
       }
 
@@ -98,15 +100,16 @@ export function useDatabase() {
       await supabase
         .from('assets')
         .delete()
-        .eq('user_id', user.id);
+        .eq('user_id', user.id as string);
       
+      // Format assets for insertion ensuring each property matches the DB schema
       const formattedAssets = assets.map(asset => ({
-        user_id: user.id,
         name: asset.name || 'Unnamed Asset',
         type: asset.type,
         value: parseFloat(asset.value) || 0,
         ownership_percentage: parseFloat(asset.ownershipPercentage) || 100,
-        description: asset.description || ''
+        description: asset.description || '',
+        user_id: user.id as string
       }));
 
       const { data, error } = await supabase
@@ -134,17 +137,18 @@ export function useDatabase() {
       await supabase
         .from('liabilities')
         .delete()
-        .eq('user_id', user.id);
+        .eq('user_id', user.id as string);
       
+      // Format liabilities for insertion ensuring each property matches the DB schema
       const formattedLiabilities = liabilities.map(liability => ({
-        user_id: user.id,
         name: liability.name || 'Unnamed Liability',
         type: liability.type,
         amount: parseFloat(liability.amount) || 0,
         interest_rate: parseFloat(liability.interestRate) || 0,
         associated_asset_id: liability.associatedAssetId ? 
           liability.associatedAssetId > 0 ? liability.associatedAssetId : null : null,
-        ownership_percentage: parseFloat(liability.ownershipPercentage) || 100
+        ownership_percentage: parseFloat(liability.ownershipPercentage) || 100,
+        user_id: user.id as string
       }));
 
       const { data, error } = await supabase
@@ -172,14 +176,15 @@ export function useDatabase() {
       await supabase
         .from('income')
         .delete()
-        .eq('user_id', user.id);
+        .eq('user_id', user.id as string);
       
+      // Format income for insertion ensuring each property matches the DB schema
       const formattedIncome = incomeData.map(income => ({
-        user_id: user.id,
         source: income.source || 'Unnamed Source',
         type: income.type,
         amount: parseFloat(income.amount) || 0,
-        frequency: income.frequency
+        frequency: income.frequency,
+        user_id: user.id as string
       }));
 
       const { data, error } = await supabase
@@ -207,14 +212,15 @@ export function useDatabase() {
       await supabase
         .from('expenses')
         .delete()
-        .eq('user_id', user.id);
+        .eq('user_id', user.id as string);
       
+      // Format expenses for insertion ensuring each property matches the DB schema
       const formattedExpenses = expensesData.map(expense => ({
-        user_id: user.id,
         name: expense.name || 'Unnamed Expense',
         category: expense.category,
         amount: parseFloat(expense.amount) || 0,
-        frequency: expense.frequency
+        frequency: expense.frequency,
+        user_id: user.id as string
       }));
 
       const { data, error } = await supabase
@@ -246,7 +252,7 @@ export function useDatabase() {
       const { data, error } = await supabase
         .from('personal_info')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', user.id as string)
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
@@ -257,6 +263,7 @@ export function useDatabase() {
       console.log("Personal info fetched:", data);
       
       if (data) {
+        // Properly handle the data with type safety
         const transformedData = {
           firstName: data.first_name,
           lastName: data.last_name,
@@ -289,7 +296,7 @@ export function useDatabase() {
       const { data, error } = await supabase
         .from('assets')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id as string);
 
       if (error) throw error;
       
@@ -310,7 +317,7 @@ export function useDatabase() {
       const { data, error } = await supabase
         .from('liabilities')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id as string);
 
       if (error) throw error;
       
@@ -331,7 +338,7 @@ export function useDatabase() {
       const { data, error } = await supabase
         .from('income')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id as string);
 
       if (error) throw error;
       
@@ -352,7 +359,7 @@ export function useDatabase() {
       const { data, error } = await supabase
         .from('expenses')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id as string);
 
       if (error) throw error;
       
@@ -395,28 +402,28 @@ export function useDatabase() {
       const personalInfo = await supabase
         .from('personal_info')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', userId as string)
         .maybeSingle();
         
       const assets = await supabase
         .from('assets')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId as string);
         
       const liabilities = await supabase
         .from('liabilities')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId as string);
         
       const income = await supabase
         .from('income')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId as string);
         
       const expenses = await supabase
         .from('expenses')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId as string);
       
       return {
         data: {

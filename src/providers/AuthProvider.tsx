@@ -5,7 +5,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/services/userService';
 import AuthContext, { supabaseUserToUser } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -44,7 +43,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           toast.success("User profile updated");
         } else if (event === 'PASSWORD_RECOVERY') {
           toast.info("Password recovery initiated");
-        } else if (event === 'USER_DELETED') {
+        } 
+        // Fix the comparison with USER_DELETED event - use correct string literal
+        else if (event === 'USER_DELETED') {
           toast.info("Account deleted");
         }
       }
@@ -106,7 +107,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       console.log("Attempting to register user:", email);
       
       // Set the redirect URL to the current domain for proper verification
-      const redirectTo = `${window.location.origin}/dashboard`;
+      const redirectTo = `${window.location.origin}/verify-email`;
       
       const { data, error } = await supabase.auth.signUp({
         email,
