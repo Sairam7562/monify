@@ -159,8 +159,15 @@ const AdminFeatures = () => {
     const planIndex = plans.findIndex(p => p.id === selectedPlan.id);
     if (planIndex === -1) return;
     
+    const updatedPlan = {
+      ...selectedPlan,
+      price: typeof selectedPlan.price === 'string' 
+        ? parseFloat(selectedPlan.price) 
+        : selectedPlan.price
+    };
+    
     const updatedPlans = [...plans];
-    updatedPlans[planIndex] = selectedPlan;
+    updatedPlans[planIndex] = updatedPlan;
     setPlans(updatedPlans);
     
     setSelectedPlan(null);
@@ -168,7 +175,7 @@ const AdminFeatures = () => {
     
     toast({
       title: "Plan Updated",
-      description: `${selectedPlan.name} plan has been updated.`,
+      description: `${updatedPlan.name} plan has been updated.`,
     });
   };
 
@@ -485,7 +492,10 @@ const AdminFeatures = () => {
                   min="0"
                   step="0.01"
                   value={selectedPlan.price}
-                  onChange={(e) => setSelectedPlan({...selectedPlan, price: parseFloat(e.target.value)})}
+                  onChange={(e) => setSelectedPlan({
+                    ...selectedPlan, 
+                    price: parseFloat(e.target.value || '0')
+                  })}
                 />
               </div>
               <div className="flex items-center space-x-2">
