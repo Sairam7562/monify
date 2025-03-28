@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -8,10 +9,16 @@ export function useDatabase() {
   const [loading, setLoading] = useState(false);
 
   const savePersonalInfo = async (data: any) => {
-    if (!user) return { error: 'Not authenticated' };
-    
-    setLoading(true);
     try {
+      setLoading(true);
+      
+      if (!user) {
+        toast.error('You must be logged in to save information');
+        return { error: 'Not authenticated' };
+      }
+      
+      console.log("Attempting to save personal info for user:", user.id);
+      
       // Check if personal info already exists for this user
       const { data: existingData, error: fetchError } = await supabase
         .from('personal_info')
@@ -27,6 +34,7 @@ export function useDatabase() {
       
       if (existingData) {
         // Update existing record
+        console.log("Updating existing record:", existingData.id);
         result = await supabase
           .from('personal_info')
           .update({
@@ -44,6 +52,7 @@ export function useDatabase() {
           .eq('id', existingData.id);
       } else {
         // Insert new record
+        console.log("Creating new record for user:", user.id);
         result = await supabase
           .from('personal_info')
           .insert({
@@ -60,8 +69,12 @@ export function useDatabase() {
           });
       }
 
-      if (result.error) throw result.error;
+      if (result.error) {
+        console.error("Database operation failed:", result.error);
+        throw result.error;
+      }
       
+      console.log("Save operation successful:", result.data);
       toast.success('Personal information saved successfully');
       return { data: result.data, error: null };
     } catch (error: any) {

@@ -16,6 +16,6 @@ export const Spinner = ({ size = 'md', className }: SpinnerProps) => {
   };
   
   return (
-    <Loader2 className={cn(`animate-spin`, sizeClass[size], className)} />
+    <Loader2 className={cn(`animate-spin text-primary`, sizeClass[size], className)} />
   );
 };

@@ -22,6 +22,9 @@ import { Separator } from '@/components/ui/separator';
 import ProfileImageUploader from './ProfileImageUploader';
 import { useDatabase } from '@/hooks/useDatabase';
 import { Spinner } from '@/components/ui/spinner';
+import { useAuth } from '@/hooks/useAuth';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { InfoIcon } from 'lucide-react';
 
 interface PersonalInfo {
   // Personal Details
@@ -90,7 +93,9 @@ interface Business {
 
 const PersonalInfoForm = () => {
   const { savePersonalInfo, fetchPersonalInfo, loading } = useDatabase();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
+  const [formSubmitting, setFormSubmitting] = useState(false);
   
   const [personalInfo, setPersonalInfo] = useState<PersonalInfo>({
     profileImage: null,
@@ -156,6 +161,13 @@ const PersonalInfoForm = () => {
     const loadPersonalInfo = async () => {
       setIsLoading(true);
       try {
+        if (!user) {
+          console.log("No authenticated user found");
+          setIsLoading(false);
+          return;
+        }
+        
+        console.log("Loading personal info for user:", user.id);
         const { data, error } = await fetchPersonalInfo();
         
         if (error) {
@@ -164,6 +176,7 @@ const PersonalInfoForm = () => {
         }
         
         if (data) {
+          console.log("Personal info data loaded:", data);
           setPersonalInfo(prev => ({
             ...prev,
             firstName: data.first_name || '',
@@ -185,7 +198,7 @@ const PersonalInfoForm = () => {
     };
     
     loadPersonalInfo();
-  }, [fetchPersonalInfo]);
+  }, [fetchPersonalInfo, user]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -265,7 +278,20 @@ const PersonalInfoForm = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!user) {
+      toast.error("You must be logged in to save information");
+      return;
+    }
+    
+    setFormSubmitting(true);
     try {
+      console.log("Submitting form with data:", {
+        firstName: personalInfo.firstName,
+        lastName: personalInfo.lastName,
+        email: personalInfo.email,
+        // other fields...
+      });
+      
       const personalInfoData = {
         firstName: personalInfo.firstName,
         lastName: personalInfo.lastName,
@@ -289,8 +315,27 @@ const PersonalInfoForm = () => {
     } catch (err) {
       console.error("Error in handleSubmit:", err);
       toast.error("An unexpected error occurred");
+    } finally {
+      setFormSubmitting(false);
     }
   };
+
+  const renderSubmitButton = () => (
+    <Button 
+      type="submit" 
+      className="w-full bg-monify-purple-500 hover:bg-monify-purple-600"
+      disabled={formSubmitting || loading}
+    >
+      {(formSubmitting || loading) ? (
+        <>
+          <Spinner size="sm" className="mr-2" />
+          Saving...
+        </>
+      ) : (
+        "Save Personal Information"
+      )}
+    </Button>
+  );
 
   if (isLoading) {
     return (
@@ -298,6 +343,18 @@ const PersonalInfoForm = () => {
         <Spinner size="lg" />
         <span className="ml-2">Loading your information...</span>
       </div>
+    );
+  }
+  
+  if (!user) {
+    return (
+      <Alert variant="destructive" className="mb-6">
+        <InfoIcon className="h-4 w-4" />
+        <AlertTitle>Authentication Required</AlertTitle>
+        <AlertDescription>
+          You need to be logged in to view and save personal information.
+        </AlertDescription>
+      </Alert>
     );
   }
 
@@ -841,20 +898,7 @@ const PersonalInfoForm = () => {
               </div>
             </CardContent>
             <CardFooter>
-              <Button 
-                type="submit" 
-                className="w-full bg-monify-purple-500 hover:bg-monify-purple-600"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <Spinner size="sm" className="mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save Personal Information"
-                )}
-              </Button>
+              {renderSubmitButton()}
             </CardFooter>
           </form>
         </Card>
@@ -1114,13 +1158,7 @@ const PersonalInfoForm = () => {
               )}
             </CardContent>
             <CardFooter>
-              <Button 
-                type="submit" 
-                className="w-full bg-monify-purple-500 hover:bg-monify-purple-600"
-                disabled={!personalInfo.hasBusinesses}
-              >
-                Save Business Information
-              </Button>
+              {renderSubmitButton()}
             </CardFooter>
           </form>
         </Card>
