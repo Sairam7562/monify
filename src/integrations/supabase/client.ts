@@ -31,27 +31,30 @@ export const supabase = createClient<Database>(
   }
 );
 
-// Add error handling for database schema issues
+// Add error handling for database schema issues with improved logging
 const checkConnection = async () => {
   try {
     // Try a simple query to validate connection
     const { data, error } = await supabase.from('profiles').select('id').limit(1);
     
     if (error) {
-      if (error.code === 'PGRST106') {
+      if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
         console.error('Database schema error detected:', error.message);
         // Store a flag in session storage indicating schema issue
         sessionStorage.setItem('db_schema_error', 'true');
       } else {
         console.error('Database connection error:', error.message);
       }
+      return false;
     } else {
-      // Clear any previous schema error flag
+      // Clear any previous schema error flag if connection is successful
+      console.log('Database connection successful, clearing schema error flag');
       sessionStorage.removeItem('db_schema_error');
-      console.log('Database connection successful');
+      return true;
     }
   } catch (err) {
     console.error('Error checking database connection:', err);
+    return false;
   }
 };
 

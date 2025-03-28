@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import PersonalInfoForm from '@/components/finance/PersonalInfoForm';
@@ -13,7 +14,7 @@ import { toast } from 'sonner';
 const PersonalInfoPage = () => {
   const { user } = useAuth();
   const { fetchPersonalInfo } = useDatabase();
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [hasDatabaseError, setHasDatabaseError] = useState(false);
   const [attemptCount, setAttemptCount] = useState(0);
 
@@ -21,6 +22,7 @@ const PersonalInfoPage = () => {
     // Check if there's a known schema error from session storage
     const schemaError = sessionStorage.getItem('db_schema_error') === 'true';
     if (schemaError) {
+      console.log("Found schema error in session storage");
       setHasDatabaseError(true);
       setIsLoading(false);
       return;
@@ -60,10 +62,10 @@ const PersonalInfoPage = () => {
       }
     };
 
-    // Only check database on first load
+    // Only check database on first load or when manually retrying
     if (attemptCount === 0) {
       checkDatabase();
-      setAttemptCount(1);
+      setAttemptCount(prev => prev + 1);
     }
   }, [user, fetchPersonalInfo, attemptCount]);
 
