@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { supabase, checkConnection } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -18,17 +17,14 @@ export function useDatabase() {
     return true;
   }, [user, session]);
 
-  // Helper to check for database schema issues
   const hasSchemaIssue = () => {
     return sessionStorage.getItem('db_schema_error') === 'true';
   };
 
-  // Helper to generate a unique local storage key for a user and data type
   const getLocalStorageKey = (userId: string, dataType: string) => {
     return `${dataType}_${userId}`;
   };
 
-  // Debug function to show what's in local storage for a user
   const debugLocalStorage = (userId: string) => {
     if (!userId) return;
     
@@ -42,7 +38,6 @@ export function useDatabase() {
     console.groupEnd();
   };
 
-  // Modified version of savePersonalInfo that handles schema errors better
   const savePersonalInfo = async (data: any) => {
     try {
       setLoading(true);
@@ -60,14 +55,11 @@ export function useDatabase() {
         return { error: 'Invalid user ID' };
       }
       
-      // Try to check database connection first
       const connectionStatus = await checkConnection();
       console.log("Database connection status:", connectionStatus);
       
-      // Check for known schema issues before attempting database operation
       if (!connectionStatus.connected || hasSchemaIssue()) {
         console.log("Database unavailable, using local storage");
-        // Save to local storage
         const localStorageKey = getLocalStorageKey(userId, 'personal_info');
         localStorage.setItem(localStorageKey, JSON.stringify({
           ...data,
@@ -82,8 +74,6 @@ export function useDatabase() {
       }
       
       try {
-        // Try to check if the table exists first
-        console.log("Attempting to fetch existing personal info");
         const { data: existingData, error: fetchError } = await supabase
           .from('personal_info')
           .select('*')
@@ -92,31 +82,23 @@ export function useDatabase() {
 
         if (fetchError) {
           console.error("Error fetching existing data:", fetchError);
-          // Check if it's a schema error (PGRST106)
           if (fetchError.code === 'PGRST106' || fetchError.message.includes('schema must be one of the following')) {
             console.log("Database schema error - table might not exist yet. Saving to local storage for now.");
-            // Mark schema error in session storage
             sessionStorage.setItem('db_schema_error', 'true');
-            
-            // Save to local storage as fallback
             const localStorageKey = getLocalStorageKey(userId, 'personal_info');
             localStorage.setItem(localStorageKey, JSON.stringify({
               ...data,
               user_id: userId,
               updated_at: new Date().toISOString()
             }));
-            
             debugLocalStorage(userId);
-            
-            toast.success('Information saved locally. It will be synced to the database when available.');
+            toast.success('Information saved locally. It will be synced when the database is available.');
             return { data: null, error: null, localSaved: true };
           } else {
             throw fetchError;
           }
         }
 
-        // If we got here, the table exists and we can proceed with normal save
-        console.log("Database table exists, proceeding with save operation");
         const formattedData = {
           first_name: data.firstName,
           last_name: data.lastName,
@@ -129,7 +111,6 @@ export function useDatabase() {
           birth_date: data.birthDate instanceof Date 
             ? data.birthDate.toISOString().split('T')[0] 
             : data.birthDate,
-          // Fields added to the database
           occupation: data.occupation,
           annual_income: data.annualIncome ? parseFloat(data.annualIncome) : null,
           profile_image: data.profileImage,
@@ -166,7 +147,6 @@ export function useDatabase() {
         console.error("Database error during save:", err);
         setLastError(err);
         
-        // Handle specific errors
         if (err.code === 'PGRST106' || (err.message && err.message.includes('schema must be one of the following'))) {
           console.error("Database schema error, using local storage fallback:", err);
           sessionStorage.setItem('db_schema_error', 'true');
@@ -174,7 +154,6 @@ export function useDatabase() {
           console.error("Database error, using local storage fallback:", err);
         }
         
-        // Fallback to local storage for any database error
         const localStorageKey = getLocalStorageKey(userId, 'personal_info');
         localStorage.setItem(localStorageKey, JSON.stringify({
           ...data,
@@ -197,7 +176,6 @@ export function useDatabase() {
     }
   };
 
-  // New function to save business information
   const saveBusinessInfo = async (businesses: any[]) => {
     try {
       setLoading(true);
@@ -215,14 +193,11 @@ export function useDatabase() {
         return { error: 'Invalid user ID' };
       }
       
-      // Try to check database connection first
       const connectionStatus = await checkConnection();
       console.log("Database connection status:", connectionStatus);
       
-      // Check for known schema issues or if table doesn't exist yet
       if (!connectionStatus.connected || hasSchemaIssue()) {
         console.log("Database unavailable, using local storage");
-        // Save to local storage
         const localStorageKey = getLocalStorageKey(userId, 'business_info');
         localStorage.setItem(localStorageKey, JSON.stringify({
           businesses: businesses,
@@ -237,8 +212,6 @@ export function useDatabase() {
       }
       
       try {
-        // Check if the business_info table exists
-        // @ts-ignore - Type issues with the new table
         const { error: tableCheckError } = await supabase
           .from('business_info')
           .select('id')
@@ -247,23 +220,18 @@ export function useDatabase() {
         if (tableCheckError) {
           if (tableCheckError.code === 'PGRST116' || tableCheckError.message.includes('relation "business_info" does not exist')) {
             console.log("Business info table does not exist, using local storage fallback");
-            // Save to local storage as fallback
             const localStorageKey = getLocalStorageKey(userId, 'business_info');
             localStorage.setItem(localStorageKey, JSON.stringify({
               businesses: businesses,
               user_id: userId,
               updated_at: new Date().toISOString()
             }));
-            
             debugLocalStorage(userId);
-            
             toast.success('Business information saved locally. It will be synced when the database is available.');
             return { data: businesses, error: null, localSaved: true };
           }
         }
         
-        // Delete existing business records for this user
-        // @ts-ignore - Type issues with the new table
         const { error: deleteError } = await supabase
           .from('business_info')
           .delete()
@@ -274,9 +242,7 @@ export function useDatabase() {
           throw deleteError;
         }
         
-        // Insert new business records
         for (const business of businesses) {
-          // @ts-ignore - Type issues with the new table
           const { error: insertError } = await supabase
             .from('business_info')
             .insert({
@@ -298,7 +264,6 @@ export function useDatabase() {
         console.error("Database error during business info save:", err);
         setLastError(err);
         
-        // Fallback to local storage for any database error
         const localStorageKey = getLocalStorageKey(userId, 'business_info');
         localStorage.setItem(localStorageKey, JSON.stringify({
           businesses: businesses,
@@ -321,7 +286,6 @@ export function useDatabase() {
     }
   };
 
-  // New function to fetch business information
   const fetchBusinessInfo = async () => {
     if (!verifyAuth()) {
       return { error: 'Not authenticated' };
@@ -336,11 +300,9 @@ export function useDatabase() {
         return { error: 'Invalid user ID' };
       }
       
-      // Check database connection first
       const connectionStatus = await checkConnection();
       console.log("Database connection status before fetch:", connectionStatus);
       
-      // First check local storage
       const localStorageKey = getLocalStorageKey(userId, 'business_info');
       const localData = localStorage.getItem(localStorageKey);
       let localBusinesses = null;
@@ -357,30 +319,25 @@ export function useDatabase() {
         }
       }
       
-      // If we have a database connection issue or known schema issue, return local data if available
       if (!connectionStatus.connected || hasSchemaIssue()) {
         console.log("Database connection issue, using local business data");
         return { data: localBusinesses || [], error: null, localData: true };
       }
       
-      // Try database if we have a connection
       if (connectionStatus.connected) {
         try {
           console.log("Attempting to fetch business info from database");
-          // @ts-ignore - Type issues with the new table
           const { data, error } = await supabase
             .from('business_info')
             .select('*')
             .eq('user_id', userId);
   
           if (error) {
-            // Check if it's because the table doesn't exist
             if (error.code === 'PGRST116' || error.message.includes('relation "business_info" does not exist')) {
               console.log("Business info table doesn't exist yet:", error);
               return { data: localBusinesses || [], error: null, localData: !!localBusinesses };
             }
             
-            // Check if it's a schema error
             if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
               console.log("Schema error fetching business info:", error);
               sessionStorage.setItem('db_schema_error', 'true');
@@ -392,7 +349,6 @@ export function useDatabase() {
   
           console.log("Business info fetched from database:", data);
           
-          // If we got data from the database, it should take precedence over local data
           if (data && data.length > 0) {
             return { data, error: null };
           }
@@ -401,7 +357,6 @@ export function useDatabase() {
         }
       }
       
-      // Return local data if database fetch failed or returned no data
       return { data: localBusinesses || [], error: null, localData: !!localBusinesses };
       
     } catch (error: any) {
@@ -415,42 +370,57 @@ export function useDatabase() {
   };
 
   const saveAssets = async (assets: any[]) => {
-    if (!user) return { error: 'Not authenticated' };
-    
-    setLoading(true);
     try {
+      if (!user) return { error: 'Not authenticated' };
+      
+      setLoading(true);
+      
       const userId = user.id?.toString();
       if (!userId) {
         return { error: 'Invalid user ID' };
       }
       
-      await supabase
+      const { error: deleteError } = await supabase
         .from('assets')
         .delete()
         .eq('user_id', userId);
       
-      const formattedAssets = assets.map(asset => ({
-        name: asset.name || 'Unnamed Asset',
-        type: asset.type,
-        value: parseFloat(asset.value) || 0,
-        ownership_percentage: parseFloat(asset.ownershipPercentage) || 100,
-        description: asset.description || '',
-        user_id: userId
-      }));
+      if (deleteError) {
+        console.error('Error deleting existing assets:', deleteError);
+        throw deleteError;
+      }
+      
+      const formattedAssets = assets.filter(asset => asset.name.trim() !== '' || parseFloat(asset.value) > 0)
+        .map(asset => ({
+          name: asset.name || 'Unnamed Asset',
+          type: asset.type,
+          value: parseFloat(asset.value) || 0,
+          ownership_percentage: parseFloat(asset.ownershipPercentage) || 100,
+          description: asset.description || '',
+          user_id: userId
+        }));
+
+      if (formattedAssets.length === 0) {
+        toast.success('No assets to save');
+        return { data: [], error: null };
+      }
 
       for (const asset of formattedAssets) {
         const { error } = await supabase
           .from('assets')
           .insert(asset);
           
-        if (error) throw error;
+        if (error) {
+          console.error('Error inserting asset:', error);
+          throw error;
+        }
       }
       
       toast.success('Assets saved successfully');
       return { data: formattedAssets, error: null };
     } catch (error: any) {
       console.error('Error saving assets:', error);
-      toast.error('Failed to save assets');
+      toast.error('Failed to save assets: ' + error.message);
       return { data: null, error: error.message };
     } finally {
       setLoading(false);
@@ -458,44 +428,59 @@ export function useDatabase() {
   };
 
   const saveLiabilities = async (liabilities: any[]) => {
-    if (!user) return { error: 'Not authenticated' };
-    
-    setLoading(true);
     try {
+      if (!user) return { error: 'Not authenticated' };
+      
+      setLoading(true);
+      
       const userId = user.id?.toString();
       if (!userId) {
         return { error: 'Invalid user ID' };
       }
       
-      await supabase
+      const { error: deleteError } = await supabase
         .from('liabilities')
         .delete()
         .eq('user_id', userId);
       
-      const formattedLiabilities = liabilities.map(liability => ({
-        name: liability.name || 'Unnamed Liability',
-        type: liability.type,
-        amount: parseFloat(liability.amount) || 0,
-        interest_rate: parseFloat(liability.interestRate) || 0,
-        associated_asset_id: liability.associatedAssetId ? 
-          liability.associatedAssetId > 0 ? liability.associatedAssetId : null : null,
-        ownership_percentage: parseFloat(liability.ownershipPercentage) || 100,
-        user_id: userId
-      }));
+      if (deleteError) {
+        console.error('Error deleting existing liabilities:', deleteError);
+        throw deleteError;
+      }
+      
+      const formattedLiabilities = liabilities.filter(liability => liability.name.trim() !== '' || parseFloat(liability.amount) > 0)
+        .map(liability => ({
+          name: liability.name || 'Unnamed Liability',
+          type: liability.type,
+          amount: parseFloat(liability.amount) || 0,
+          interest_rate: parseFloat(liability.interestRate) || 0,
+          associated_asset_id: liability.associatedAssetId ? 
+            liability.associatedAssetId > 0 ? liability.associatedAssetId : null : null,
+          ownership_percentage: parseFloat(liability.ownershipPercentage) || 100,
+          user_id: userId
+        }));
+      
+      if (formattedLiabilities.length === 0) {
+        toast.success('No liabilities to save');
+        return { data: [], error: null };
+      }
 
       for (const liability of formattedLiabilities) {
         const { error } = await supabase
           .from('liabilities')
           .insert(liability);
           
-        if (error) throw error;
+        if (error) {
+          console.error('Error inserting liability:', error);
+          throw error;
+        }
       }
       
       toast.success('Liabilities saved successfully');
       return { data: formattedLiabilities, error: null };
     } catch (error: any) {
       console.error('Error saving liabilities:', error);
-      toast.error('Failed to save liabilities');
+      toast.error('Failed to save liabilities: ' + error.message);
       return { data: null, error: error.message };
     } finally {
       setLoading(false);
@@ -503,41 +488,56 @@ export function useDatabase() {
   };
 
   const saveIncome = async (incomeData: any[]) => {
-    if (!user) return { error: 'Not authenticated' };
-    
-    setLoading(true);
     try {
+      if (!user) return { error: 'Not authenticated' };
+      
+      setLoading(true);
+      
       const userId = user.id?.toString();
       if (!userId) {
         return { error: 'Invalid user ID' };
       }
       
-      await supabase
+      const { error: deleteError } = await supabase
         .from('income')
         .delete()
         .eq('user_id', userId);
       
-      const formattedIncome = incomeData.map(income => ({
-        source: income.source || 'Unnamed Source',
-        type: income.type,
-        amount: parseFloat(income.amount) || 0,
-        frequency: income.frequency,
-        user_id: userId
-      }));
+      if (deleteError) {
+        console.error('Error deleting existing income entries:', deleteError);
+        throw deleteError;
+      }
+      
+      const formattedIncome = incomeData.filter(income => income.source.trim() !== '' || parseFloat(income.amount) > 0)
+        .map(income => ({
+          source: income.source || 'Unnamed Source',
+          type: income.type,
+          amount: parseFloat(income.amount) || 0,
+          frequency: income.frequency,
+          user_id: userId
+        }));
+
+      if (formattedIncome.length === 0) {
+        toast.success('No income data to save');
+        return { data: [], error: null };
+      }
 
       for (const income of formattedIncome) {
         const { error } = await supabase
           .from('income')
           .insert(income);
           
-        if (error) throw error;
+        if (error) {
+          console.error('Error inserting income:', error);
+          throw error;
+        }
       }
       
       toast.success('Income information saved successfully');
       return { data: formattedIncome, error: null };
     } catch (error: any) {
       console.error('Error saving income:', error);
-      toast.error('Failed to save income information');
+      toast.error('Failed to save income information: ' + error.message);
       return { data: null, error: error.message };
     } finally {
       setLoading(false);
@@ -545,41 +545,56 @@ export function useDatabase() {
   };
 
   const saveExpenses = async (expensesData: any[]) => {
-    if (!user) return { error: 'Not authenticated' };
-    
-    setLoading(true);
     try {
+      if (!user) return { error: 'Not authenticated' };
+      
+      setLoading(true);
+      
       const userId = user.id?.toString();
       if (!userId) {
         return { error: 'Invalid user ID' };
       }
       
-      await supabase
+      const { error: deleteError } = await supabase
         .from('expenses')
         .delete()
         .eq('user_id', userId);
       
-      const formattedExpenses = expensesData.map(expense => ({
-        name: expense.name || 'Unnamed Expense',
-        category: expense.category,
-        amount: parseFloat(expense.amount) || 0,
-        frequency: expense.frequency,
-        user_id: userId
-      }));
+      if (deleteError) {
+        console.error('Error deleting existing expense entries:', deleteError);
+        throw deleteError;
+      }
+      
+      const formattedExpenses = expensesData.filter(expense => expense.name.trim() !== '' || parseFloat(expense.amount) > 0)
+        .map(expense => ({
+          name: expense.name || 'Unnamed Expense',
+          category: expense.category,
+          amount: parseFloat(expense.amount) || 0,
+          frequency: expense.frequency,
+          user_id: userId
+        }));
+
+      if (formattedExpenses.length === 0) {
+        toast.success('No expense data to save');
+        return { data: [], error: null };
+      }
 
       for (const expense of formattedExpenses) {
         const { error } = await supabase
           .from('expenses')
           .insert(expense);
           
-        if (error) throw error;
+        if (error) {
+          console.error('Error inserting expense:', error);
+          throw error;
+        }
       }
       
       toast.success('Expense information saved successfully');
       return { data: formattedExpenses, error: null };
     } catch (error: any) {
       console.error('Error saving expenses:', error);
-      toast.error('Failed to save expense information');
+      toast.error('Failed to save expense information: ' + error.message);
       return { data: null, error: error.message };
     } finally {
       setLoading(false);
@@ -600,11 +615,9 @@ export function useDatabase() {
         return { error: 'Invalid user ID' };
       }
       
-      // Check database connection first
       const connectionStatus = await checkConnection();
       console.log("Database connection status before fetch:", connectionStatus);
       
-      // If we have a known database issue, try local storage first
       if (!connectionStatus.connected || hasSchemaIssue()) {
         console.log("Database connection issue, checking local storage first");
         const localStorageKey = getLocalStorageKey(userId, 'personal_info');
@@ -623,7 +636,6 @@ export function useDatabase() {
             state: parsedData.state || '',
             zipCode: parsedData.zipCode || '',
             birthDate: parsedData.birthDate ? new Date(parsedData.birthDate) : undefined,
-            // Add new fields for retrieval from local storage
             occupation: parsedData.occupation || '',
             annualIncome: parsedData.annualIncome || '',
             profileImage: parsedData.profileImage || null,
@@ -632,7 +644,6 @@ export function useDatabase() {
         }
       }
       
-      // Try database if we have a connection
       if (connectionStatus.connected) {
         try {
           console.log("Attempting to fetch from database");
@@ -643,7 +654,6 @@ export function useDatabase() {
             .maybeSingle();
   
           if (error) {
-            // Check if it's a schema error
             if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
               console.log("Schema error, table might not exist yet:", error);
               sessionStorage.setItem('db_schema_error', 'true');
@@ -668,7 +678,6 @@ export function useDatabase() {
               state: data.state || '',
               zipCode: data.zip_code || '',
               birthDate: data.birth_date ? new Date(data.birth_date) : undefined,
-              // Add new fields
               occupation: data.occupation || '',
               annualIncome: data.annual_income?.toString() || '',
               profileImage: data.profile_image || null,
@@ -680,7 +689,6 @@ export function useDatabase() {
         }
       }
       
-      // Fallback to local storage if database fetch failed
       console.log("Checking local storage as fallback");
       const localStorageKey = getLocalStorageKey(userId, 'personal_info');
       const localData = localStorage.getItem(localStorageKey);
@@ -698,7 +706,6 @@ export function useDatabase() {
           state: parsedData.state || '',
           zipCode: parsedData.zipCode || '',
           birthDate: parsedData.birthDate ? new Date(parsedData.birthDate) : undefined,
-          // Add new fields for retrieval from local storage
           occupation: parsedData.occupation || '',
           annualIncome: parsedData.annualIncome || '',
           profileImage: parsedData.profileImage || null,
@@ -706,7 +713,6 @@ export function useDatabase() {
         return { data: transformedData, error: null, localData: true };
       }
       
-      // Return empty data if nothing found
       return { data: {
         firstName: '',
         lastName: '',
@@ -717,7 +723,6 @@ export function useDatabase() {
         state: '',
         zipCode: '',
         birthDate: undefined,
-        // Add new fields with defaults
         occupation: '',
         annualIncome: '',
         profileImage: null,
@@ -740,7 +745,6 @@ export function useDatabase() {
         state: '',
         zipCode: '',
         birthDate: undefined,
-        // Add new fields with defaults
         occupation: '',
         annualIncome: '',
         profileImage: null,
@@ -751,22 +755,29 @@ export function useDatabase() {
   };
 
   const fetchAssets = async () => {
-    if (!user) return { error: 'Not authenticated' };
-    
-    setLoading(true);
     try {
+      if (!user) return { error: 'Not authenticated' };
+      
+      setLoading(true);
+      
       const userId = user.id?.toString();
       if (!userId) {
         return { error: 'Invalid user ID' };
       }
+      
+      console.log("Fetching assets for user:", userId);
       
       const { data, error } = await supabase
         .from('assets')
         .select('*')
         .eq('user_id', userId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching assets:', error);
+        throw error;
+      }
       
+      console.log("Assets fetched successfully:", data);
       return { data: data || [], error: null };
     } catch (error: any) {
       console.error('Error fetching assets:', error);
@@ -777,22 +788,29 @@ export function useDatabase() {
   };
 
   const fetchLiabilities = async () => {
-    if (!user) return { error: 'Not authenticated' };
-    
-    setLoading(true);
     try {
+      if (!user) return { error: 'Not authenticated' };
+      
+      setLoading(true);
+      
       const userId = user.id?.toString();
       if (!userId) {
         return { error: 'Invalid user ID' };
       }
+      
+      console.log("Fetching liabilities for user:", userId);
       
       const { data, error } = await supabase
         .from('liabilities')
         .select('*')
         .eq('user_id', userId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching liabilities:', error);
+        throw error;
+      }
       
+      console.log("Liabilities fetched successfully:", data);
       return { data: data || [], error: null };
     } catch (error: any) {
       console.error('Error fetching liabilities:', error);
@@ -803,22 +821,29 @@ export function useDatabase() {
   };
 
   const fetchIncome = async () => {
-    if (!user) return { error: 'Not authenticated' };
-    
-    setLoading(true);
     try {
+      if (!user) return { error: 'Not authenticated' };
+      
+      setLoading(true);
+      
       const userId = user.id?.toString();
       if (!userId) {
         return { error: 'Invalid user ID' };
       }
+      
+      console.log("Fetching income for user:", userId);
       
       const { data, error } = await supabase
         .from('income')
         .select('*')
         .eq('user_id', userId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching income:', error);
+        throw error;
+      }
       
+      console.log("Income fetched successfully:", data);
       return { data: data || [], error: null };
     } catch (error: any) {
       console.error('Error fetching income:', error);
@@ -829,22 +854,29 @@ export function useDatabase() {
   };
 
   const fetchExpenses = async () => {
-    if (!user) return { error: 'Not authenticated' };
-    
-    setLoading(true);
     try {
+      if (!user) return { error: 'Not authenticated' };
+      
+      setLoading(true);
+      
       const userId = user.id?.toString();
       if (!userId) {
         return { error: 'Invalid user ID' };
       }
+      
+      console.log("Fetching expenses for user:", userId);
       
       const { data, error } = await supabase
         .from('expenses')
         .select('*')
         .eq('user_id', userId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching expenses:', error);
+        throw error;
+      }
       
+      console.log("Expenses fetched successfully:", data);
       return { data: data || [], error: null };
     } catch (error: any) {
       console.error('Error fetching expenses:', error);
@@ -927,13 +959,11 @@ export function useDatabase() {
     }
   };
 
-  // Check if database connection is currently available
   const checkDatabaseStatus = async () => {
     const status = await checkConnection();
     return status.connected;
   };
 
-  // Try to sync locally stored data to database
   const syncLocalData = async () => {
     if (!user) return { error: 'Not authenticated' };
     
@@ -956,8 +986,6 @@ export function useDatabase() {
       if (localData) {
         try {
           const parsedData = JSON.parse(localData);
-          // Implement sync logic for each data type
-          // This is a placeholder - you'd need to implement the specific sync logic
           results[dataType] = { synced: true };
         } catch (error) {
           success = false;
@@ -976,18 +1004,16 @@ export function useDatabase() {
     checkDatabaseStatus,
     syncLocalData,
     savePersonalInfo,
+    fetchPersonalInfo,
     saveBusinessInfo,
     fetchBusinessInfo,
     saveAssets,
     saveLiabilities,
     saveIncome,
     saveExpenses,
-    fetchPersonalInfo,
     fetchAssets,
     fetchLiabilities,
     fetchIncome,
-    fetchExpenses,
-    adminFetchAllUsers,
-    adminFetchUserData
+    fetchExpenses
   };
 }
