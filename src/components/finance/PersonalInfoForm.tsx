@@ -179,15 +179,15 @@ const PersonalInfoForm = () => {
           console.log("Personal info data loaded:", data);
           setPersonalInfo(prev => ({
             ...prev,
-            firstName: data.first_name || '',
-            lastName: data.last_name || '',
+            firstName: data.firstName || '',
+            lastName: data.lastName || '',
             email: data.email || '',
             phone: data.phone || '',
             address: data.address || '',
             city: data.city || '',
             state: data.state || '',
-            zipCode: data.zip_code || '',
-            birthDate: data.birth_date ? new Date(data.birth_date) : undefined,
+            zipCode: data.zipCode || '',
+            birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
           }));
         }
       } catch (err) {
@@ -308,7 +308,7 @@ const PersonalInfoForm = () => {
       
       if (error) {
         console.error("Error saving personal info:", error);
-        toast.error("Failed to save personal information");
+        toast.error("Failed to save personal information: " + error);
       } else {
         toast.success("Personal information saved successfully!");
       }

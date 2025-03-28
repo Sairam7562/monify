@@ -20,6 +20,9 @@ export const supabase = createClient<Database>(
       flowType: 'pkce',
       storage: localStorage,
     },
+    db: {
+      schema: 'public',
+    },
   }
 );
 
