@@ -1,10 +1,10 @@
 
-import React, { useState } from "react";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { toast } from "sonner";
-import { User, verifyTwoFactor } from "@/services/authService";
+import { User } from "@/services/userService";
+import { useTwoFactorAuth } from "@/hooks/useTwoFactorAuth";
 
 interface TwoFactorAuthProps {
   user: User;
@@ -13,47 +13,16 @@ interface TwoFactorAuthProps {
 }
 
 const TwoFactorAuth = ({ user, onVerified, onCancel }: TwoFactorAuthProps) => {
-  const [otp, setOtp] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [method, setMethod] = useState<"app" | "sms">("app");
-  const [resendCooldown, setResendCooldown] = useState(0);
-
-  const handleVerify = async () => {
-    setIsLoading(true);
-    try {
-      const success = await verifyTwoFactor(user, otp);
-      if (success) {
-        toast.success("Two-factor authentication verified");
-        onVerified();
-      } else {
-        toast.error("Invalid verification code");
-        setOtp("");
-      }
-    } catch (error) {
-      toast.error("Verification failed");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleResendCode = () => {
-    if (resendCooldown > 0) return;
-    
-    toast.success(`A new code has been sent to your ${method === "sms" ? "phone" : "email"}`);
-    console.log(`Resending verification code via ${method}`);
-    
-    // Start cooldown timer
-    setResendCooldown(60);
-    const timer = setInterval(() => {
-      setResendCooldown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
+  const {
+    otp,
+    setOtp,
+    isLoading,
+    method,
+    setMethod,
+    resendCooldown,
+    handleVerify,
+    handleResendCode
+  } = useTwoFactorAuth(user, onVerified, onCancel);
 
   return (
     <Card className="w-full max-w-md">
@@ -105,7 +74,7 @@ const TwoFactorAuth = ({ user, onVerified, onCancel }: TwoFactorAuthProps) => {
             variant="link" 
             size="sm" 
             onClick={handleResendCode}
-            disabled={resendCooldown > 0}
+            disabled={resendCooldown > 0 || isLoading}
           >
             {resendCooldown > 0 
               ? `Resend code in ${resendCooldown}s` 
@@ -114,7 +83,7 @@ const TwoFactorAuth = ({ user, onVerified, onCancel }: TwoFactorAuthProps) => {
         </div>
       </CardContent>
       <CardFooter className="flex justify-between">
-        <Button variant="outline" onClick={onCancel}>
+        <Button variant="outline" onClick={onCancel} disabled={isLoading}>
           Cancel
         </Button>
         <Button onClick={handleVerify} disabled={otp.length !== 6 || isLoading}>
