@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -18,8 +17,11 @@ import { addUserByAdmin } from '@/services/authService';
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { useForm } from 'react-hook-form';
 import { Switch } from "@/components/ui/switch";
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 
 const AdminUsers = () => {
+  const { supabaseUser } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -39,7 +41,6 @@ const AdminUsers = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
 
-  // Load users when component mounts
   useEffect(() => {
     setUsers(getAllUsers());
   }, []);
@@ -75,7 +76,6 @@ const AdminUsers = () => {
     
     setIsLoading(true);
     try {
-      // Simulate sending password reset email
       await new Promise(resolve => setTimeout(resolve, 1000));
       console.log(`Password reset email sent to ${userToReset.name} (${userToReset.email})`);
       toast.success(`Password reset email sent to ${userToReset.email}`);
@@ -113,34 +113,76 @@ const AdminUsers = () => {
   const handleAddUser = async () => {
     setIsLoading(true);
     try {
-      const addedUser = await addUserByAdmin(
-        newUser.name, 
-        newUser.email, 
-        newUser.role, 
-        newUser.plan
-      );
+      const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase();
       
-      if (addedUser) {
+      const { data: userData, error: createError } = await supabase.auth.admin.createUser({
+        email: newUser.email,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: {
+          name: newUser.name,
+          role: newUser.role,
+          plan: newUser.plan,
+          twoFactorEnabled: newUser.enableTwoFactor,
+          status: 'active'
+        }
+      });
+      
+      if (createError) {
+        toast.error(`Failed to create user: ${createError.message}`);
+        return;
+      }
+      
+      if (userData?.user) {
+        await sendInvitationEmail(
+          userData.user.id,
+          newUser.email, 
+          newUser.name, 
+          tempPassword
+        );
+        
         setUsers(getAllUsers());
         setIsAddUserModalOpen(false);
         setNewUser({ name: '', email: '', role: 'User', plan: 'Basic', enableTwoFactor: false });
         toast.success(`${newUser.name} has been added successfully and an invitation email has been sent.`);
       }
     } catch (error) {
-      toast.error("Failed to add user");
+      console.error("Add user error:", error);
+      toast.error("Failed to add user. Make sure you have admin privileges.");
     } finally {
       setIsLoading(false);
     }
   };
 
+  const sendInvitationEmail = async (userId: string, email: string, name: string, tempPassword: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('send-invitation', {
+        body: {
+          userId,
+          email,
+          name,
+          tempPassword
+        }
+      });
+      
+      if (error) {
+        console.error("Error sending invitation:", error);
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Send invitation error:", error);
+      return false;
+    }
+  };
+
   const handleSendSupportMessage = (user: User) => {
-    // Simulate sending support message
     toast.success(`Support message sent to ${user.name}`);
     console.log(`Support message sent to ${user.name} (${user.email})`);
   };
 
   const handleAccessUserDashboard = (user: User) => {
-    // Simulate accessing user dashboard in view mode
     toast.success(`Accessing ${user.name}'s dashboard in view mode`);
     console.log(`Admin accessing ${user.name}'s dashboard in view mode`);
   };
