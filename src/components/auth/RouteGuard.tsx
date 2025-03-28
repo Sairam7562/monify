@@ -29,13 +29,21 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
         userRole: user?.role 
       });
 
-      const isEmailVerificationLink = 
-        window.location.href.includes('#access_token=') || 
-        window.location.href.includes('type=recovery') ||
-        window.location.href.includes('type=signup');
+      // Check if the current route is the verification route
+      if (location.pathname === '/verify-email') {
+        setIsChecking(false);
+        return;
+      }
+
+      // Check if this is a Supabase auth callback URL
+      const isAuthCallback = 
+        window.location.hash.includes('#access_token=') || 
+        window.location.hash.includes('type=recovery') ||
+        window.location.hash.includes('type=signup') ||
+        window.location.hash.includes('type=magiclink');
         
-      if (isEmailVerificationLink) {
-        console.log("Processing email verification link...");
+      if (isAuthCallback) {
+        console.log("Processing authentication callback...");
         // Let Supabase auth handle this on its own
         setIsChecking(false);
         return;

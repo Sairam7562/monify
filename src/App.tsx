@@ -20,6 +20,7 @@ import NotFound from "./pages/NotFound";
 import MasterAdminPage from "./pages/MasterAdminPage";
 import RouteGuard from "./components/auth/RouteGuard";
 import Index from "./pages/Index";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
 
 // Add print styles to handle printing financial statements
 import "./styles/print.css";
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<LoginPage />} />
               <Route path="/index" element={<Index />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
               
               {/* Protected routes */}
               <Route path="/dashboard" element={

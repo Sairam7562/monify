@@ -18,6 +18,8 @@ export const supabase = createClient<Database>(
       persistSession: true,
       detectSessionInUrl: true,
       flowType: 'pkce',
+      storage: localStorage,
+      redirectTo: window.location.origin + '/verify-email',
     },
   }
 );
