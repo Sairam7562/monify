@@ -98,6 +98,7 @@ const PersonalInfoForm = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [formSubmitting, setFormSubmitting] = useState(false);
+  const [dataLoadError, setDataLoadError] = useState<string | null>(null);
   
   const [personalInfo, setPersonalInfo] = useState<PersonalInfo>({
     profileImage: null,
@@ -162,6 +163,7 @@ const PersonalInfoForm = () => {
   useEffect(() => {
     const loadPersonalInfo = async () => {
       setIsLoading(true);
+      setDataLoadError(null);
       try {
         if (!user) {
           console.log("No authenticated user found");
@@ -174,7 +176,8 @@ const PersonalInfoForm = () => {
         
         if (error) {
           console.error("Error fetching personal info:", error);
-          toast.error("Failed to load your personal information");
+          setDataLoadError(error.toString());
+          return;
         }
         
         if (data) {
@@ -183,17 +186,18 @@ const PersonalInfoForm = () => {
             ...prev,
             firstName: data.firstName || '',
             lastName: data.lastName || '',
-            email: data.email || '',
+            email: data.email || user.email || '',
             phone: data.phone || '',
             address: data.address || '',
             city: data.city || '',
             state: data.state || '',
             zipCode: data.zipCode || '',
-            birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
+            dateOfBirth: data.birthDate ? new Date(data.birthDate) : undefined,
           }));
         }
       } catch (err) {
         console.error("Error in loadPersonalInfo:", err);
+        setDataLoadError("Failed to load personal information. Please try again later.");
       } finally {
         setIsLoading(false);
       }
@@ -314,7 +318,11 @@ const PersonalInfoForm = () => {
       } else {
         toast.success("Personal information saved successfully!");
         setTimeout(() => {
-          navigate('/dashboard');
+          if (user?.role === 'admin' || user?.role === 'Admin') {
+            navigate('/admin');
+          } else {
+            navigate('/dashboard');
+          }
         }, 1500);
       }
     } catch (err) {
@@ -358,6 +366,25 @@ const PersonalInfoForm = () => {
         <AlertTitle>Authentication Required</AlertTitle>
         <AlertDescription>
           You need to be logged in to view and save personal information.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (dataLoadError) {
+    return (
+      <Alert variant="destructive" className="mb-6">
+        <InfoIcon className="h-4 w-4" />
+        <AlertTitle>Error Loading Data</AlertTitle>
+        <AlertDescription>
+          {dataLoadError}
+          <Button 
+            variant="outline" 
+            className="mt-4 w-full" 
+            onClick={() => window.location.reload()}
+          >
+            Try Again
+          </Button>
         </AlertDescription>
       </Alert>
     );

@@ -294,9 +294,19 @@ export function useDatabase() {
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error("Error fetching personal info:", error);
-        throw error;
+      if (error) {
+        // Check if it's a schema error
+        if (error.code === 'PGRST106') {
+          console.error("Schema error, table might not exist yet:", error);
+          // Return empty data instead of throwing an error
+          return { data: null, error: null };
+        }
+        
+        // For other errors (except not found), log and throw
+        if (error.code !== 'PGRST116') {
+          console.error("Error fetching personal info:", error);
+          throw error;
+        }
       }
 
       console.log("Personal info fetched:", data);
@@ -304,24 +314,49 @@ export function useDatabase() {
       if (data) {
         // Transform the database column names to match form field names
         const transformedData = {
-          firstName: data?.first_name || '',
-          lastName: data?.last_name || '',
-          email: data?.email || '',
-          phone: data?.phone || '',
-          address: data?.address || '',
-          city: data?.city || '',
-          state: data?.state || '',
-          zipCode: data?.zip_code || '',
-          birthDate: data?.birth_date || null,
+          firstName: data.first_name || '',
+          lastName: data.last_name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          address: data.address || '',
+          city: data.city || '',
+          state: data.state || '',
+          zipCode: data.zip_code || '',
+          birthDate: data.birth_date ? new Date(data.birth_date) : undefined,
         };
         return { data: transformedData, error: null };
       }
       
-      return { data: null, error: null };
+      // Return empty data if nothing found (instead of null)
+      return { data: {
+        firstName: '',
+        lastName: '',
+        email: user?.email || '',
+        phone: '',
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        birthDate: undefined,
+      }, error: null };
     } catch (error: any) {
       console.error('Error fetching personal info:', error);
-      toast.error('Failed to load personal information');
-      return { data: null, error: error.message };
+      // Don't show toast for schema errors to avoid confusing the user
+      if (error.code !== 'PGRST106') {
+        toast.error('Failed to load personal information');
+      }
+      // Return empty data instead of error to avoid breaking the form
+      return { data: {
+        firstName: '',
+        lastName: '',
+        email: user?.email || '',
+        phone: '',
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        birthDate: undefined,
+      }, error: null };
     } finally {
       setLoading(false);
     }

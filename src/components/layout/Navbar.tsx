@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Menu } from 'lucide-react';
+import { Menu, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -13,9 +13,24 @@ interface NavbarProps {
 
 const Navbar = ({ showSidebarToggle = true }: NavbarProps) => {
   const { user, logout } = useAuth();
-  const isAdmin = user?.role === 'admin' || user?.role === 'Admin';
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    // Check for admin role when user data changes
+    if (user) {
+      // Check role in a case-insensitive way
+      const adminRole = 
+        typeof user.role === 'string' && 
+        (user.role.toLowerCase() === 'admin');
+      
+      console.log('User role check:', user.role, 'isAdmin:', adminRole);
+      setIsAdmin(adminRole);
+    } else {
+      setIsAdmin(false);
+    }
+  }, [user]);
 
   const handleLogout = async () => {
     try {
@@ -30,6 +45,11 @@ const Navbar = ({ showSidebarToggle = true }: NavbarProps) => {
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  const handleAdminDashboard = () => {
+    navigate('/admin-check');
+    setIsMobileMenuOpen(false);
   };
 
   return (
@@ -51,7 +71,8 @@ const Navbar = ({ showSidebarToggle = true }: NavbarProps) => {
           {user && (
             <>
               {isAdmin && (
-                <Button variant="outline" onClick={() => navigate('/admin-check')}>
+                <Button variant="outline" onClick={handleAdminDashboard} className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4" />
                   Admin Dashboard
                 </Button>
               )}
@@ -91,18 +112,23 @@ const Navbar = ({ showSidebarToggle = true }: NavbarProps) => {
               </SheetDescription>
             </SheetHeader>
             <div className="grid gap-4 py-4">
-              <Link to="/dashboard" className="hover:text-monify-purple-500 transition-colors block py-2">Dashboard</Link>
-              <Link to="/personal-info" className="hover:text-monify-purple-500 transition-colors block py-2">Personal Info</Link>
-              <Link to="/assets-liabilities" className="hover:text-monify-purple-500 transition-colors block py-2">Assets/Liabilities</Link>
-              <Link to="/income-expenses" className="hover:text-monify-purple-500 transition-colors block py-2">Income/Expenses</Link>
-              <Link to="/financial-statements" className="hover:text-monify-purple-500 transition-colors block py-2">Statements</Link>
-              <Link to="/ai-advisor" className="hover:text-monify-purple-500 transition-colors block py-2">AI Advisor</Link>
-              <Link to="/settings" className="hover:text-monify-purple-500 transition-colors block py-2">Settings</Link>
+              <Link to="/dashboard" className="hover:text-monify-purple-500 transition-colors block py-2" onClick={() => setIsMobileMenuOpen(false)}>Dashboard</Link>
+              <Link to="/personal-info" className="hover:text-monify-purple-500 transition-colors block py-2" onClick={() => setIsMobileMenuOpen(false)}>Personal Info</Link>
+              <Link to="/assets-liabilities" className="hover:text-monify-purple-500 transition-colors block py-2" onClick={() => setIsMobileMenuOpen(false)}>Assets/Liabilities</Link>
+              <Link to="/income-expenses" className="hover:text-monify-purple-500 transition-colors block py-2" onClick={() => setIsMobileMenuOpen(false)}>Income/Expenses</Link>
+              <Link to="/financial-statements" className="hover:text-monify-purple-500 transition-colors block py-2" onClick={() => setIsMobileMenuOpen(false)}>Statements</Link>
+              <Link to="/ai-advisor" className="hover:text-monify-purple-500 transition-colors block py-2" onClick={() => setIsMobileMenuOpen(false)}>AI Advisor</Link>
+              <Link to="/settings" className="hover:text-monify-purple-500 transition-colors block py-2" onClick={() => setIsMobileMenuOpen(false)}>Settings</Link>
               
               {user && (
                 <>
                   {isAdmin && (
-                    <Button variant="outline" onClick={() => {navigate('/admin-check'); setIsMobileMenuOpen(false);}} className="w-full">
+                    <Button 
+                      variant="outline" 
+                      onClick={handleAdminDashboard} 
+                      className="w-full flex items-center justify-center gap-2"
+                    >
+                      <ShieldCheck className="h-4 w-4" />
                       Admin Dashboard
                     </Button>
                   )}
