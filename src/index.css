@@ -43,6 +43,11 @@
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 263 80% 40%;
     --sidebar-ring: 263 90% 51%;
+    
+    /* Set these directly via JavaScript too */
+    --monify-purple-600: #7C3AED;
+    --monify-pink-600: #DB2777;
+    --monify-cyan-500: #06B6D4;
   }
 
   .dark {
@@ -135,4 +140,27 @@
   .monify-stat-card {
     @apply bg-white rounded-xl shadow-sm p-4 border border-gray-100;
   }
+}
+
+/* Force sidebar text visibility */
+[data-sidebar="sidebar"] {
+  color: white !important;
+}
+
+[data-sidebar="menu-button"] {
+  color: white !important;
+}
+
+[data-sidebar="menu-item"] [data-sidebar="menu-button"]:hover {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+}
+
+[data-sidebar="menu-item"] [data-sidebar="menu-button"][data-active="true"] {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+}
+
+[data-sidebar="group-label"] {
+  color: rgba(255, 255, 255, 0.8) !important;
 }

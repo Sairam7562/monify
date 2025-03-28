@@ -87,6 +87,11 @@ const AdminBranding = () => {
         </div>
       ),
     });
+    
+    // Force a re-render of the page to show the changes
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
   };
   
   const cancelChanges = () => {

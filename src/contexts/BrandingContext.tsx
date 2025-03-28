@@ -113,8 +113,16 @@ export const BrandingProvider: React.FC<{ children: ReactNode }> = ({ children }
     
     // Also update sidebar colors for consistency
     document.documentElement.style.setProperty('--sidebar-background', settings.primaryColor);
+    document.documentElement.style.setProperty('--sidebar-foreground', '#FFFFFF');
     document.documentElement.style.setProperty('--sidebar-primary', settings.secondaryColor);
+    document.documentElement.style.setProperty('--sidebar-primary-foreground', '#FFFFFF');
     document.documentElement.style.setProperty('--sidebar-accent', settings.accentColor);
+    document.documentElement.style.setProperty('--sidebar-accent-foreground', '#FFFFFF');
+    document.documentElement.style.setProperty('--sidebar-border', `rgba(255, 255, 255, 0.2)`);
+    
+    // Directly set the CSS for better visibility in sidebar and menus
+    document.documentElement.style.setProperty('--sidebar-menu-foreground', '#FFFFFF');
+    document.documentElement.style.setProperty('--sidebar-menu-background', 'rgba(255, 255, 255, 0.1)');
     
     // Update document metadata
     document.title = settings.metaTitle;
@@ -148,6 +156,30 @@ export const BrandingProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (favicon && settings.favicon) {
       favicon.setAttribute('href', settings.favicon);
     }
+    
+    // Add additional style to ensure text visibility in sidebar
+    const existingSidebarStyle = document.getElementById('sidebar-visibility-fix');
+    if (existingSidebarStyle) {
+      existingSidebarStyle.remove();
+    }
+    
+    const sidebarStyle = document.createElement('style');
+    sidebarStyle.id = 'sidebar-visibility-fix';
+    sidebarStyle.textContent = `
+      [data-sidebar="sidebar"] {
+        color: white;
+      }
+      [data-sidebar="menu-button"] {
+        color: white;
+      }
+      [data-sidebar="sidebar"] [data-sidebar="menu-button"]:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+      }
+      [data-sidebar="group-label"] {
+        color: rgba(255, 255, 255, 0.7);
+      }
+    `;
+    document.head.appendChild(sidebarStyle);
   };
   
   return (

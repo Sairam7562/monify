@@ -39,6 +39,7 @@ const SidebarItem = ({ icon, label, href, isActive }: SidebarItemProps) => {
         tooltip={label}
         isActive={isActive}
         asChild
+        className="text-white hover:bg-white/20 hover:text-white data-[active=true]:bg-white/20 data-[active=true]:text-white"
       >
         <Link to={href} className="flex items-center gap-3">
           {icon}
@@ -109,7 +110,7 @@ const Sidebar = () => {
 
   return (
     <SidebarComponent
-      className="bg-sidebar"
+      className="bg-sidebar text-white"
       collapsible={state === "collapsed" ? "icon" : "offcanvas"}
     >
       <SidebarRail />
