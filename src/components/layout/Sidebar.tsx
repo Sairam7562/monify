@@ -12,6 +12,7 @@ import {
   Settings,
   HelpCircle,
   User,
+  Shield,
 } from 'lucide-react';
 import {
   Sidebar as SidebarComponent,
@@ -93,6 +94,11 @@ const Sidebar = () => {
       icon: <Settings className="h-5 w-5" />,
       label: 'Settings',
       href: '/settings',
+    },
+    {
+      icon: <Shield className="h-5 w-5" />,
+      label: 'Admin Dashboard',
+      href: '/admin',
     },
     {
       icon: <HelpCircle className="h-5 w-5" />,

@@ -15,6 +15,7 @@ import AIAdvisorPage from "./pages/AIAdvisorPage";
 import FinancialStatementsPage from "./pages/FinancialStatementsPage";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
+import MasterAdminPage from "./pages/MasterAdminPage";
 
 // Add print styles to handle printing financial statements
 import "./styles/print.css";
@@ -39,6 +40,7 @@ const App = () => (
           <Route path="/financial-statements" element={<FinancialStatementsPage />} />
           <Route path="/ai-advisor" element={<AIAdvisorPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/admin" element={<MasterAdminPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
