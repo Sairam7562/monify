@@ -13,6 +13,7 @@ import IncomeExpensesPage from "./pages/IncomeExpensesPage";
 import BusinessDashboardPage from "./pages/BusinessDashboardPage";
 import AIAdvisorPage from "./pages/AIAdvisorPage";
 import FinancialStatementsPage from "./pages/FinancialStatementsPage";
+import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
           <Route path="/business-dashboard" element={<BusinessDashboardPage />} />
           <Route path="/financial-statements" element={<FinancialStatementsPage />} />
           <Route path="/ai-advisor" element={<AIAdvisorPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
