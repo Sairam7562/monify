@@ -9,12 +9,12 @@ import { Eye, Search, RefreshCw, UserPlus, Trash2, Ban, CheckCircle, Mail, Shiel
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { 
-  User, 
-  getAllUsers, 
-  addUserByAdmin, 
-  deleteUser, 
-  toggleUserStatus 
-} from '@/services/authService';
+  User,
+  getAllUsers,
+  deleteUser,
+  toggleUserStatus,
+} from '@/services/userService';
+import { addUserByAdmin } from '@/services/authService';
 import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { useForm } from 'react-hook-form';
 import { Switch } from "@/components/ui/switch";

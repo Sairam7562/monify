@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Apple, Github, Mail, MessageSquare } from "lucide-react";
-import { registerUser, loginWithEmail, loginWithSocial, setCurrentUser, User } from "@/services/authService";
+import { registerUser, loginWithEmail, loginWithSocial, setCurrentUser } from "@/services/authService";
+import { User } from "@/services/userService";
 import TwoFactorAuth from "./TwoFactorAuth";
 
 const AuthForm = () => {
