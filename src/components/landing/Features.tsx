@@ -4,34 +4,40 @@ import { ChartBar, FileText, PieChart, CircleDollarSign, MessageSquare, Download
 
 const features = [
   {
-    title: "Financial Dashboards",
-    description: "View your complete financial picture with customizable dashboards that give you insights at a glance.",
-    icon: <ChartBar className="h-10 w-10 text-navido-blue-500" />,
+    title: "Colorful Dashboards",
+    description: "View your finances with vibrant, easy-to-understand charts that make tracking money actually fun.",
+    icon: <ChartBar className="h-10 w-10 text-monify-purple-500" />,
+    bgColor: "bg-monify-purple-100",
   },
   {
-    title: "Statement Generation",
-    description: "Create professional financial statements automatically based on your input data.",
-    icon: <FileText className="h-10 w-10 text-navido-blue-500" />,
+    title: "Playful Reports",
+    description: "Generate eye-catching financial statements that bring your numbers to life.",
+    icon: <FileText className="h-10 w-10 text-monify-pink-500" />,
+    bgColor: "bg-monify-pink-100",
   },
   {
-    title: "Business Performance",
-    description: "Track and analyze your business performance with detailed metrics and visualizations.",
-    icon: <PieChart className="h-10 w-10 text-navido-blue-500" />,
+    title: "Business Insights",
+    description: "Track business performance with animated visualizations that celebrate your growth.",
+    icon: <PieChart className="h-10 w-10 text-monify-orange-500" />,
+    bgColor: "bg-monify-orange-100",
   },
   {
-    title: "Affordability Analysis",
-    description: "Calculate what you can afford for home loans, business investments, and major purchases.",
-    icon: <CircleDollarSign className="h-10 w-10 text-navido-blue-500" />,
+    title: "Smart Budgeting",
+    description: "Set and reach financial goals with interactive tools that reward your progress.",
+    icon: <CircleDollarSign className="h-10 w-10 text-monify-cyan-500" />,
+    bgColor: "bg-monify-cyan-100",
   },
   {
-    title: "AI Financial Advisor",
-    description: "Get personalized financial advice and recommendations from our AI-powered system.",
-    icon: <MessageSquare className="h-10 w-10 text-navido-blue-500" />,
+    title: "Friendly AI Advisor",
+    description: "Get personalized financial advice from our cheerful AI assistant that speaks human, not finance.",
+    icon: <MessageSquare className="h-10 w-10 text-monify-purple-500" />,
+    bgColor: "bg-monify-purple-100",
   },
   {
-    title: "Export & Download",
-    description: "Download your financial statements as professional PDF documents for offline use.",
-    icon: <Download className="h-10 w-10 text-navido-blue-500" />,
+    title: "Share Your Success",
+    description: "Download and share your financial wins with beautiful, customizable reports.",
+    icon: <Download className="h-10 w-10 text-monify-pink-500" />,
+    bgColor: "bg-monify-pink-100",
   },
 ];
 
@@ -41,10 +47,10 @@ const Features = () => {
       <div className="container mx-auto">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            Powerful Financial Tools
+            Finance Made Delightful
           </h2>
           <p className="text-lg text-gray-600">
-            Everything you need to manage your personal and business finances in one place.
+            Who said money management has to be boring? Not us!
           </p>
         </div>
         
@@ -52,9 +58,9 @@ const Features = () => {
           {features.map((feature, index) => (
             <div 
               key={index} 
-              className="navido-feature-card hover:-translate-y-1 transition-transform duration-300"
+              className="bg-white rounded-xl shadow-md p-6 border border-gray-100 hover:-translate-y-2 transition-all duration-300"
             >
-              <div className="mb-4">{feature.icon}</div>
+              <div className={`mb-4 p-3 rounded-full inline-block ${feature.bgColor}`}>{feature.icon}</div>
               <h3 className="text-xl font-semibold mb-2 text-gray-900">{feature.title}</h3>
               <p className="text-gray-600">{feature.description}</p>
             </div>

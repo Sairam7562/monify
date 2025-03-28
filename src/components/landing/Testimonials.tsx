@@ -3,22 +3,28 @@ import React from 'react';
 
 const testimonials = [
   {
-    quote: "Finance Navido has transformed how I manage my business finances. The insights and reports are invaluable.",
+    quote: "Monify turned my dreaded monthly budget review into something I actually look forward to!",
     author: "Sarah Johnson",
     role: "Small Business Owner",
-    image: "https://placehold.co/100/0087C3/FFFFFF/png?text=SJ"
+    image: "https://placehold.co/100/8B5CF6/FFFFFF/png?text=SJ",
+    bgColor: "bg-monify-purple-50",
+    borderColor: "border-monify-purple-200"
   },
   {
-    quote: "The AI advisor helped me make better investment decisions. It's like having a financial planner at my fingertips.",
+    quote: "The colorful charts and celebration animations make tracking my savings goals addictive - in a good way!",
     author: "Michael Chen",
     role: "Investor",
-    image: "https://placehold.co/100/0087C3/FFFFFF/png?text=MC"
+    image: "https://placehold.co/100/EC4899/FFFFFF/png?text=MC",
+    bgColor: "bg-monify-pink-50",
+    borderColor: "border-monify-pink-200"
   },
   {
-    quote: "Creating professional financial statements used to take me hours. Now it's automated and takes minutes.",
+    quote: "As a freelancer, I never thought I'd say this: I'm actually having fun organizing my finances with Monify!",
     author: "Rachel Patel",
     role: "Freelance Consultant",
-    image: "https://placehold.co/100/0087C3/FFFFFF/png?text=RP"
+    image: "https://placehold.co/100/06B6D4/FFFFFF/png?text=RP",
+    bgColor: "bg-monify-cyan-50",
+    borderColor: "border-monify-cyan-200"
   },
 ];
 
@@ -28,10 +34,10 @@ const Testimonials = () => {
       <div className="container mx-auto">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            What Our Users Say
+            Happy Money, Happy People
           </h2>
           <p className="text-lg text-gray-600">
-            Join thousands of business owners and individuals who have transformed their financial management.
+            Join thousands who've transformed their relationship with money!
           </p>
         </div>
         
@@ -39,7 +45,7 @@ const Testimonials = () => {
           {testimonials.map((testimonial, index) => (
             <div 
               key={index} 
-              className="bg-gray-50 rounded-xl p-6 border border-gray-100 shadow-sm"
+              className={`rounded-xl p-6 ${testimonial.bgColor} ${testimonial.borderColor} border shadow-sm hover:shadow-md transition-shadow`}
             >
               <div className="flex items-center mb-4">
                 <div className="mr-4">

@@ -5,74 +5,74 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 271 100% 98%;
+    --foreground: 272 80% 24%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 272 80% 24%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 272 80% 24%;
 
-    --primary: 196 100% 38%;
+    --primary: 263 90% 51%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 172 100% 38%;
+    --secondary: 332 90% 57%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 263 20% 94%;
+    --muted-foreground: 263 30% 46%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 184 90% 43%;
+    --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 90% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 196 100% 38%;
+    --border: 263 20% 88%;
+    --input: 263 20% 88%;
+    --ring: 263 90% 51%;
 
-    --radius: 0.5rem;
+    --radius: 1rem;
 
-    --sidebar-background: 196 100% 12%;
+    --sidebar-background: 263 90% 51%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 196 100% 38%;
+    --sidebar-primary: 332 90% 57%;
     --sidebar-primary-foreground: 210 40% 98%;
-    --sidebar-accent: 172 100% 38%;
+    --sidebar-accent: 184 90% 43%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 196 100% 18%;
-    --sidebar-ring: 196 100% 38%;
+    --sidebar-border: 263 80% 40%;
+    --sidebar-ring: 263 90% 51%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 272 50% 8%;
     --foreground: 210 40% 98%;
 
-    --card: 222.2 47.4% 11.2%;
+    --card: 272 40% 12%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222.2 47.4% 11.2%;
+    --popover: 272 40% 12%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 196 90% 35%;
+    --primary: 263 90% 51%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 172 90% 35%;
+    --secondary: 332 90% 57%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 263 40% 20%;
+    --muted-foreground: 263 30% 75%;
 
-    --accent: 217.2 32.6% 17.5%;
+    --accent: 184 90% 43%;
     --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 80% 50%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 196 90% 35%;
+    --border: 263 40% 25%;
+    --input: 263 40% 25%;
+    --ring: 263 90% 51%;
   }
 }
 
@@ -104,31 +104,35 @@
 }
 
 @layer components {
-  .navido-card {
+  .monify-card {
     @apply bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow duration-300;
   }
   
-  .navido-hero {
-    @apply bg-gradient-to-br from-navido-blue-600 to-navido-blue-900 text-white;
+  .monify-hero {
+    @apply bg-gradient-to-br from-monify-purple-600 to-monify-pink-600 text-white;
   }
   
-  .navido-btn-primary {
-    @apply bg-navido-blue-500 hover:bg-navido-blue-600 text-white font-medium rounded-lg px-4 py-2 transition-colors duration-200;
+  .monify-btn-primary {
+    @apply bg-monify-purple-500 hover:bg-monify-purple-600 text-white font-medium rounded-lg px-4 py-2 transition-colors duration-200;
   }
   
-  .navido-btn-secondary {
-    @apply bg-navido-green-500 hover:bg-navido-green-600 text-white font-medium rounded-lg px-4 py-2 transition-colors duration-200;
+  .monify-btn-secondary {
+    @apply bg-monify-pink-500 hover:bg-monify-pink-600 text-white font-medium rounded-lg px-4 py-2 transition-colors duration-200;
   }
   
-  .navido-input {
-    @apply border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-navido-blue-500 focus:border-transparent;
+  .monify-btn-accent {
+    @apply bg-monify-cyan-500 hover:bg-monify-cyan-600 text-white font-medium rounded-lg px-4 py-2 transition-colors duration-200;
   }
   
-  .navido-feature-card {
+  .monify-input {
+    @apply border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-monify-purple-500 focus:border-transparent;
+  }
+  
+  .monify-feature-card {
     @apply bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-md p-6 border border-gray-100;
   }
   
-  .navido-stat-card {
+  .monify-stat-card {
     @apply bg-white rounded-xl shadow-sm p-4 border border-gray-100;
   }
 }

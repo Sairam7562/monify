@@ -42,8 +42,8 @@ const Navbar = ({ showSidebarToggle = true }: NavbarProps) => {
           )}
 
           <Link to="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-navido-blue-600 to-navido-green-600">
-              Finance Navido
+            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-monify-purple-600 to-monify-pink-600">
+              Monify
             </span>
           </Link>
         </div>
@@ -51,7 +51,7 @@ const Navbar = ({ showSidebarToggle = true }: NavbarProps) => {
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-5 w-5" />
-            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-monify-pink-500 text-[10px] text-white">
               3
             </span>
             <span className="sr-only">Notifications</span>

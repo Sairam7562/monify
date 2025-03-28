@@ -13,22 +13,22 @@ const LandingPage = () => {
       <header className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-sm border-b">
         <div className="container mx-auto flex items-center justify-between h-16 px-4">
           <div className="flex items-center gap-2">
-            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-navido-blue-600 to-navido-green-600">
-              Finance Navido
+            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-monify-purple-600 to-monify-pink-600">
+              Monify
             </span>
           </div>
           
           <nav className="hidden md:flex items-center gap-6">
-            <a href="#features" className="text-sm font-medium text-gray-700 hover:text-navido-blue-600 transition-colors">
+            <a href="#features" className="text-sm font-medium text-gray-700 hover:text-monify-purple-600 transition-colors">
               Features
             </a>
-            <a href="#testimonials" className="text-sm font-medium text-gray-700 hover:text-navido-blue-600 transition-colors">
+            <a href="#testimonials" className="text-sm font-medium text-gray-700 hover:text-monify-purple-600 transition-colors">
               Testimonials
             </a>
-            <a href="#pricing" className="text-sm font-medium text-gray-700 hover:text-navido-blue-600 transition-colors">
+            <a href="#pricing" className="text-sm font-medium text-gray-700 hover:text-monify-purple-600 transition-colors">
               Pricing
             </a>
-            <a href="#contact" className="text-sm font-medium text-gray-700 hover:text-navido-blue-600 transition-colors">
+            <a href="#contact" className="text-sm font-medium text-gray-700 hover:text-monify-purple-600 transition-colors">
               Contact
             </a>
           </nav>
@@ -40,7 +40,7 @@ const LandingPage = () => {
               </Button>
             </Link>
             <Link to="/register">
-              <Button className="bg-navido-blue-500 hover:bg-navido-blue-600">
+              <Button className="bg-monify-purple-500 hover:bg-monify-purple-600">
                 Get Started
               </Button>
             </Link>
@@ -83,19 +83,19 @@ const LandingPage = () => {
                   
                   <ul className="space-y-3 mb-6">
                     <li className="flex items-center">
-                      <svg className="w-4 h-4 text-navido-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-4 h-4 text-monify-cyan-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                       </svg>
                       Basic Net Worth Tracking
                     </li>
                     <li className="flex items-center">
-                      <svg className="w-4 h-4 text-navido-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-4 h-4 text-monify-cyan-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                       </svg>
                       Income & Expense Tracking
                     </li>
                     <li className="flex items-center">
-                      <svg className="w-4 h-4 text-navido-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-4 h-4 text-monify-cyan-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                       </svg>
                       Basic Financial Statements
@@ -111,8 +111,8 @@ const LandingPage = () => {
               </div>
               
               {/* Pro Plan */}
-              <div className="rounded-xl border-2 border-navido-blue-500 bg-white shadow-lg overflow-hidden relative">
-                <div className="absolute top-0 right-0 bg-navido-blue-500 text-white text-xs font-bold py-1 px-3 rounded-bl-lg">
+              <div className="rounded-xl border-2 border-monify-purple-500 bg-white shadow-lg overflow-hidden relative">
+                <div className="absolute top-0 right-0 bg-monify-purple-500 text-white text-xs font-bold py-1 px-3 rounded-bl-lg">
                   POPULAR
                 </div>
                 <div className="p-6">
@@ -125,31 +125,31 @@ const LandingPage = () => {
                   
                   <ul className="space-y-3 mb-6">
                     <li className="flex items-center">
-                      <svg className="w-4 h-4 text-navido-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-4 h-4 text-monify-cyan-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                       </svg>
                       All Free Features
                     </li>
                     <li className="flex items-center">
-                      <svg className="w-4 h-4 text-navido-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-4 h-4 text-monify-cyan-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                       </svg>
                       Advanced Financial Analysis
                     </li>
                     <li className="flex items-center">
-                      <svg className="w-4 h-4 text-navido-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-4 h-4 text-monify-cyan-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                       </svg>
                       Business Performance Tracking
                     </li>
                     <li className="flex items-center">
-                      <svg className="w-4 h-4 text-navido-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-4 h-4 text-monify-cyan-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                       </svg>
                       PDF Export
                     </li>
                     <li className="flex items-center">
-                      <svg className="w-4 h-4 text-navido-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-4 h-4 text-monify-cyan-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                       </svg>
                       AI Financial Advisor (10 queries/mo)
@@ -157,7 +157,7 @@ const LandingPage = () => {
                   </ul>
                   
                   <Link to="/register">
-                    <Button className="w-full bg-navido-blue-500 hover:bg-navido-blue-600">
+                    <Button className="w-full bg-monify-purple-500 hover:bg-monify-purple-600">
                       Get Started
                     </Button>
                   </Link>
@@ -176,31 +176,31 @@ const LandingPage = () => {
                   
                   <ul className="space-y-3 mb-6">
                     <li className="flex items-center">
-                      <svg className="w-4 h-4 text-navido-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-4 h-4 text-monify-cyan-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                       </svg>
                       All Pro Features
                     </li>
                     <li className="flex items-center">
-                      <svg className="w-4 h-4 text-navido-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-4 h-4 text-monify-cyan-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                       </svg>
                       Multiple Business Management
                     </li>
                     <li className="flex items-center">
-                      <svg className="w-4 h-4 text-navido-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-4 h-4 text-monify-cyan-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                       </svg>
                       Unlimited AI Financial Advisor
                     </li>
                     <li className="flex items-center">
-                      <svg className="w-4 h-4 text-navido-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-4 h-4 text-monify-cyan-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                       </svg>
                       Advanced Tax Planning
                     </li>
                     <li className="flex items-center">
-                      <svg className="w-4 h-4 text-navido-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <svg className="w-4 h-4 text-monify-cyan-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                       </svg>
                       Priority Support
@@ -227,7 +227,7 @@ const LandingPage = () => {
         <div className="container mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
-              <h3 className="text-lg font-semibold mb-4">Finance Navido</h3>
+              <h3 className="text-lg font-semibold mb-4">Monify</h3>
               <p className="text-gray-400 text-sm">
                 Empowering individuals and businesses with powerful financial tools and insights.
               </p>
@@ -266,7 +266,7 @@ const LandingPage = () => {
           
           <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
             <p className="text-sm text-gray-400">
-              &copy; {new Date().getFullYear()} Finance Navido. All rights reserved.
+              &copy; {new Date().getFullYear()} Monify. All rights reserved.
             </p>
             
             <div className="flex space-x-4 mt-4 md:mt-0">

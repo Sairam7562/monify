@@ -10,7 +10,7 @@ const IncomeExpensesPage = () => {
         <div>
           <h1 className="text-2xl font-bold">Income & Expenses</h1>
           <p className="text-muted-foreground">
-            Track your income sources and expenses to monitor your cash flow.
+            Track your money flow with our colorful and fun tracking tools!
           </p>
         </div>
         

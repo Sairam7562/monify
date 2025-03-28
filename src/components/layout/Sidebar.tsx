@@ -27,8 +27,8 @@ const SidebarItem = ({ icon, label, href, isActive }: SidebarItemProps) => (
     className={cn(
       'flex items-center gap-3 rounded-lg px-3 py-2 transition-colors',
       isActive
-        ? 'bg-navido-blue-500 text-white'
-        : 'text-gray-200 hover:bg-navido-blue-700 hover:text-white'
+        ? 'bg-monify-purple-500 text-white'
+        : 'text-gray-200 hover:bg-monify-purple-700 hover:text-white'
     )}
   >
     {icon}
@@ -92,7 +92,7 @@ const Sidebar = () => {
     <aside className="fixed inset-y-0 left-0 z-20 flex h-full w-64 flex-col bg-sidebar border-r border-r-sidebar-border">
       <div className="flex h-16 items-center border-b border-b-sidebar-border px-6">
         <Link to="/" className="flex items-center gap-2">
-          <span className="text-xl font-bold text-white">Finance Navido</span>
+          <span className="text-xl font-bold text-white">Monify</span>
         </Link>
       </div>
       <div className="flex-1 overflow-auto py-4 px-3">
@@ -109,14 +109,14 @@ const Sidebar = () => {
         </nav>
       </div>
       <div className="mt-auto border-t border-t-sidebar-border p-4">
-        <div className="rounded-lg bg-sidebar-accent p-4 text-sm text-sidebar-accent-foreground">
-          <p className="mb-2 font-medium">Need assistance?</p>
-          <p className="mb-4 text-xs text-sidebar-foreground/80">
-            Contact our support team for help with your financial journey.
+        <div className="rounded-lg bg-monify-pink-600 p-4 text-sm text-white">
+          <p className="mb-2 font-medium">Need help?</p>
+          <p className="mb-4 text-xs text-white/80">
+            Our friendly support team is here to make your financial journey fun and easy!
           </p>
           <Link
             to="/contact"
-            className="block w-full rounded-md bg-navido-blue-500 px-4 py-2 text-center text-xs font-medium text-white hover:bg-navido-blue-600"
+            className="block w-full rounded-md bg-white px-4 py-2 text-center text-xs font-medium text-monify-pink-600 hover:bg-gray-100"
           >
             Contact Support
           </Link>

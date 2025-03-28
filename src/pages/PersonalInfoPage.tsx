@@ -10,7 +10,7 @@ const PersonalInfoPage = () => {
         <div>
           <h1 className="text-2xl font-bold">Personal Information</h1>
           <p className="text-muted-foreground">
-            Complete your profile information to create accurate financial statements.
+            Let's get to know you better so we can make your financial journey more fun!
           </p>
         </div>
         
