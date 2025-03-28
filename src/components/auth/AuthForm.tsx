@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Apple, Github, Mail, MessageSquare } from "lucide-react";
+import { registerUser, loginWithEmail, loginWithSocial, setCurrentUser, User } from "@/services/authService";
+import TwoFactorAuth from "./TwoFactorAuth";
 
 const AuthForm = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -23,18 +25,29 @@ const AuthForm = () => {
   const [registerPassword, setRegisterPassword] = useState("");
   const [registerConfirmPassword, setRegisterConfirmPassword] = useState("");
 
+  // Two-factor auth state
+  const [showTwoFactor, setShowTwoFactor] = useState(false);
+  const [pendingUser, setPendingUser] = useState<User | null>(null);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const user = await loginWithEmail(loginEmail, loginPassword);
       
-      // For development, we'll just redirect to the dashboard
-      window.location.href = "/dashboard";
-      
-      toast.success("Login successful!");
+      if (user) {
+        if (user.twoFactorEnabled) {
+          // Show 2FA verification
+          setPendingUser(user);
+          setShowTwoFactor(true);
+        } else {
+          // Set current user and redirect
+          setCurrentUser(user);
+          toast.success("Login successful!");
+          window.location.href = "/dashboard";
+        }
+      }
     } catch (error) {
       toast.error("Login failed. Please check your credentials.");
     } finally {
@@ -53,13 +66,14 @@ const AuthForm = () => {
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const user = await registerUser(registerName, registerEmail, registerPassword, enableTwoFactor);
       
-      // For development, we'll just redirect to the dashboard
-      window.location.href = "/dashboard";
-      
-      toast.success("Registration successful!");
+      if (user) {
+        toast.success("Registration successful! Check your email to complete the process.");
+        // In a real app, you would ask them to verify their email before allowing login
+        // For demo purposes, we'll just redirect
+        window.location.href = "/dashboard";
+      }
     } catch (error) {
       toast.error("Registration failed. Please try again.");
     } finally {
@@ -67,16 +81,48 @@ const AuthForm = () => {
     }
   };
 
-  const handleSocialLogin = (provider: string) => {
+  const handleSocialLogin = async (provider: 'Google' | 'Microsoft' | 'Apple') => {
     setIsLoading(true);
-    toast.info(`Logging in with ${provider}...`);
     
-    // Simulate API call
-    setTimeout(() => {
-      window.location.href = "/dashboard";
+    try {
+      const user = await loginWithSocial(provider);
+      
+      if (user) {
+        setCurrentUser(user);
+        toast.success(`Logged in with ${provider}!`);
+        window.location.href = "/dashboard";
+      }
+    } catch (error) {
+      toast.error(`${provider} login failed.`);
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
+
+  const handleTwoFactorVerified = () => {
+    if (pendingUser) {
+      setCurrentUser(pendingUser);
+      toast.success("Login successful!");
+      window.location.href = "/dashboard";
+    }
+    setShowTwoFactor(false);
+  };
+
+  const handleTwoFactorCancel = () => {
+    setPendingUser(null);
+    setShowTwoFactor(false);
+  };
+
+  // If two-factor authentication is active, show the verification form
+  if (showTwoFactor && pendingUser) {
+    return (
+      <TwoFactorAuth 
+        user={pendingUser}
+        onVerified={handleTwoFactorVerified}
+        onCancel={handleTwoFactorCancel}
+      />
+    );
+  }
 
   return (
     <Tabs defaultValue="login" className="w-full max-w-md">

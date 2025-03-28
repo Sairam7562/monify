@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,93 +7,98 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Badge } from "@/components/ui/badge";
 import { Eye, Search, RefreshCw, UserPlus, Trash2, Ban, CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-
-// Mock user data
-const mockUsers = [
-  { id: 1, name: 'John Doe', email: 'john@example.com', status: 'active', plan: 'Premium', lastLogin: '2023-11-28', role: 'User' },
-  { id: 2, name: 'Jane Smith', email: 'jane@example.com', status: 'active', plan: 'Basic', lastLogin: '2023-11-27', role: 'User' },
-  { id: 3, name: 'Bob Johnson', email: 'bob@example.com', status: 'inactive', plan: 'Premium', lastLogin: '2023-11-20', role: 'User' },
-  { id: 4, name: 'Alice Brown', email: 'alice@example.com', status: 'active', plan: 'Enterprise', lastLogin: '2023-11-28', role: 'User' },
-  { id: 5, name: 'Charlie Davis', email: 'charlie@example.com', status: 'suspended', plan: 'Basic', lastLogin: '2023-11-15', role: 'User' },
-];
+import { toast } from "sonner";
+import { 
+  User, 
+  getAllUsers, 
+  addUserByAdmin, 
+  deleteUser, 
+  toggleUserStatus 
+} from '@/services/authService';
 
 const AdminUsers = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState(null);
-  const [users, setUsers] = useState(mockUsers);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
   const [newUser, setNewUser] = useState({ name: '', email: '', role: 'User', plan: 'Basic' });
-  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Load users when component mounts
+  useEffect(() => {
+    setUsers(getAllUsers());
+  }, []);
+
+  const refreshUsers = () => {
+    setUsers(getAllUsers());
+    toast.success("User list refreshed");
+  };
 
   const filteredUsers = users.filter(user => 
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleViewUser = (user) => {
+  const handleViewUser = (user: User) => {
     setSelectedUser(user);
     setIsViewModalOpen(true);
   };
 
-  const handleDeleteUser = (user) => {
+  const handleDeleteUser = (user: User) => {
     setUserToDelete(user);
     setIsDeleteModalOpen(true);
   };
 
   const confirmDeleteUser = () => {
-    setUsers(users.filter(user => user.id !== userToDelete.id));
-    setIsDeleteModalOpen(false);
-    toast({
-      title: "User Deleted",
-      description: `${userToDelete.name} has been removed from the system.`,
-      variant: "destructive",
-    });
-  };
-
-  const toggleUserStatus = (userId) => {
-    setUsers(users.map(user => {
-      if (user.id === userId) {
-        const newStatus = user.status === 'active' ? 'inactive' : 'active';
-        toast({
-          title: `User ${newStatus === 'active' ? 'Activated' : 'Deactivated'}`,
-          description: `${user.name}'s account is now ${newStatus}.`,
-          variant: newStatus === 'active' ? "default" : "destructive",
-        });
-        return { ...user, status: newStatus };
+    if (userToDelete) {
+      const success = deleteUser(userToDelete.id);
+      if (success) {
+        setUsers(getAllUsers());
+        setIsDeleteModalOpen(false);
+        toast.success(`${userToDelete.name} has been removed from the system.`);
+      } else {
+        toast.error("Failed to delete user");
       }
-      return user;
-    }));
+    }
   };
 
-  const handleAddUser = () => {
-    const newId = Math.max(...users.map(u => u.id)) + 1;
-    const currentDate = new Date().toISOString().split('T')[0];
-    
-    const userToAdd = {
-      id: newId,
-      name: newUser.name,
-      email: newUser.email,
-      status: 'active',
-      plan: newUser.plan,
-      lastLogin: currentDate,
-      role: newUser.role
-    };
-    
-    setUsers([...users, userToAdd]);
-    setIsAddUserModalOpen(false);
-    setNewUser({ name: '', email: '', role: 'User', plan: 'Basic' });
-    
-    toast({
-      title: "User Added",
-      description: `${newUser.name} has been added successfully.`,
-    });
+  const handleToggleUserStatus = (userId: string) => {
+    const updatedUser = toggleUserStatus(userId);
+    if (updatedUser) {
+      setUsers(getAllUsers());
+      toast.success(`${updatedUser.name}'s account is now ${updatedUser.status}.`);
+    } else {
+      toast.error("Failed to update user status");
+    }
   };
 
-  const getStatusColor = (status) => {
+  const handleAddUser = async () => {
+    setIsLoading(true);
+    try {
+      const addedUser = await addUserByAdmin(
+        newUser.name, 
+        newUser.email, 
+        newUser.role, 
+        newUser.plan
+      );
+      
+      if (addedUser) {
+        setUsers(getAllUsers());
+        setIsAddUserModalOpen(false);
+        setNewUser({ name: '', email: '', role: 'User', plan: 'Basic' });
+        toast.success(`${newUser.name} has been added successfully and an invitation email has been sent.`);
+      }
+    } catch (error) {
+      toast.error("Failed to add user");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
       case 'inactive': return 'bg-gray-100 text-gray-800';
@@ -117,7 +122,7 @@ const AdminUsers = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <Button variant="outline" size="icon">
+          <Button variant="outline" size="icon" onClick={refreshUsers}>
             <RefreshCw className="h-4 w-4" />
           </Button>
           <Button onClick={() => setIsAddUserModalOpen(true)}>
@@ -165,7 +170,7 @@ const AdminUsers = () => {
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        onClick={() => toggleUserStatus(user.id)}
+                        onClick={() => handleToggleUserStatus(user.id)}
                         className={user.status === 'active' ? "text-amber-600" : "text-green-600"}
                       >
                         {user.status === 'active' ? (
@@ -216,6 +221,7 @@ const AdminUsers = () => {
                     <p className="text-sm"><span className="font-medium">Email:</span> {selectedUser.email}</p>
                     <p className="text-sm"><span className="font-medium">Status:</span> {selectedUser.status}</p>
                     <p className="text-sm"><span className="font-medium">Role:</span> {selectedUser.role}</p>
+                    <p className="text-sm"><span className="font-medium">2FA Enabled:</span> {selectedUser.twoFactorEnabled ? "Yes" : "No"}</p>
                   </div>
                 </div>
                 <div>
@@ -264,7 +270,7 @@ const AdminUsers = () => {
           <DialogHeader>
             <DialogTitle>Add New User</DialogTitle>
             <DialogDescription>
-              Create a new user account for the platform.
+              Create a new user account and send them an invitation email.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -318,7 +324,12 @@ const AdminUsers = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddUserModalOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddUser} disabled={!newUser.name || !newUser.email}>Add User</Button>
+            <Button 
+              onClick={handleAddUser} 
+              disabled={!newUser.name || !newUser.email || isLoading}
+            >
+              {isLoading ? "Adding User..." : "Add User & Send Invitation"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
