@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         } else if (event === 'PASSWORD_RECOVERY') {
           toast.info("Password recovery initiated");
         } 
-        // Fix for USER_DELETED event comparison
+        // Fix: Use string comparison instead of type comparison
         else if (event === 'USER_DELETED') {
           toast.info("Account deleted");
         }
