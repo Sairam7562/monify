@@ -28,6 +28,18 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
         userExists: !!user, 
         userRole: user?.role 
       });
+
+      const isEmailVerificationLink = 
+        window.location.href.includes('#access_token=') || 
+        window.location.href.includes('type=recovery') ||
+        window.location.href.includes('type=signup');
+        
+      if (isEmailVerificationLink) {
+        console.log("Processing email verification link...");
+        // Let Supabase auth handle this on its own
+        setIsChecking(false);
+        return;
+      }
       
       // If page requires authentication and user is not logged in, redirect to login
       if (requireAuth && !user) {

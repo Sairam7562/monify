@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from '@/hooks/useAuth';
 import { toast as sonnerToast } from 'sonner';
 import { Spinner } from "@/components/ui/spinner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle, CheckCircle } from "lucide-react";
 
 const AuthForm = () => {
   const [email, setEmail] = useState('');
@@ -16,51 +18,62 @@ const AuthForm = () => {
   const [name, setName] = useState('');
   const [enableTwoFactor, setEnableTwoFactor] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { toast } = useToast();
-  const { loginWithEmail, registerUser, loginWithSocial } = useAuth();
+  const { loginWithEmail, registerUser, loginWithSocial, session, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const isRegisterPage = location.pathname === '/register';
   const from = location.state?.from || '/dashboard';
 
+  // If user is already logged in, redirect them
+  useEffect(() => {
+    if (user && !isLoading) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate, isLoading]);
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    setErrorMessage(null);
     setIsLoading(true);
 
     try {
       if (isRegisterPage) {
         // Registration logic
         if (!name) {
-          toast({
-            title: "Registration Failed",
-            description: "Please enter your name.",
-          });
+          setErrorMessage("Please enter your name.");
+          setIsLoading(false);
           return;
         }
 
         if (!email || !password) {
-          toast({
-            title: "Registration Failed",
-            description: "Please enter both email and password.",
-          });
+          setErrorMessage("Please enter both email and password.");
+          setIsLoading(false);
+          return;
+        }
+
+        if (password.length < 6) {
+          setErrorMessage("Password must be at least 6 characters long.");
+          setIsLoading(false);
           return;
         }
 
         const user = await registerUser(name, email, password, enableTwoFactor);
         if (user) {
+          setIsSuccess(true);
           toast({
             title: "Registration Successful",
-            description: "You have successfully registered.",
+            description: "Please check your email to verify your account.",
           });
-          navigate('/dashboard');
+          // Don't navigate yet - show success message first
         }
       } else {
         // Login logic
         if (!email || !password) {
-          toast({
-            title: "Login Failed",
-            description: "Please enter both email and password.",
-          });
+          setErrorMessage("Please enter both email and password.");
+          setIsLoading(false);
           return;
         }
 
@@ -75,11 +88,7 @@ const AuthForm = () => {
       }
     } catch (error) {
       console.error('Authentication error:', error);
-      toast({
-        variant: "destructive",
-        title: isRegisterPage ? "Registration Failed" : "Login Failed",
-        description: error instanceof Error ? error.message : "An unexpected error occurred"
-      });
+      setErrorMessage(error instanceof Error ? error.message : "An unexpected error occurred");
     } finally {
       setIsLoading(false);
     }
@@ -87,20 +96,46 @@ const AuthForm = () => {
 
   const handleSocialLogin = async (provider: "google" | "github" | "apple" | "microsoft") => {
     setIsLoading(true);
+    setErrorMessage(null);
     try {
       await loginWithSocial(provider);
       // Redirect will be handled by the auth state change listener
     } catch (error) {
       console.error(`${provider} login error:`, error);
-      toast({
-        variant: "destructive",
-        title: "Login Failed",
-        description: error instanceof Error ? error.message : "An error occurred"
-      });
+      setErrorMessage(error instanceof Error ? error.message : `${provider} login failed`);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // If registration was successful, show success message
+  if (isSuccess && isRegisterPage) {
+    return (
+      <div className="container grid h-screen place-items-center">
+        <Card className="w-[350px]">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-green-600 flex items-center">
+              <CheckCircle className="mr-2" />
+              Registration Successful
+            </CardTitle>
+            <CardDescription>
+              We've sent you an email with a verification link. Please check your inbox to verify your account.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <p className="text-sm text-gray-600">
+              After verifying your email, you'll be able to log in to your account.
+            </p>
+          </CardContent>
+          <CardFooter>
+            <Button variant="outline" className="w-full" onClick={() => navigate('/login')}>
+              Go to Login
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container grid h-screen place-items-center">
@@ -112,6 +147,16 @@ const AuthForm = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
+          {errorMessage && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>
+                {errorMessage}
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <form onSubmit={handleSubmit}>
             <div className="grid gap-2">
               {isRegisterPage && (
@@ -124,6 +169,7 @@ const AuthForm = () => {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     disabled={isLoading}
+                    autoComplete="name"
                   />
                 </div>
               )}
@@ -136,6 +182,7 @@ const AuthForm = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
+                  autoComplete={isRegisterPage ? "email" : "username"}
                 />
               </div>
               <div className="grid gap-2">
@@ -147,6 +194,7 @@ const AuthForm = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
+                  autoComplete={isRegisterPage ? "new-password" : "current-password"}
                 />
               </div>
               {isRegisterPage && (

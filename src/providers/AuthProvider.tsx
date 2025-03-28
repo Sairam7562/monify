@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/services/userService';
 import AuthContext, { supabaseUserToUser } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -18,6 +19,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   useEffect(() => {
     console.log("Setting up auth state listener");
+
+    // Check for hash params from email verification
+    const hasHashParams = window.location.hash && window.location.hash.includes('type=recovery');
+    if (hasHashParams) {
+      console.log("Hash parameters detected, handling authentication...");
+    }
     
     // Set up the auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -33,6 +40,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           toast.success("Signed out successfully");
         } else if (event === 'TOKEN_REFRESHED') {
           console.log("Auth token refreshed");
+        } else if (event === 'USER_UPDATED') {
+          toast.success("User profile updated");
+        } else if (event === 'PASSWORD_RECOVERY') {
+          toast.info("Password recovery initiated");
+        } else if (event === 'USER_DELETED') {
+          toast.info("Account deleted");
         }
       }
     );
@@ -92,6 +105,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setLoading(true);
       console.log("Attempting to register user:", email);
       
+      // Set the redirect URL to the current domain for proper verification
+      const redirectTo = `${window.location.origin}/dashboard`;
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -102,7 +118,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             role: 'User',
             plan: 'Basic',
             status: 'active'
-          }
+          },
+          emailRedirectTo: redirectTo
         }
       });
 
@@ -114,7 +131,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       if (data.user) {
         console.log("Registration successful for user:", data.user.id);
-        toast.success("Registration successful");
+        
+        if (data.session) {
+          toast.success("Registration successful! You are now logged in.");
+        } else {
+          toast.success("Registration successful! Please check your email to verify your account.");
+        }
+        
         return supabaseUserToUser(data.user);
       }
       return null;
@@ -136,10 +159,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
                           provider === 'github' ? 'github' : 
                           provider === 'microsoft' ? 'azure' : 'apple';
       
+      const redirectTo = `${window.location.origin}/dashboard`;
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: validProvider,
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: redirectTo,
+          scopes: provider === 'google' ? 'profile email' : undefined
         }
       });
 
