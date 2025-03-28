@@ -9,48 +9,33 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { 
   Palette, Image, Type, Globe, 
-  LayoutGrid, FileEdit, Save, Undo
+  LayoutGrid, FileEdit, Save, Undo, Check
 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
+import { useBranding } from '@/contexts/BrandingContext';
 
 const AdminBranding = () => {
-  const [brandingSettings, setBrandingSettings] = useState({
-    platformName: 'Monify',
-    tagline: 'Your Personal Financial Freedom Assistant',
-    primaryColor: '#9333ea',
-    secondaryColor: '#d946ef',
-    accentColor: '#22c55e',
-    logo: '/path/to/current-logo.png',
-    favicon: '/path/to/favicon.ico',
-    showLogo: true,
-    customFonts: true,
-    customCSS: '',
-    metaTitle: 'Monify - Personal & Business Finance Management',
-    metaDescription: 'Manage your personal and business finances, track assets, liabilities, and grow your wealth with intelligent financial insights.',
-    footerText: '© 2023 Monify. All rights reserved.'
-  });
+  const { brandingSettings, updateBrandingSettings, applyBrandingSettings } = useBranding();
+  const [localSettings, setLocalSettings] = useState({...brandingSettings});
   
   const [previewColors, setPreviewColors] = useState({
-    primary: '#9333ea',
-    secondary: '#d946ef',
-    accent: '#22c55e'
+    primary: brandingSettings.primaryColor,
+    secondary: brandingSettings.secondaryColor,
+    accent: brandingSettings.accentColor
   });
 
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const { toast } = useToast();
   
-  // Load saved settings on initial load
+  // Sync with context when it changes
   useEffect(() => {
-    const savedSettings = localStorage.getItem('brandingSettings');
-    if (savedSettings) {
-      setBrandingSettings(JSON.parse(savedSettings));
-      setPreviewColors({
-        primary: JSON.parse(savedSettings).primaryColor,
-        secondary: JSON.parse(savedSettings).secondaryColor,
-        accent: JSON.parse(savedSettings).accentColor
-      });
-    }
-  }, []);
+    setLocalSettings({...brandingSettings});
+    setPreviewColors({
+      primary: brandingSettings.primaryColor,
+      secondary: brandingSettings.secondaryColor,
+      accent: brandingSettings.accentColor
+    });
+  }, [brandingSettings]);
   
   const handleColorChange = (colorType, value) => {
     setPreviewColors(prev => ({
@@ -61,7 +46,7 @@ const AdminBranding = () => {
   };
   
   const handleColorApply = () => {
-    setBrandingSettings(prev => ({
+    setLocalSettings(prev => ({
       ...prev,
       primaryColor: previewColors.primary,
       secondaryColor: previewColors.secondary,
@@ -76,7 +61,7 @@ const AdminBranding = () => {
   };
   
   const handleInputChange = (setting, value) => {
-    setBrandingSettings(prev => ({
+    setLocalSettings(prev => ({
       ...prev,
       [setting]: value
     }));
@@ -84,47 +69,34 @@ const AdminBranding = () => {
   };
   
   const saveAllChanges = () => {
-    localStorage.setItem('brandingSettings', JSON.stringify(brandingSettings));
+    // Update global branding settings
+    updateBrandingSettings(localSettings);
+    
+    // Apply the settings to the DOM
+    applyBrandingSettings();
+    
     setHasUnsavedChanges(false);
     
     toast({
       title: "Settings Saved",
-      description: "All branding settings have been saved successfully."
+      description: "All branding settings have been saved and applied to the entire site.",
+      action: (
+        <div className="flex items-center">
+          <Check className="h-4 w-4 text-green-500 mr-1" />
+          <span>Applied</span>
+        </div>
+      ),
     });
   };
   
   const cancelChanges = () => {
-    const savedSettings = localStorage.getItem('brandingSettings');
-    if (savedSettings) {
-      setBrandingSettings(JSON.parse(savedSettings));
-      setPreviewColors({
-        primary: JSON.parse(savedSettings).primaryColor,
-        secondary: JSON.parse(savedSettings).secondaryColor,
-        accent: JSON.parse(savedSettings).accentColor
-      });
-    } else {
-      // Reset to initial state if no saved settings
-      setBrandingSettings({
-        platformName: 'Monify',
-        tagline: 'Your Personal Financial Freedom Assistant',
-        primaryColor: '#9333ea',
-        secondaryColor: '#d946ef',
-        accentColor: '#22c55e',
-        logo: '/path/to/current-logo.png',
-        favicon: '/path/to/favicon.ico',
-        showLogo: true,
-        customFonts: true,
-        customCSS: '',
-        metaTitle: 'Monify - Personal & Business Finance Management',
-        metaDescription: 'Manage your personal and business finances, track assets, liabilities, and grow your wealth with intelligent financial insights.',
-        footerText: '© 2023 Monify. All rights reserved.'
-      });
-      setPreviewColors({
-        primary: '#9333ea',
-        secondary: '#d946ef',
-        accent: '#22c55e'
-      });
-    }
+    // Reset to current global settings
+    setLocalSettings({...brandingSettings});
+    setPreviewColors({
+      primary: brandingSettings.primaryColor,
+      secondary: brandingSettings.secondaryColor,
+      accent: brandingSettings.accentColor
+    });
     setHasUnsavedChanges(false);
     
     toast({
@@ -175,7 +147,7 @@ const AdminBranding = () => {
                 <Label htmlFor="platform-name">Platform Name</Label>
                 <Input 
                   id="platform-name" 
-                  value={brandingSettings.platformName}
+                  value={localSettings.platformName}
                   onChange={(e) => handleInputChange('platformName', e.target.value)}
                 />
               </div>
@@ -184,7 +156,7 @@ const AdminBranding = () => {
                 <Label htmlFor="tagline">Tagline</Label>
                 <Input 
                   id="tagline" 
-                  value={brandingSettings.tagline}
+                  value={localSettings.tagline}
                   onChange={(e) => handleInputChange('tagline', e.target.value)}
                 />
                 <p className="text-xs text-gray-500">Short phrase that appears on the landing page and in emails</p>
@@ -194,7 +166,7 @@ const AdminBranding = () => {
                 <Label htmlFor="footer-text">Footer Text</Label>
                 <Input 
                   id="footer-text" 
-                  value={brandingSettings.footerText}
+                  value={localSettings.footerText}
                   onChange={(e) => handleInputChange('footerText', e.target.value)}
                 />
               </div>
@@ -236,7 +208,7 @@ const AdminBranding = () => {
                 </div>
                 <Switch
                   id="show-logo"
-                  checked={brandingSettings.showLogo}
+                  checked={localSettings.showLogo}
                   onCheckedChange={(checked) => handleInputChange('showLogo', checked)}
                 />
               </div>
@@ -317,9 +289,9 @@ const AdminBranding = () => {
               
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setPreviewColors({
-                  primary: brandingSettings.primaryColor,
-                  secondary: brandingSettings.secondaryColor,
-                  accent: brandingSettings.accentColor
+                  primary: localSettings.primaryColor,
+                  secondary: localSettings.secondaryColor,
+                  accent: localSettings.accentColor
                 })}>
                   <Undo className="h-4 w-4 mr-1" />
                   Reset
@@ -345,7 +317,7 @@ const AdminBranding = () => {
                 </div>
                 <Switch
                   id="custom-fonts"
-                  checked={brandingSettings.customFonts}
+                  checked={localSettings.customFonts}
                   onCheckedChange={(checked) => handleInputChange('customFonts', checked)}
                 />
               </div>
@@ -356,7 +328,7 @@ const AdminBranding = () => {
                   id="custom-css" 
                   rows={6}
                   placeholder="/* Add your custom CSS here */"
-                  value={brandingSettings.customCSS}
+                  value={localSettings.customCSS}
                   onChange={(e) => handleInputChange('customCSS', e.target.value)}
                   className="font-mono text-sm"
                 />
@@ -446,7 +418,7 @@ const AdminBranding = () => {
                 <Label htmlFor="meta-title">Meta Title</Label>
                 <Input 
                   id="meta-title" 
-                  value={brandingSettings.metaTitle}
+                  value={localSettings.metaTitle}
                   onChange={(e) => handleInputChange('metaTitle', e.target.value)}
                 />
                 <p className="text-xs text-gray-500">Appears in browser tabs and search results (max 60 characters)</p>
@@ -457,7 +429,7 @@ const AdminBranding = () => {
                 <Textarea 
                   id="meta-description" 
                   rows={3}
-                  value={brandingSettings.metaDescription}
+                  value={localSettings.metaDescription}
                   onChange={(e) => handleInputChange('metaDescription', e.target.value)}
                 />
                 <p className="text-xs text-gray-500">Summary shown in search engine results (max 160 characters)</p>

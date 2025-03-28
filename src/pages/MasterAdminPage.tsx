@@ -28,11 +28,11 @@ const MasterAdminPage = () => {
               <TooltipTrigger asChild>
                 <div className="flex items-center text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded">
                   <Info className="h-4 w-4 mr-1" />
-                  <span>Auto-save status</span>
+                  <span>Settings Status</span>
                 </div>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Changes are saved automatically in some sections,<br/>while others have explicit save buttons.</p>
+                <p>Some settings (like branding) are applied site-wide<br />when you save them. Others have explicit save buttons.</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

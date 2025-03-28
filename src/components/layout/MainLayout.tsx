@@ -4,6 +4,7 @@ import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { SidebarProvider } from '@/components/ui/sidebar';
+import { useBranding } from '@/contexts/BrandingContext';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -12,6 +13,7 @@ interface MainLayoutProps {
 
 const MainLayout = ({ children, showSidebar = true }: MainLayoutProps) => {
   const isMobile = useIsMobile();
+  const { brandingSettings } = useBranding();
   
   return (
     <SidebarProvider>
@@ -24,7 +26,7 @@ const MainLayout = ({ children, showSidebar = true }: MainLayoutProps) => {
             {children}
           </main>
           <footer className="p-4 text-center text-sm text-gray-500 border-t">
-            &copy; {new Date().getFullYear()} Monify. All rights reserved.
+            {brandingSettings.footerText || `© ${new Date().getFullYear()} Monify. All rights reserved.`}
           </footer>
         </div>
       </div>
