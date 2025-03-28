@@ -10,6 +10,17 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// Define a type that includes all possible Supabase auth events, including custom ones
+type AuthChangeEvent = 
+  | 'INITIAL_SESSION'
+  | 'SIGNED_IN'
+  | 'SIGNED_OUT'
+  | 'TOKEN_REFRESHED'
+  | 'USER_UPDATED'
+  | 'PASSWORD_RECOVERY'
+  | 'USER_DELETED'  // Add this for explicit type safety
+  | 'MFA_CHALLENGE_VERIFIED';
+
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -33,19 +44,20 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setSupabaseUser(newSession?.user ?? null);
         setUser(newSession?.user ? supabaseUserToUser(newSession.user) : null);
         
-        if (event === 'SIGNED_IN') {
+        // Use a type assertion to treat the event as our extended AuthChangeEvent type
+        const authEvent = event as AuthChangeEvent;
+        
+        if (authEvent === 'SIGNED_IN') {
           toast.success("Signed in successfully!");
-        } else if (event === 'SIGNED_OUT') {
+        } else if (authEvent === 'SIGNED_OUT') {
           toast.success("Signed out successfully");
-        } else if (event === 'TOKEN_REFRESHED') {
+        } else if (authEvent === 'TOKEN_REFRESHED') {
           console.log("Auth token refreshed");
-        } else if (event === 'USER_UPDATED') {
+        } else if (authEvent === 'USER_UPDATED') {
           toast.success("User profile updated");
-        } else if (event === 'PASSWORD_RECOVERY') {
+        } else if (authEvent === 'PASSWORD_RECOVERY') {
           toast.info("Password recovery initiated");
-        } 
-        // Fix: Using string literal type for proper comparison
-        else if (event === "USER_DELETED") {
+        } else if (authEvent === 'USER_DELETED') {
           toast.info("Account deleted");
         }
       }
