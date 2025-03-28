@@ -77,4 +77,16 @@
     display: block !important;
     overflow: visible !important;
   }
+
+  /* Keep spouse information visible if included */
+  .spouse-information {
+    display: block !important;
+  }
+
+  /* Optimize space for financial ratios */
+  .financial-ratios-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 1rem !important;
+  }
 }

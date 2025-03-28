@@ -83,6 +83,13 @@ const defaultData: PersonalFinancialStatementData = {
 
 const PersonalFinancialStatementForm = () => {
   const [formData, setFormData] = useState<PersonalFinancialStatementData>(defaultData);
+  const [includeSpouse, setIncludeSpouse] = useState(false);
+  const [spouseData, setSpouseData] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    includeInReport: false
+  });
 
   const handleProfileImageChange = (imageUrl: string | null) => {
     setFormData(prev => ({ ...prev, profileImage: imageUrl }));
@@ -102,6 +109,15 @@ const PersonalFinancialStatementForm = () => {
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
+  };
+
+  const handleSpouseInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setSpouseData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSpouseIncludeChange = (checked: boolean) => {
+    setSpouseData(prev => ({ ...prev, includeInReport: checked }));
   };
 
   const handleItemChange = (type: 'assets' | 'liabilities' | 'incomes' | 'expenses', id: string, value: string) => {
@@ -280,6 +296,67 @@ const PersonalFinancialStatementForm = () => {
           </div>
         </div>
 
+        {/* Spouse Information Section */}
+        <div className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <h3 className="text-lg font-semibold">Spouse Information</h3>
+            <div className="flex items-center space-x-2 ml-auto">
+              <Checkbox 
+                id="include-spouse" 
+                checked={includeSpouse}
+                onCheckedChange={(checked) => setIncludeSpouse(!!checked)}
+              />
+              <Label htmlFor="include-spouse" className="text-sm">Include spouse</Label>
+            </div>
+          </div>
+          
+          {includeSpouse && (
+            <div className="border p-4 rounded-md space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="spouse-full-name">Spouse Full Name</Label>
+                <Input
+                  id="spouse-full-name"
+                  name="fullName"
+                  value={spouseData.fullName}
+                  onChange={handleSpouseInputChange}
+                  placeholder="Jane Doe"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="spouse-email">Email</Label>
+                  <Input
+                    id="spouse-email"
+                    name="email"
+                    type="email"
+                    value={spouseData.email}
+                    onChange={handleSpouseInputChange}
+                    placeholder="jane.doe@example.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="spouse-phone">Phone</Label>
+                  <Input
+                    id="spouse-phone"
+                    name="phone"
+                    value={spouseData.phone}
+                    onChange={handleSpouseInputChange}
+                    placeholder="(123) 456-7890"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="include-spouse-in-report" 
+                  checked={spouseData.includeInReport}
+                  onCheckedChange={(checked) => handleSpouseIncludeChange(!!checked)}
+                />
+                <Label htmlFor="include-spouse-in-report" className="text-sm">Include spouse in financial statement</Label>
+              </div>
+            </div>
+          )}
+        </div>
+
         <Separator />
 
         <div className="space-y-4">
@@ -304,7 +381,7 @@ const PersonalFinancialStatementForm = () => {
                 <Checkbox 
                   id={`include-asset-${asset.id}`} 
                   checked={asset.includeInReport}
-                  onCheckedChange={(checked) => handleIncludeChange('assets', asset.id, checked as boolean)}
+                  onCheckedChange={(checked) => handleIncludeChange('assets', asset.id, !!checked)}
                 />
                 <Label htmlFor={`include-asset-${asset.id}`} className="text-sm">Include</Label>
               </div>
@@ -340,7 +417,7 @@ const PersonalFinancialStatementForm = () => {
                 <Checkbox 
                   id={`include-liability-${liability.id}`} 
                   checked={liability.includeInReport}
-                  onCheckedChange={(checked) => handleIncludeChange('liabilities', liability.id, checked as boolean)}
+                  onCheckedChange={(checked) => handleIncludeChange('liabilities', liability.id, !!checked)}
                 />
                 <Label htmlFor={`include-liability-${liability.id}`} className="text-sm">Include</Label>
               </div>
@@ -385,7 +462,7 @@ const PersonalFinancialStatementForm = () => {
                 <Checkbox 
                   id={`include-income-${income.id}`} 
                   checked={income.includeInReport}
-                  onCheckedChange={(checked) => handleIncludeChange('incomes', income.id, checked as boolean)}
+                  onCheckedChange={(checked) => handleIncludeChange('incomes', income.id, !!checked)}
                 />
                 <Label htmlFor={`include-income-${income.id}`} className="text-sm">Include</Label>
               </div>
@@ -421,7 +498,7 @@ const PersonalFinancialStatementForm = () => {
                 <Checkbox 
                   id={`include-expense-${expense.id}`} 
                   checked={expense.includeInReport}
-                  onCheckedChange={(checked) => handleIncludeChange('expenses', expense.id, checked as boolean)}
+                  onCheckedChange={(checked) => handleIncludeChange('expenses', expense.id, !!checked)}
                 />
                 <Label htmlFor={`include-expense-${expense.id}`} className="text-sm">Include</Label>
               </div>
@@ -439,6 +516,33 @@ const PersonalFinancialStatementForm = () => {
             <span className={cashFlow >= 0 ? "text-monify-green-600" : "text-red-600"}>
               ${cashFlow.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
+          </div>
+        </div>
+
+        {/* Financial Ratios Toggle */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Financial Ratios</h3>
+            <div className="flex items-center space-x-2">
+              <Checkbox id="include-ratios" defaultChecked />
+              <Label htmlFor="include-ratios">Include in report</Label>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium mb-2">Debt-to-Asset Ratio</h4>
+              <p className="text-lg font-semibold">
+                {totalAssets > 0 ? (totalLiabilities / totalAssets).toFixed(2) : 'N/A'}
+              </p>
+              <p className="text-sm text-gray-500">Lower is better. Target: less than 0.5</p>
+            </div>
+            <div className="border rounded-lg p-4">
+              <h4 className="font-medium mb-2">Savings Rate</h4>
+              <p className="text-lg font-semibold">
+                {totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome * 100).toFixed(0) + '%' : 'N/A'}
+              </p>
+              <p className="text-sm text-gray-500">Higher is better. Target: at least 20%</p>
+            </div>
           </div>
         </div>
       </CardContent>
