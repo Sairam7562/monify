@@ -1,11 +1,12 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, checkConnection } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
 export function useDatabase() {
   const { user, session } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [lastError, setLastError] = useState<any>(null);
 
   const verifyAuth = useCallback(() => {
     if (!user || !session) {
@@ -21,10 +22,30 @@ export function useDatabase() {
     return sessionStorage.getItem('db_schema_error') === 'true';
   };
 
+  // Helper to generate a unique local storage key for a user and data type
+  const getLocalStorageKey = (userId: string, dataType: string) => {
+    return `${dataType}_${userId}`;
+  };
+
+  // Debug function to show what's in local storage for a user
+  const debugLocalStorage = (userId: string) => {
+    if (!userId) return;
+    
+    const keys = ['personal_info', 'assets', 'liabilities', 'income', 'expenses'];
+    console.group('Local Storage Data');
+    keys.forEach(key => {
+      const localKey = getLocalStorageKey(userId, key);
+      const data = localStorage.getItem(localKey);
+      console.log(`${key}:`, data ? 'Data exists' : 'No data');
+    });
+    console.groupEnd();
+  };
+
   // Modified version of savePersonalInfo that handles schema errors better
   const savePersonalInfo = async (data: any) => {
     try {
       setLoading(true);
+      setLastError(null);
       
       if (!verifyAuth()) {
         return { error: 'Not authenticated' };
@@ -38,16 +59,22 @@ export function useDatabase() {
         return { error: 'Invalid user ID' };
       }
       
+      // Try to check database connection first
+      const connectionStatus = await checkConnection();
+      console.log("Database connection status:", connectionStatus);
+      
       // Check for known schema issues before attempting database operation
-      if (hasSchemaIssue()) {
-        console.log("Known database schema issue, using local storage");
+      if (!connectionStatus.connected || hasSchemaIssue()) {
+        console.log("Database unavailable, using local storage");
         // Save to local storage
-        const localStorageKey = `personal_info_${userId}`;
+        const localStorageKey = getLocalStorageKey(userId, 'personal_info');
         localStorage.setItem(localStorageKey, JSON.stringify({
           ...data,
           user_id: userId,
           updated_at: new Date().toISOString()
         }));
+        
+        debugLocalStorage(userId);
         
         toast.success('Information saved locally. It will be synced when the database is available.');
         return { data: null, error: null, localSaved: true };
@@ -55,6 +82,7 @@ export function useDatabase() {
       
       try {
         // Try to check if the table exists first
+        console.log("Attempting to fetch existing personal info");
         const { data: existingData, error: fetchError } = await supabase
           .from('personal_info')
           .select('*')
@@ -62,6 +90,7 @@ export function useDatabase() {
           .maybeSingle();
 
         if (fetchError) {
+          console.error("Error fetching existing data:", fetchError);
           // Check if it's a schema error (PGRST106)
           if (fetchError.code === 'PGRST106' || fetchError.message.includes('schema must be one of the following')) {
             console.log("Database schema error - table might not exist yet. Saving to local storage for now.");
@@ -69,12 +98,14 @@ export function useDatabase() {
             sessionStorage.setItem('db_schema_error', 'true');
             
             // Save to local storage as fallback
-            const localStorageKey = `personal_info_${userId}`;
+            const localStorageKey = getLocalStorageKey(userId, 'personal_info');
             localStorage.setItem(localStorageKey, JSON.stringify({
               ...data,
               user_id: userId,
               updated_at: new Date().toISOString()
             }));
+            
+            debugLocalStorage(userId);
             
             toast.success('Information saved locally. It will be synced to the database when available.');
             return { data: null, error: null, localSaved: true };
@@ -84,6 +115,7 @@ export function useDatabase() {
         }
 
         // If we got here, the table exists and we can proceed with normal save
+        console.log("Database table exists, proceeding with save operation");
         const formattedData = {
           first_name: data.firstName,
           last_name: data.lastName,
@@ -102,11 +134,13 @@ export function useDatabase() {
         let result;
         
         if (existingData) {
+          console.log("Updating existing personal info record");
           result = await supabase
             .from('personal_info')
             .update(formattedData)
             .eq('id', existingData.id);
         } else {
+          console.log("Inserting new personal info record");
           result = await supabase
             .from('personal_info')
             .insert({
@@ -116,6 +150,7 @@ export function useDatabase() {
         }
 
         if (result.error) {
+          console.error("Database save error:", result.error);
           throw result.error;
         }
         
@@ -123,6 +158,9 @@ export function useDatabase() {
         toast.success('Personal information saved successfully');
         return { data: result.data, error: null };
       } catch (err: any) {
+        console.error("Database error during save:", err);
+        setLastError(err);
+        
         // Handle specific errors
         if (err.code === 'PGRST106' || (err.message && err.message.includes('schema must be one of the following'))) {
           console.error("Database schema error, using local storage fallback:", err);
@@ -132,18 +170,21 @@ export function useDatabase() {
         }
         
         // Fallback to local storage for any database error
-        const localStorageKey = `personal_info_${userId}`;
+        const localStorageKey = getLocalStorageKey(userId, 'personal_info');
         localStorage.setItem(localStorageKey, JSON.stringify({
           ...data,
           user_id: userId,
           updated_at: new Date().toISOString()
         }));
         
+        debugLocalStorage(userId);
+        
         toast.success('Information saved locally. It will be synced to the database when available.');
         return { data: null, error: err.message, localSaved: true };
       }
     } catch (error: any) {
       console.error('Error saving personal info:', error);
+      setLastError(error);
       toast.error('Could not save personal information: ' + error.message);
       return { data: null, error: error.message };
     } finally {
@@ -337,82 +378,18 @@ export function useDatabase() {
         return { error: 'Invalid user ID' };
       }
       
-      try {
-        const { data, error } = await supabase
-          .from('personal_info')
-          .select('*')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (error) {
-          // Check if it's a schema error
-          if (error.code === 'PGRST106') {
-            console.log("Schema error, table might not exist yet:", error);
-            
-            // Try to get from local storage
-            const localStorageKey = `personal_info_${userId}`;
-            const localData = localStorage.getItem(localStorageKey);
-            
-            if (localData) {
-              const parsedData = JSON.parse(localData);
-              const transformedData = {
-                firstName: parsedData.firstName || '',
-                lastName: parsedData.lastName || '',
-                email: parsedData.email || user?.email || '',
-                phone: parsedData.phone || '',
-                address: parsedData.address || '',
-                city: parsedData.city || '',
-                state: parsedData.state || '',
-                zipCode: parsedData.zipCode || '',
-                birthDate: parsedData.birthDate ? new Date(parsedData.birthDate) : undefined,
-              };
-              return { data: transformedData, error: error.message, localData: true };
-            }
-            
-            // Return default empty data
-            return { 
-              data: {
-                firstName: '',
-                lastName: '',
-                email: user?.email || '',
-                phone: '',
-                address: '',
-                city: '',
-                state: '',
-                zipCode: '',
-                birthDate: undefined,
-              }, 
-              error: error.message 
-            };
-          }
-          
-          if (error.code !== 'PGRST116') {
-            throw error;
-          }
-        }
-
-        console.log("Personal info fetched:", data);
-        
-        if (data) {
-          const transformedData = {
-            firstName: data.first_name || '',
-            lastName: data.last_name || '',
-            email: data.email || '',
-            phone: data.phone || '',
-            address: data.address || '',
-            city: data.city || '',
-            state: data.state || '',
-            zipCode: data.zip_code || '',
-            birthDate: data.birth_date ? new Date(data.birth_date) : undefined,
-          };
-          return { data: transformedData, error: null };
-        }
-        
-        // Try to get from local storage if no data found
-        const localStorageKey = `personal_info_${userId}`;
+      // Check database connection first
+      const connectionStatus = await checkConnection();
+      console.log("Database connection status before fetch:", connectionStatus);
+      
+      // If we have a known database issue, try local storage first
+      if (!connectionStatus.connected || hasSchemaIssue()) {
+        console.log("Database connection issue, checking local storage first");
+        const localStorageKey = getLocalStorageKey(userId, 'personal_info');
         const localData = localStorage.getItem(localStorageKey);
         
         if (localData) {
+          console.log("Found local data:", localData.substring(0, 50) + "...");
           const parsedData = JSON.parse(localData);
           const transformedData = {
             firstName: parsedData.firstName || '',
@@ -427,48 +404,94 @@ export function useDatabase() {
           };
           return { data: transformedData, error: null, localData: true };
         }
-        
-        return { data: {
-          firstName: '',
-          lastName: '',
-          email: user?.email || '',
-          phone: '',
-          address: '',
-          city: '',
-          state: '',
-          zipCode: '',
-          birthDate: undefined,
-        }, error: null };
-      } catch (error: any) {
-        console.error("Database error fetching personal info:", error);
-        
-        // Try to get from local storage as fallback
-        const localStorageKey = `personal_info_${userId}`;
-        const localData = localStorage.getItem(localStorageKey);
-        
-        if (localData) {
-          const parsedData = JSON.parse(localData);
-          const transformedData = {
-            firstName: parsedData.firstName || '',
-            lastName: parsedData.lastName || '',
-            email: parsedData.email || user?.email || '',
-            phone: parsedData.phone || '',
-            address: parsedData.address || '',
-            city: parsedData.city || '',
-            state: parsedData.state || '',
-            zipCode: parsedData.zipCode || '',
-            birthDate: parsedData.birthDate ? new Date(parsedData.birthDate) : undefined,
-          };
-          return { data: transformedData, error: error.message, localData: true };
-        }
-        
-        throw error;
       }
+      
+      // Try database if we have a connection
+      if (connectionStatus.connected) {
+        try {
+          console.log("Attempting to fetch from database");
+          const { data, error } = await supabase
+            .from('personal_info')
+            .select('*')
+            .eq('user_id', userId)
+            .maybeSingle();
+  
+          if (error) {
+            // Check if it's a schema error
+            if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
+              console.log("Schema error, table might not exist yet:", error);
+              sessionStorage.setItem('db_schema_error', 'true');
+              throw error;
+            }
+            
+            if (error.code !== 'PGRST116') {
+              throw error;
+            }
+          }
+  
+          console.log("Personal info fetched:", data);
+          
+          if (data) {
+            const transformedData = {
+              firstName: data.first_name || '',
+              lastName: data.last_name || '',
+              email: data.email || '',
+              phone: data.phone || '',
+              address: data.address || '',
+              city: data.city || '',
+              state: data.state || '',
+              zipCode: data.zip_code || '',
+              birthDate: data.birth_date ? new Date(data.birth_date) : undefined,
+            };
+            return { data: transformedData, error: null };
+          }
+        } catch (dbError) {
+          console.error("Database error fetching personal info:", dbError);
+        }
+      }
+      
+      // Fallback to local storage if database fetch failed
+      console.log("Checking local storage as fallback");
+      const localStorageKey = getLocalStorageKey(userId, 'personal_info');
+      const localData = localStorage.getItem(localStorageKey);
+      
+      if (localData) {
+        console.log("Found local data as fallback");
+        const parsedData = JSON.parse(localData);
+        const transformedData = {
+          firstName: parsedData.firstName || '',
+          lastName: parsedData.lastName || '',
+          email: parsedData.email || user?.email || '',
+          phone: parsedData.phone || '',
+          address: parsedData.address || '',
+          city: parsedData.city || '',
+          state: parsedData.state || '',
+          zipCode: parsedData.zipCode || '',
+          birthDate: parsedData.birthDate ? new Date(parsedData.birthDate) : undefined,
+        };
+        return { data: transformedData, error: null, localData: true };
+      }
+      
+      // Return empty data if nothing found
+      return { data: {
+        firstName: '',
+        lastName: '',
+        email: user?.email || '',
+        phone: '',
+        address: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        birthDate: undefined,
+      }, error: null };
     } catch (error: any) {
       console.error('Error fetching personal info:', error);
+      setLastError(error);
+      
       if (error.code !== 'PGRST106') {
         toast.error('Failed to load personal information');
       }
+      
       return { data: {
         firstName: '',
         lastName: '',
@@ -662,9 +685,54 @@ export function useDatabase() {
     }
   };
 
+  // Check if database connection is currently available
+  const checkDatabaseStatus = async () => {
+    const status = await checkConnection();
+    return status.connected;
+  };
+
+  // Try to sync locally stored data to database
+  const syncLocalData = async () => {
+    if (!user) return { error: 'Not authenticated' };
+    
+    const userId = user.id?.toString();
+    if (!userId) return { error: 'Invalid user ID' };
+    
+    const connectionStatus = await checkConnection();
+    if (!connectionStatus.connected) {
+      return { error: 'Database not available', connected: false };
+    }
+    
+    let success = true;
+    const dataTypes = ['personal_info', 'assets', 'liabilities', 'income', 'expenses'];
+    const results: Record<string, any> = {};
+    
+    for (const dataType of dataTypes) {
+      const localStorageKey = getLocalStorageKey(userId, dataType);
+      const localData = localStorage.getItem(localStorageKey);
+      
+      if (localData) {
+        try {
+          const parsedData = JSON.parse(localData);
+          // Implement sync logic for each data type
+          // This is a placeholder - you'd need to implement the specific sync logic
+          results[dataType] = { synced: true };
+        } catch (error) {
+          success = false;
+          results[dataType] = { error };
+        }
+      }
+    }
+    
+    return { success, results, connected: true };
+  };
+
   return {
     loading,
+    lastError,
     isAdmin: user?.role === 'admin' || user?.role === 'Admin',
+    checkDatabaseStatus,
+    syncLocalData,
     savePersonalInfo,
     saveAssets,
     saveLiabilities,

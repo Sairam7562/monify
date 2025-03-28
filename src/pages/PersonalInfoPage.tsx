@@ -4,19 +4,68 @@ import MainLayout from '@/components/layout/MainLayout';
 import PersonalInfoForm from '@/components/finance/PersonalInfoForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { InfoIcon, AlertCircle, RefreshCw } from 'lucide-react';
+import { InfoIcon, AlertCircle, RefreshCw, DatabaseIcon, CheckCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Spinner } from '@/components/ui/spinner';
 import { useDatabase } from '@/hooks/useDatabase';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { checkConnection } from '@/integrations/supabase/client';
 
 const PersonalInfoPage = () => {
   const { user } = useAuth();
-  const { fetchPersonalInfo } = useDatabase();
+  const { fetchPersonalInfo, checkDatabaseStatus } = useDatabase();
   const [isLoading, setIsLoading] = useState(true);
   const [hasDatabaseError, setHasDatabaseError] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<boolean | null>(null);
   const [attemptCount, setAttemptCount] = useState(0);
+  const [diagnosticInfo, setDiagnosticInfo] = useState<string | null>(null);
+
+  // Function to check local storage for debug purposes
+  const checkLocalStorage = () => {
+    if (!user) return "No user found";
+    
+    const userId = user.id?.toString();
+    const key = `personal_info_${userId}`;
+    const data = localStorage.getItem(key);
+    
+    if (data) {
+      try {
+        const parsed = JSON.parse(data);
+        return `Found local data: First Name: ${parsed.firstName || 'N/A'}, Last Name: ${parsed.lastName || 'N/A'}`;
+      } catch (e) {
+        return `Found corrupted data: ${data.substring(0, 50)}...`;
+      }
+    }
+    
+    return "No local data found";
+  };
+
+  useEffect(() => {
+    // Run a comprehensive database check on initial load
+    const runDiagnostics = async () => {
+      try {
+        console.log("Running database diagnostics...");
+        // Check connection directly
+        const connResult = await checkConnection();
+        setConnectionStatus(connResult.connected);
+        setDiagnosticInfo(
+          `Connection status: ${connResult.connected ? 'Connected' : 'Not connected'}\n` +
+          `Reason: ${connResult.reason || 'N/A'}\n` +
+          `Local storage: ${checkLocalStorage()}`
+        );
+        
+        if (!connResult.connected) {
+          console.warn("Database connection diagnostics failed:", connResult);
+        }
+      } catch (err) {
+        console.error("Error running diagnostics:", err);
+        setDiagnosticInfo(`Error running diagnostics: ${err}`);
+      }
+    };
+    
+    runDiagnostics();
+  }, [user]);
 
   useEffect(() => {
     // Check if there's a known schema error from session storage
@@ -37,7 +86,12 @@ const PersonalInfoPage = () => {
 
       try {
         setIsLoading(true);
-        const { error } = await fetchPersonalInfo();
+        console.log("Checking database status by fetching personal info...");
+        const { error, localData } = await fetchPersonalInfo();
+        
+        if (localData) {
+          console.log("Data was loaded from local storage");
+        }
         
         // Check for the specific schema error
         if (error && typeof error === 'string' && (
@@ -69,13 +123,33 @@ const PersonalInfoPage = () => {
     }
   }, [user, fetchPersonalInfo, attemptCount]);
 
-  const handleManualRetry = () => {
+  const handleManualRetry = async () => {
     // Clear the schema error flag
     sessionStorage.removeItem('db_schema_error');
     setHasDatabaseError(false);
     setIsLoading(true);
-    setAttemptCount(0);
-    toast.info("Retrying database connection...");
+    
+    try {
+      // Check connection directly
+      const connStatus = await checkDatabaseStatus();
+      setConnectionStatus(connStatus);
+      
+      if (connStatus) {
+        toast.success("Database connection successful!");
+        // Reset attempt count to trigger the database check again
+        setAttemptCount(0);
+      } else {
+        toast.error("Still unable to connect to the database.");
+        setHasDatabaseError(true);
+        setDiagnosticInfo(checkLocalStorage());
+      }
+    } catch (err) {
+      console.error("Error during manual retry:", err);
+      toast.error("Error checking database connection.");
+      setHasDatabaseError(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isLoading) {
@@ -113,6 +187,16 @@ const PersonalInfoPage = () => {
           </p>
         </div>
         
+        {connectionStatus === true && (
+          <Alert className="bg-green-50 border-green-200">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertTitle className="text-green-700">Database Connection Active</AlertTitle>
+            <AlertDescription className="text-green-600">
+              Your data will be saved to the database.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         {hasDatabaseError && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />
@@ -120,10 +204,27 @@ const PersonalInfoPage = () => {
             <AlertDescription>
               <p className="mb-4">There was an error connecting to the database. This might happen if you're using the app for the first time and the database tables haven't been fully set up yet.</p>
               <p className="mb-4">Your information will be saved locally until the database is ready. You can continue filling out the form.</p>
-              <Button onClick={handleManualRetry} variant="outline" size="sm" className="flex items-center">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Retry Connection
-              </Button>
+              <div className="flex flex-col md:flex-row gap-2">
+                <Button onClick={handleManualRetry} variant="outline" size="sm" className="flex items-center">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Retry Connection
+                </Button>
+                <Button 
+                  onClick={() => setDiagnosticInfo(checkLocalStorage())} 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex items-center"
+                >
+                  <DatabaseIcon className="h-4 w-4 mr-2" />
+                  Check Local Storage
+                </Button>
+              </div>
+              
+              {diagnosticInfo && (
+                <div className="mt-4 p-2 bg-gray-100 rounded text-xs font-mono whitespace-pre-wrap">
+                  {diagnosticInfo}
+                </div>
+              )}
             </AlertDescription>
           </Alert>
         )}

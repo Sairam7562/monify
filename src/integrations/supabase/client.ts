@@ -31,9 +31,11 @@ export const supabase = createClient<Database>(
   }
 );
 
-// Add error handling for database schema issues with improved logging
+// Add comprehensive error handling for database schema issues
 const checkConnection = async () => {
   try {
+    console.log('Checking Supabase database connection...');
+    
     // Try a simple query to validate connection
     const { data, error } = await supabase.from('profiles').select('id').limit(1);
     
@@ -42,24 +44,35 @@ const checkConnection = async () => {
         console.error('Database schema error detected:', error.message);
         // Store a flag in session storage indicating schema issue
         sessionStorage.setItem('db_schema_error', 'true');
+        return { connected: false, reason: 'schema_error', error };
       } else {
         console.error('Database connection error:', error.message);
+        return { connected: false, reason: 'connection_error', error };
       }
-      return false;
     } else {
       // Clear any previous schema error flag if connection is successful
       console.log('Database connection successful, clearing schema error flag');
       sessionStorage.removeItem('db_schema_error');
-      return true;
+      return { connected: true, data };
     }
   } catch (err) {
     console.error('Error checking database connection:', err);
-    return false;
+    return { connected: false, reason: 'exception', error: err };
   }
 };
 
-// Check connection on initial load
-checkConnection();
+// Run connection check immediately on load and log results
+checkConnection().then(result => {
+  if (result.connected) {
+    console.log('Initial database check: Connection successful');
+  } else {
+    console.warn(`Initial database check: Connection failed - ${result.reason}`);
+    // Add more details about the error for debugging
+    if (result.error) {
+      console.error('Error details:', result.error);
+    }
+  }
+});
 
 // Configure the redirect URL for authentication
 supabase.auth.onAuthStateChange((event, session) => {
@@ -69,10 +82,15 @@ supabase.auth.onAuthStateChange((event, session) => {
     console.log("Setting redirect URL to:", redirectTo);
     
     // Check connection again after sign in
-    checkConnection();
+    checkConnection().then(result => {
+      console.log('Post-auth database check result:', result);
+    });
   }
 });
 
 // Get the current domain for email settings
 const currentDomain = window.location.origin;
 console.log("Current application domain:", currentDomain);
+
+// Export the checkConnection function to use in other parts of the app
+export { checkConnection };
