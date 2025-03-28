@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,6 +20,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';
 import ProfileImageUploader from './ProfileImageUploader';
+import { useDatabase } from '@/hooks/useDatabase';
+import { Spinner } from '@/components/ui/spinner';
 
 interface PersonalInfo {
   // Personal Details
@@ -88,6 +89,9 @@ interface Business {
 }
 
 const PersonalInfoForm = () => {
+  const { savePersonalInfo, fetchPersonalInfo, loading } = useDatabase();
+  const [isLoading, setIsLoading] = useState(true);
+  
   const [personalInfo, setPersonalInfo] = useState<PersonalInfo>({
     profileImage: null,
     firstName: '',
@@ -148,6 +152,41 @@ const PersonalInfoForm = () => {
     additionalNotes: '',
   });
 
+  useEffect(() => {
+    const loadPersonalInfo = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await fetchPersonalInfo();
+        
+        if (error) {
+          console.error("Error fetching personal info:", error);
+          toast.error("Failed to load your personal information");
+        }
+        
+        if (data) {
+          setPersonalInfo(prev => ({
+            ...prev,
+            firstName: data.first_name || '',
+            lastName: data.last_name || '',
+            email: data.email || '',
+            phone: data.phone || '',
+            address: data.address || '',
+            city: data.city || '',
+            state: data.state || '',
+            zipCode: data.zip_code || '',
+            birthDate: data.birth_date ? new Date(data.birth_date) : undefined,
+          }));
+        }
+      } catch (err) {
+        console.error("Error in loadPersonalInfo:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadPersonalInfo();
+  }, [fetchPersonalInfo]);
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
@@ -175,7 +214,6 @@ const PersonalInfoForm = () => {
     setPersonalInfo(prev => ({ ...prev, profileImage: imageUrl }));
   };
 
-  // Business methods
   const addBusiness = () => {
     const newId = personalInfo.businesses.length > 0 
       ? Math.max(...personalInfo.businesses.map(b => b.id)) + 1 
@@ -203,7 +241,6 @@ const PersonalInfoForm = () => {
       businesses: [...prev.businesses, newBusiness]
     }));
 
-    // If this is beyond the first free business, show payment info
     if (personalInfo.businesses.length >= 1) {
       toast.info("Additional businesses are $1.99 each. This will be added to your next invoice.");
     }
@@ -225,12 +262,44 @@ const PersonalInfoForm = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(personalInfo);
-    // Here you would typically send this data to your API
-    toast.success("Personal information saved successfully!");
+    
+    try {
+      const personalInfoData = {
+        firstName: personalInfo.firstName,
+        lastName: personalInfo.lastName,
+        email: personalInfo.email,
+        phone: personalInfo.phone,
+        address: personalInfo.address,
+        city: personalInfo.city,
+        state: personalInfo.state,
+        zipCode: personalInfo.zipCode,
+        birthDate: personalInfo.dateOfBirth ? format(personalInfo.dateOfBirth, 'yyyy-MM-dd') : null,
+      };
+      
+      const { error } = await savePersonalInfo(personalInfoData);
+      
+      if (error) {
+        console.error("Error saving personal info:", error);
+        toast.error("Failed to save personal information");
+      } else {
+        toast.success("Personal information saved successfully!");
+      }
+    } catch (err) {
+      console.error("Error in handleSubmit:", err);
+      toast.error("An unexpected error occurred");
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Spinner size="lg" />
+        <span className="ml-2">Loading your information...</span>
+      </div>
+    );
+  }
 
   return (
     <Tabs defaultValue="personal" className="w-full">
@@ -772,8 +841,19 @@ const PersonalInfoForm = () => {
               </div>
             </CardContent>
             <CardFooter>
-              <Button type="submit" className="w-full bg-monify-purple-500 hover:bg-monify-purple-600">
-                Save Personal Information
+              <Button 
+                type="submit" 
+                className="w-full bg-monify-purple-500 hover:bg-monify-purple-600"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Spinner size="sm" className="mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Personal Information"
+                )}
               </Button>
             </CardFooter>
           </form>

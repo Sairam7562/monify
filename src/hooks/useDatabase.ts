@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -323,7 +322,7 @@ export function useDatabase() {
 
       if (error) throw error;
       
-      return { data: data || [], error: error.message };
+      return { data: data || [], error: null };
     } catch (error: any) {
       console.error('Error fetching expenses:', error);
       return { data: [], error: error.message };
@@ -424,4 +423,3 @@ export function useDatabase() {
     adminFetchUserData
   };
 }
-
