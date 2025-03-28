@@ -1,7 +1,7 @@
 
 @media print {
   /* Hide navigation and UI elements */
-  header, nav, footer, .print-hidden, button {
+  header, nav, footer, .print-hidden, button, .sidebar {
     display: none !important;
   }
   
@@ -10,6 +10,7 @@
     width: 100%;
     margin: 0;
     padding: 0;
+    font-size: 11pt;
   }
   
   /* Style the financial statement for printing */
@@ -24,6 +25,7 @@
   /* Ensure the page breaks appropriately */
   h2, h3 {
     page-break-after: avoid;
+    margin-top: 1em;
   }
   
   /* Add page breaks before major sections */
@@ -35,6 +37,7 @@
   * {
     background-color: white !important;
     color: black !important;
+    box-shadow: none !important;
   }
   
   /* Preserve colors for financials */
@@ -88,5 +91,91 @@
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
     gap: 1rem !important;
+  }
+  
+  /* Hide form controls when printing */
+  input, select, button, .checkbox {
+    border: none !important;
+  }
+  
+  /* Format cards nicely for print */
+  .card {
+    border: 1px solid #ddd !important;
+    break-inside: avoid;
+    margin-bottom: 1em;
+  }
+  
+  /* Make sure all financial details are visible */
+  #business-financial-statement,
+  #personal-financial-statement,
+  #income-statement,
+  #cash-flow-statement,
+  #net-worth-statement {
+    break-inside: avoid;
+    margin-bottom: 2em;
+    width: 100%;
+  }
+  
+  /* Format tables for better print layout */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  
+  table th, table td {
+    border: 1px solid #ddd !important;
+    padding: 4pt;
+    text-align: left;
+  }
+  
+  /* Ensure good breaking for multi-page reports */
+  tr {
+    break-inside: avoid;
+  }
+  
+  /* Add page numbers */
+  @page {
+    margin: 0.5in;
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+    }
+  }
+  
+  /* Add header with date and company name */
+  @page {
+    @top-center {
+      content: "Monify Financial Statement";
+    }
+    @top-right {
+      content: "Generated: " attr(data-print-date);
+    }
+  }
+  
+  /* Show the statement date clearly */
+  .statement-date {
+    display: block !important;
+    font-weight: bold;
+    margin-bottom: 1em;
+  }
+  
+  /* Form elements - show text only */
+  input, select, textarea {
+    border: none !important;
+    -webkit-appearance: none;
+    appearance: none;
+    padding: 0 !important;
+    background: transparent !important;
+  }
+  
+  /* Hide interactive elements */
+  .tabs-list, .tab-trigger {
+    display: none !important;
+  }
+  
+  /* Make all tab content visible */
+  .tab-content {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
   }
 }
