@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Search, RefreshCw, UserPlus, Trash2, Ban, CheckCircle } from 'lucide-react';
+import { Eye, Search, RefreshCw, UserPlus, Trash2, Ban, CheckCircle, Mail, ShieldCheck } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { 
@@ -15,6 +15,9 @@ import {
   deleteUser, 
   toggleUserStatus 
 } from '@/services/authService';
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { useForm } from 'react-hook-form';
+import { Switch } from "@/components/ui/switch";
 
 const AdminUsers = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -22,10 +25,19 @@ const AdminUsers = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isPasswordResetModalOpen, setIsPasswordResetModalOpen] = useState(false);
+  const [userToReset, setUserToReset] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [users, setUsers] = useState<User[]>([]);
-  const [newUser, setNewUser] = useState({ name: '', email: '', role: 'User', plan: 'Basic' });
+  const [newUser, setNewUser] = useState({ 
+    name: '', 
+    email: '', 
+    role: 'User', 
+    plan: 'Basic',
+    enableTwoFactor: false 
+  });
   const [isLoading, setIsLoading] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
 
   // Load users when component mounts
   useEffect(() => {
@@ -50,6 +62,29 @@ const AdminUsers = () => {
   const handleDeleteUser = (user: User) => {
     setUserToDelete(user);
     setIsDeleteModalOpen(true);
+  };
+
+  const handlePasswordReset = (user: User) => {
+    setUserToReset(user);
+    setResetEmailSent(false);
+    setIsPasswordResetModalOpen(true);
+  };
+
+  const sendPasswordResetEmail = async () => {
+    if (!userToReset) return;
+    
+    setIsLoading(true);
+    try {
+      // Simulate sending password reset email
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      console.log(`Password reset email sent to ${userToReset.name} (${userToReset.email})`);
+      toast.success(`Password reset email sent to ${userToReset.email}`);
+      setResetEmailSent(true);
+    } catch (error) {
+      toast.error("Failed to send password reset email");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const confirmDeleteUser = () => {
@@ -88,7 +123,7 @@ const AdminUsers = () => {
       if (addedUser) {
         setUsers(getAllUsers());
         setIsAddUserModalOpen(false);
-        setNewUser({ name: '', email: '', role: 'User', plan: 'Basic' });
+        setNewUser({ name: '', email: '', role: 'User', plan: 'Basic', enableTwoFactor: false });
         toast.success(`${newUser.name} has been added successfully and an invitation email has been sent.`);
       }
     } catch (error) {
@@ -96,6 +131,18 @@ const AdminUsers = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSendSupportMessage = (user: User) => {
+    // Simulate sending support message
+    toast.success(`Support message sent to ${user.name}`);
+    console.log(`Support message sent to ${user.name} (${user.email})`);
+  };
+
+  const handleAccessUserDashboard = (user: User) => {
+    // Simulate accessing user dashboard in view mode
+    toast.success(`Accessing ${user.name}'s dashboard in view mode`);
+    console.log(`Admin accessing ${user.name}'s dashboard in view mode`);
   };
 
   const getStatusColor = (status: string) => {
@@ -146,6 +193,7 @@ const AdminUsers = () => {
                 <TableHead>Subscription</TableHead>
                 <TableHead>Last Login</TableHead>
                 <TableHead>Role</TableHead>
+                <TableHead>2FA</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -162,6 +210,17 @@ const AdminUsers = () => {
                   <TableCell>{user.plan}</TableCell>
                   <TableCell>{user.lastLogin}</TableCell>
                   <TableCell>{user.role}</TableCell>
+                  <TableCell>
+                    {user.twoFactorEnabled ? (
+                      <Badge variant="outline" className="bg-blue-100 text-blue-800">
+                        Enabled
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-gray-100 text-gray-800">
+                        Disabled
+                      </Badge>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="sm" onClick={() => handleViewUser(user)}>
@@ -178,6 +237,14 @@ const AdminUsers = () => {
                         ) : (
                           <><CheckCircle className="h-4 w-4 mr-1" /> Activate</>
                         )}
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handlePasswordReset(user)}
+                        className="text-blue-600"
+                      >
+                        <Mail className="h-4 w-4 mr-1" /> Reset
                       </Button>
                       <Button 
                         variant="ghost" 
@@ -247,9 +314,15 @@ const AdminUsers = () => {
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Support Actions</h3>
                   <div className="mt-2 flex flex-col gap-2">
-                    <Button className="w-full">Access Dashboard in View Mode</Button>
-                    <Button variant="outline" className="w-full">Send Password Reset Link</Button>
-                    <Button variant="outline" className="w-full">Send Support Message</Button>
+                    <Button className="w-full" onClick={() => handleAccessUserDashboard(selectedUser)}>
+                      Access Dashboard in View Mode
+                    </Button>
+                    <Button variant="outline" className="w-full" onClick={() => handlePasswordReset(selectedUser)}>
+                      Send Password Reset Link
+                    </Button>
+                    <Button variant="outline" className="w-full" onClick={() => handleSendSupportMessage(selectedUser)}>
+                      Send Support Message
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -270,7 +343,7 @@ const AdminUsers = () => {
           <DialogHeader>
             <DialogTitle>Add New User</DialogTitle>
             <DialogDescription>
-              Create a new user account and send them an invitation email.
+              Create a new user account and send them an invitation email with a temporary password.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -320,6 +393,16 @@ const AdminUsers = () => {
                   <option value="Enterprise">Enterprise</option>
                 </select>
               </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="two-factor"
+                  checked={newUser.enableTwoFactor}
+                  onCheckedChange={(checked) => setNewUser({...newUser, enableTwoFactor: checked})}
+                />
+                <label htmlFor="two-factor" className="text-sm font-medium">
+                  Require Two-Factor Authentication
+                </label>
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -330,6 +413,55 @@ const AdminUsers = () => {
             >
               {isLoading ? "Adding User..." : "Add User & Send Invitation"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Password Reset Modal */}
+      <Dialog open={isPasswordResetModalOpen} onOpenChange={setIsPasswordResetModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Password Reset</DialogTitle>
+            <DialogDescription>
+              Send a password reset link to the user's email address.
+            </DialogDescription>
+          </DialogHeader>
+          {userToReset && (
+            <div className="py-4">
+              <p className="font-medium">{userToReset.name}</p>
+              <p className="text-sm text-gray-500 mb-4">{userToReset.email}</p>
+              
+              {!resetEmailSent ? (
+                <div className="space-y-4">
+                  <p className="text-sm">
+                    This will send an email to the user with instructions on how to reset their password.
+                    The link will expire in 24 hours.
+                  </p>
+                  <div className="flex items-center space-x-2">
+                    <ShieldCheck className="h-4 w-4 text-amber-600" />
+                    <p className="text-xs text-amber-600">
+                      This action will be logged for security purposes.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-green-50 p-4 rounded border border-green-200">
+                  <p className="text-sm text-green-800">
+                    Password reset email has been sent successfully to {userToReset.email}.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPasswordResetModalOpen(false)}>
+              {resetEmailSent ? "Close" : "Cancel"}
+            </Button>
+            {!resetEmailSent && (
+              <Button onClick={sendPasswordResetEmail} disabled={isLoading}>
+                {isLoading ? "Sending..." : "Send Reset Link"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
