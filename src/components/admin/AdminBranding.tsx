@@ -72,7 +72,7 @@ const AdminBranding = () => {
     // Update global branding settings
     updateBrandingSettings(localSettings);
     
-    // Apply the settings to the DOM
+    // Explicitly call apply to ensure changes take effect
     applyBrandingSettings();
     
     setHasUnsavedChanges(false);

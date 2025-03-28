@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -13,7 +13,12 @@ interface MainLayoutProps {
 
 const MainLayout = ({ children, showSidebar = true }: MainLayoutProps) => {
   const isMobile = useIsMobile();
-  const { brandingSettings } = useBranding();
+  const { brandingSettings, applyBrandingSettings } = useBranding();
+  
+  // Ensure branding is applied when the layout mounts
+  useEffect(() => {
+    applyBrandingSettings();
+  }, [applyBrandingSettings]);
   
   return (
     <SidebarProvider>

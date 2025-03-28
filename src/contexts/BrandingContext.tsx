@@ -58,8 +58,17 @@ export const BrandingProvider: React.FC<{ children: ReactNode }> = ({ children }
     const loadSettings = () => {
       const savedSettings = localStorage.getItem('brandingSettings');
       if (savedSettings) {
-        setBrandingSettings(JSON.parse(savedSettings));
-        applySettingsToDOM(JSON.parse(savedSettings));
+        try {
+          const parsedSettings = JSON.parse(savedSettings);
+          setBrandingSettings(parsedSettings);
+          // Apply the settings immediately when they're loaded
+          applySettingsToDOM(parsedSettings);
+        } catch (error) {
+          console.error('Error parsing branding settings:', error);
+        }
+      } else {
+        // If no saved settings, apply defaults
+        applySettingsToDOM(defaultBrandingSettings);
       }
     };
     
@@ -70,7 +79,10 @@ export const BrandingProvider: React.FC<{ children: ReactNode }> = ({ children }
   const updateBrandingSettings = (settings: Partial<BrandingSettings>) => {
     setBrandingSettings(prev => {
       const updatedSettings = { ...prev, ...settings };
+      // Save to localStorage
       localStorage.setItem('brandingSettings', JSON.stringify(updatedSettings));
+      // Apply the changes immediately
+      applySettingsToDOM(updatedSettings);
       return updatedSettings;
     });
   };
@@ -82,10 +94,27 @@ export const BrandingProvider: React.FC<{ children: ReactNode }> = ({ children }
   
   // Helper function to apply settings to DOM
   const applySettingsToDOM = (settings: BrandingSettings) => {
-    // Update colors in CSS variables
+    console.log("Applying branding settings to DOM:", settings);
+    
+    // Update CSS custom properties for colors
     document.documentElement.style.setProperty('--primary', settings.primaryColor);
+    document.documentElement.style.setProperty('--primary-foreground', '#FFFFFF');
+    
     document.documentElement.style.setProperty('--secondary', settings.secondaryColor);
+    document.documentElement.style.setProperty('--secondary-foreground', '#FFFFFF');
+    
     document.documentElement.style.setProperty('--accent', settings.accentColor);
+    document.documentElement.style.setProperty('--accent-foreground', '#FFFFFF');
+    
+    // Update monify-specific classes (for the components that use these directly)
+    document.documentElement.style.setProperty('--monify-purple-600', settings.primaryColor);
+    document.documentElement.style.setProperty('--monify-pink-600', settings.secondaryColor);
+    document.documentElement.style.setProperty('--monify-cyan-500', settings.accentColor);
+    
+    // Also update sidebar colors for consistency
+    document.documentElement.style.setProperty('--sidebar-background', settings.primaryColor);
+    document.documentElement.style.setProperty('--sidebar-primary', settings.secondaryColor);
+    document.documentElement.style.setProperty('--sidebar-accent', settings.accentColor);
     
     // Update document metadata
     document.title = settings.metaTitle;
