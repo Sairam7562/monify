@@ -1,11 +1,17 @@
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, Mail, Printer } from 'lucide-react';
+import { Download, Mail, Printer, Edit } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
+import { 
+  PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, 
+  CartesianGrid, Tooltip, Legend, ResponsiveContainer 
+} from 'recharts';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface FinancialItem {
   id: string;
@@ -36,6 +42,8 @@ interface PersonalFinancialStatementProps {
   };
 }
 
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#8dd1e1'];
+
 const formatCurrency = (value: number) => {
   return value.toLocaleString('en-US', {
     style: 'currency',
@@ -47,6 +55,9 @@ const formatCurrency = (value: number) => {
 
 const PersonalFinancialStatementDisplay = ({ data }: PersonalFinancialStatementProps) => {
   const statementRef = useRef<HTMLDivElement>(null);
+  const [signature, setSignature] = useState<string>('');
+  const [showSignatureInput, setShowSignatureInput] = useState<boolean>(false);
+  const [currentDate, setCurrentDate] = useState<string>(new Date().toLocaleDateString());
 
   const calculateTotal = (items: FinancialItem[]) => {
     return items
@@ -98,6 +109,27 @@ This is an automated email sent from Monify Financial Services.`;
     toast.success("Email client opened with statement details");
   };
 
+  // Prepare chart data
+  const assetData = data.assets
+    .filter(asset => asset.includeInReport && parseFloat(asset.value) > 0)
+    .map(asset => ({
+      name: asset.name,
+      value: parseFloat(asset.value)
+    }));
+
+  const liabilityData = data.liabilities
+    .filter(liability => liability.includeInReport && parseFloat(liability.value) > 0)
+    .map(liability => ({
+      name: liability.name,
+      value: parseFloat(liability.value)
+    }));
+
+  const monthlyFinanceData = [
+    { name: 'Income', amount: totalIncome },
+    { name: 'Expenses', amount: totalExpenses },
+    { name: 'Cash Flow', amount: cashFlow }
+  ];
+
   return (
     <Card className="w-full border-2 border-gray-200 print:border-none" id="personal-financial-statement">
       <CardContent className="p-4 md:p-8 space-y-6 md:space-y-8" ref={statementRef}>
@@ -134,9 +166,103 @@ This is an automated email sent from Monify Financial Services.`;
 
         <Separator />
 
-        {/* Assets */}
+        {/* Financial Summary with Chart */}
+        <div className="bg-white rounded-lg border p-4">
+          <h3 className="text-lg md:text-xl font-semibold mb-4">Financial Summary</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div className="flex justify-between">
+                <span className="font-medium">Total Assets:</span>
+                <span className="text-monify-purple-600 font-bold">{formatCurrency(totalAssets)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium">Total Liabilities:</span>
+                <span className="text-red-600 font-bold">{formatCurrency(totalLiabilities)}</span>
+              </div>
+              <div className="border-t pt-2 flex justify-between">
+                <span className="font-bold">Net Worth:</span>
+                <span className={`font-bold ${netWorth >= 0 ? "text-monify-green-600" : "text-red-600"}`}>
+                  {formatCurrency(netWorth)}
+                </span>
+              </div>
+              
+              <div className="pt-4">
+                <div className="flex justify-between">
+                  <span className="font-medium">Monthly Income:</span>
+                  <span className="text-monify-green-600 font-bold">{formatCurrency(totalIncome)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Monthly Expenses:</span>
+                  <span className="text-red-600 font-bold">{formatCurrency(totalExpenses)}</span>
+                </div>
+                <div className="border-t pt-2 flex justify-between">
+                  <span className="font-bold">Monthly Cash Flow:</span>
+                  <span className={`font-bold ${cashFlow >= 0 ? "text-monify-green-600" : "text-red-600"}`}>
+                    {formatCurrency(cashFlow)}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Assets', value: totalAssets },
+                      { name: 'Liabilities', value: totalLiabilities },
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    <Cell key="cell-0" fill="#8884d8" />
+                    <Cell key="cell-1" fill="#FF8042" />
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(value as number)} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Assets with Chart */}
         <div>
           <h3 className="text-lg md:text-xl font-semibold mb-3 md:mb-4">Assets</h3>
+          
+          {assetData.length > 0 && (
+            <div className="h-64 mb-6">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={assetData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {assetData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(value as number)} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          
           <div className="space-y-2">
             {data.assets
               .filter(asset => asset.includeInReport && asset.value)
@@ -155,9 +281,35 @@ This is an automated email sent from Monify Financial Services.`;
 
         <Separator />
 
-        {/* Liabilities */}
+        {/* Liabilities with Chart */}
         <div>
           <h3 className="text-lg md:text-xl font-semibold mb-3 md:mb-4">Liabilities</h3>
+          
+          {liabilityData.length > 0 && (
+            <div className="h-64 mb-6">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={liabilityData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={80}
+                    fill="#FF8042"
+                    dataKey="value"
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {liabilityData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[(index + 4) % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(value as number)} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          
           <div className="space-y-2">
             {data.liabilities
               .filter(liability => liability.includeInReport && liability.value)
@@ -186,42 +338,68 @@ This is an automated email sent from Monify Financial Services.`;
 
         <Separator />
 
-        {/* Income */}
+        {/* Monthly Income & Expenses with Bar Chart */}
         <div>
-          <h3 className="text-lg md:text-xl font-semibold mb-3 md:mb-4">Income</h3>
-          <div className="space-y-2">
-            {data.incomes
-              .filter(income => income.includeInReport && income.value)
-              .map(income => (
-                <div key={income.id} className="flex justify-between">
-                  <span>{income.name}</span>
-                  <span className="font-medium">{formatCurrency(parseFloat(income.value))}</span>
-                </div>
-              ))}
-            <div className="flex justify-between font-bold pt-2 border-t mt-4">
-              <span>Total Income</span>
-              <span className="text-monify-green-600">{formatCurrency(totalIncome)}</span>
+          <h3 className="text-lg md:text-xl font-semibold mb-3 md:mb-4">Monthly Income & Expenses</h3>
+          
+          <div className="h-64 mb-6">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                width={500}
+                height={300}
+                data={monthlyFinanceData}
+                margin={{
+                  top: 5,
+                  right: 30,
+                  left: 20,
+                  bottom: 5,
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis tickFormatter={(value) => `$${value}`} />
+                <Tooltip formatter={(value) => formatCurrency(value as number)} />
+                <Legend />
+                <Bar dataKey="amount" name="Amount" fill="#8884d8" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          
+          {/* Income details */}
+          <div className="mt-6">
+            <h4 className="font-medium mb-2">Income Details</h4>
+            <div className="space-y-2">
+              {data.incomes
+                .filter(income => income.includeInReport && income.value)
+                .map(income => (
+                  <div key={income.id} className="flex justify-between">
+                    <span>{income.name}</span>
+                    <span className="font-medium">{formatCurrency(parseFloat(income.value))}</span>
+                  </div>
+                ))}
+              <div className="flex justify-between font-bold pt-2 border-t mt-4">
+                <span>Total Income</span>
+                <span className="text-monify-green-600">{formatCurrency(totalIncome)}</span>
+              </div>
             </div>
           </div>
-        </div>
-
-        <Separator />
-
-        {/* Expenses */}
-        <div>
-          <h3 className="text-lg md:text-xl font-semibold mb-3 md:mb-4">Expenses</h3>
-          <div className="space-y-2">
-            {data.expenses
-              .filter(expense => expense.includeInReport && expense.value)
-              .map(expense => (
-                <div key={expense.id} className="flex justify-between">
-                  <span>{expense.name}</span>
-                  <span className="font-medium">{formatCurrency(parseFloat(expense.value))}</span>
-                </div>
-              ))}
-            <div className="flex justify-between font-bold pt-2 border-t mt-4">
-              <span>Total Expenses</span>
-              <span className="text-red-600">{formatCurrency(totalExpenses)}</span>
+          
+          {/* Expense details */}
+          <div className="mt-6">
+            <h4 className="font-medium mb-2">Expense Details</h4>
+            <div className="space-y-2">
+              {data.expenses
+                .filter(expense => expense.includeInReport && expense.value)
+                .map(expense => (
+                  <div key={expense.id} className="flex justify-between">
+                    <span>{expense.name}</span>
+                    <span className="font-medium">{formatCurrency(parseFloat(expense.value))}</span>
+                  </div>
+                ))}
+              <div className="flex justify-between font-bold pt-2 border-t mt-4">
+                <span>Total Expenses</span>
+                <span className="text-red-600">{formatCurrency(totalExpenses)}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -253,6 +431,56 @@ This is an automated email sent from Monify Financial Services.`;
                 {totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome * 100).toFixed(0) + '%' : 'N/A'}
               </p>
               <p className="text-xs md:text-sm text-gray-500">Higher is better. Target: at least 20%</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Signature Section */}
+        <div className="mt-8 border-t pt-6">
+          <h3 className="text-lg font-semibold mb-4">Certification</h3>
+          <p className="text-sm mb-4">
+            I, {data.fullName}, certify that the information contained in this personal financial statement is true and accurate 
+            to the best of my knowledge.
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+            <div className="space-y-2">
+              <div className="min-h-16 border-b border-dashed flex items-end justify-center">
+                {signature ? (
+                  <p className="text-lg italic font-signature pb-1">{signature}</p>
+                ) : (
+                  <div className="print:hidden">
+                    {showSignatureInput ? (
+                      <div className="mb-1 w-full">
+                        <Input 
+                          placeholder="Type your name to sign" 
+                          value={signature}
+                          onChange={(e) => setSignature(e.target.value)}
+                          className="text-center italic"
+                        />
+                      </div>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setShowSignatureInput(true)}
+                        className="mb-1 print:hidden"
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Add Signature
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <p className="text-center text-sm">Signature</p>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="min-h-16 border-b border-dashed flex items-end justify-center">
+                <p className="text-lg pb-1">{currentDate}</p>
+              </div>
+              <p className="text-center text-sm">Date</p>
             </div>
           </div>
         </div>

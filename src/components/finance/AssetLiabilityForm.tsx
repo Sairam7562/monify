@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,12 +12,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { PlusCircle, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Asset {
   id: number;
   name: string;
   type: string;
   value: string;
+  ownershipPercentage?: string;
+  address?: string;
+  description?: string;
 }
 
 interface Liability {
@@ -26,6 +30,7 @@ interface Liability {
   type: string;
   amount: string;
   interestRate: string;
+  associatedAssetId?: number; // To link liabilities to specific assets
 }
 
 const AssetLiabilityForm = () => {
@@ -37,6 +42,25 @@ const AssetLiabilityForm = () => {
     { id: 1, name: '', type: 'credit_card', amount: '', interestRate: '' },
   ]);
 
+  const [calculatedAssetValue, setCalculatedAssetValue] = useState<{[key: number]: string}>({});
+
+  useEffect(() => {
+    // Calculate adjusted asset values based on ownership percentage
+    const calculated: {[key: number]: string} = {};
+    
+    assets.forEach(asset => {
+      if (asset.type === 'real_estate' || asset.type === 'business') {
+        const value = parseFloat(asset.value) || 0;
+        const percentage = parseFloat(asset.ownershipPercentage || '100') / 100;
+        calculated[asset.id] = (value * percentage).toFixed(2);
+      } else {
+        calculated[asset.id] = asset.value;
+      }
+    });
+    
+    setCalculatedAssetValue(calculated);
+  }, [assets]);
+
   const addAsset = () => {
     const newId = assets.length > 0 ? Math.max(...assets.map(a => a.id)) + 1 : 1;
     setAssets([...assets, { id: newId, name: '', type: 'cash', value: '' }]);
@@ -45,6 +69,9 @@ const AssetLiabilityForm = () => {
   const removeAsset = (id: number) => {
     if (assets.length > 1) {
       setAssets(assets.filter(asset => asset.id !== id));
+      
+      // Remove any liabilities associated with this asset
+      setLiabilities(liabilities.filter(liability => liability.associatedAssetId !== id));
     }
   };
 
@@ -52,6 +79,18 @@ const AssetLiabilityForm = () => {
     setAssets(assets.map(asset => 
       asset.id === id ? { ...asset, [field]: value } : asset
     ));
+    
+    // If changing type to real_estate or business, add ownership percentage field if not exists
+    if (field === 'type' && (value === 'real_estate' || value === 'business')) {
+      setAssets(assets.map(asset => 
+        asset.id === id ? { 
+          ...asset, 
+          [field]: value,
+          ownershipPercentage: asset.ownershipPercentage || '100',
+          description: asset.description || ''
+        } : asset
+      ));
+    }
   };
 
   const addLiability = () => {
@@ -65,7 +104,7 @@ const AssetLiabilityForm = () => {
     }
   };
 
-  const updateLiability = (id: number, field: keyof Liability, value: string) => {
+  const updateLiability = (id: number, field: keyof Liability, value: string | number) => {
     setLiabilities(liabilities.map(liability => 
       liability.id === id ? { ...liability, [field]: value } : liability
     ));
@@ -73,8 +112,25 @@ const AssetLiabilityForm = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log({ assets, liabilities });
-    // Here you would typically send this data to your API
+    console.log({ 
+      assets: assets.map(asset => ({
+        ...asset,
+        adjustedValue: calculatedAssetValue[asset.id]
+      })), 
+      liabilities 
+    });
+    toast.success("Financial information saved successfully!");
+  };
+
+  const getAssetOptions = () => {
+    const options = assets.filter(asset => 
+      asset.type === 'real_estate' || asset.type === 'business'
+    ).map(asset => ({
+      id: asset.id,
+      name: asset.name || (asset.type === 'real_estate' ? 'Real Estate Property' : 'Business') + ` #${asset.id}`
+    }));
+    
+    return [{ id: 0, name: 'None (General Liability)' }, ...options];
   };
 
   return (
@@ -137,18 +193,74 @@ const AssetLiabilityForm = () => {
                     </div>
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor={`asset-value-${asset.id}`}>Current Value ($)</Label>
-                    <Input
-                      id={`asset-value-${asset.id}`}
-                      type="number"
-                      value={asset.value}
-                      onChange={(e) => updateAsset(asset.id, 'value', e.target.value)}
-                      placeholder="0.00"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
+                  {(asset.type === 'real_estate' || asset.type === 'business') && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor={`asset-description-${asset.id}`}>
+                          {asset.type === 'real_estate' ? 'Property Address' : 'Business Description'}
+                        </Label>
+                        <Input
+                          id={`asset-description-${asset.id}`}
+                          value={asset.description || ''}
+                          onChange={(e) => updateAsset(asset.id, 'description', e.target.value)}
+                          placeholder={asset.type === 'real_estate' ? 
+                            "123 Main Street, City, State, ZIP" : 
+                            "Description of business"}
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor={`asset-value-${asset.id}`}>Total Value ($)</Label>
+                          <Input
+                            id={`asset-value-${asset.id}`}
+                            type="number"
+                            value={asset.value}
+                            onChange={(e) => updateAsset(asset.id, 'value', e.target.value)}
+                            placeholder="0.00"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor={`asset-ownership-${asset.id}`}>Ownership Percentage (%)</Label>
+                          <Input
+                            id={`asset-ownership-${asset.id}`}
+                            type="number"
+                            value={asset.ownershipPercentage || '100'}
+                            onChange={(e) => updateAsset(asset.id, 'ownershipPercentage', e.target.value)}
+                            placeholder="100"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                          />
+                        </div>
+                      </div>
+                      
+                      {calculatedAssetValue[asset.id] && (
+                        <div className="bg-gray-50 p-3 rounded-md">
+                          <p className="text-sm text-gray-500">Your portion based on ownership percentage:</p>
+                          <p className="font-medium text-lg">${parseFloat(calculatedAssetValue[asset.id]).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  
+                  {asset.type !== 'real_estate' && asset.type !== 'business' && (
+                    <div className="space-y-2">
+                      <Label htmlFor={`asset-value-${asset.id}`}>Current Value ($)</Label>
+                      <Input
+                        id={`asset-value-${asset.id}`}
+                        type="number"
+                        value={asset.value}
+                        onChange={(e) => updateAsset(asset.id, 'value', e.target.value)}
+                        placeholder="0.00"
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -212,6 +324,25 @@ const AssetLiabilityForm = () => {
                       </Select>
                     </div>
                   </div>
+                  
+                  {(liability.type === 'mortgage' || liability.type === 'business_loan') && (
+                    <div className="space-y-2">
+                      <Label htmlFor={`liability-asset-${liability.id}`}>Associated Asset</Label>
+                      <Select 
+                        value={liability.associatedAssetId?.toString() || "0"} 
+                        onValueChange={(value) => updateLiability(liability.id, 'associatedAssetId', parseInt(value))}
+                      >
+                        <SelectTrigger id={`liability-asset-${liability.id}`}>
+                          <SelectValue placeholder="Select associated asset" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {getAssetOptions().map(option => (
+                            <SelectItem key={option.id} value={option.id.toString()}>{option.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
