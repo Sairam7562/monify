@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { PlusCircle, Trash2, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useDatabase } from '@/hooks/useDatabase';
@@ -24,6 +25,7 @@ interface Asset {
   ownershipPercentage?: string;
   address?: string;
   description?: string;
+  saved?: boolean;
 }
 
 interface Liability {
@@ -34,6 +36,7 @@ interface Liability {
   interestRate: string;
   ownershipPercentage?: string;
   associatedAssetId?: number; // To link liabilities to specific assets
+  saved?: boolean;
 }
 
 const AssetLiabilityForm = () => {
@@ -47,16 +50,19 @@ const AssetLiabilityForm = () => {
   } = useDatabase();
   
   const [assets, setAssets] = useState<Asset[]>([
-    { id: 1, name: '', type: 'cash', value: '' },
+    { id: 1, name: '', type: 'cash', value: '', saved: false },
   ]);
   
   const [liabilities, setLiabilities] = useState<Liability[]>([
-    { id: 1, name: '', type: 'credit_card', amount: '', interestRate: '' },
+    { id: 1, name: '', type: 'credit_card', amount: '', interestRate: '', saved: false },
   ]);
 
+  const [isSavingAsset, setIsSavingAsset] = useState<{[key: number]: boolean}>({});
+  const [isSavingLiability, setIsSavingLiability] = useState<{[key: number]: boolean}>({});
   const [calculatedAssetValue, setCalculatedAssetValue] = useState<{[key: number]: string}>({});
   const [calculatedLiabilityAmount, setCalculatedLiabilityAmount] = useState<{[key: number]: string}>({});
   const [formLoading, setFormLoading] = useState(true);
+  const [allDataSaved, setAllDataSaved] = useState(false);
 
   useEffect(() => {
     loadExistingData();
@@ -75,7 +81,8 @@ const AssetLiabilityForm = () => {
           type: asset.type,
           value: asset.value.toString(),
           ownershipPercentage: asset.ownership_percentage?.toString(),
-          description: asset.description
+          description: asset.description,
+          saved: true
         }));
         setAssets(formattedAssets);
       }
@@ -89,10 +96,13 @@ const AssetLiabilityForm = () => {
           amount: liability.amount.toString(),
           interestRate: liability.interest_rate?.toString() || '0',
           ownershipPercentage: liability.ownership_percentage?.toString(),
-          associatedAssetId: liability.associated_asset_id ? parseInt(liability.associated_asset_id) : undefined
+          associatedAssetId: liability.associated_asset_id ? parseInt(liability.associated_asset_id) : undefined,
+          saved: true
         }));
         setLiabilities(formattedLiabilities);
       }
+      
+      setAllDataSaved(true);
     } catch (error) {
       console.error("Error loading existing data:", error);
       toast.error("Failed to load your existing financial data");
@@ -133,22 +143,30 @@ const AssetLiabilityForm = () => {
     setCalculatedLiabilityAmount(calculated);
   }, [liabilities]);
 
+  useEffect(() => {
+    // Check if all items are saved
+    const allAssetsSaved = assets.every(asset => asset.saved);
+    const allLiabilitiesSaved = liabilities.every(liability => liability.saved);
+    setAllDataSaved(allAssetsSaved && allLiabilitiesSaved);
+  }, [assets, liabilities]);
+
   const addAsset = () => {
     const newId = assets.length > 0 ? Math.max(...assets.map(a => a.id)) + 1 : 1;
-    setAssets([...assets, { id: newId, name: '', type: 'cash', value: '' }]);
+    setAssets([...assets, { id: newId, name: '', type: 'cash', value: '', saved: false }]);
+    setAllDataSaved(false);
   };
 
   const removeAsset = (id: number) => {
     if (assets.length > 1) {
       setAssets(assets.filter(asset => asset.id !== id));
-      
       setLiabilities(liabilities.filter(liability => liability.associatedAssetId !== id));
+      setAllDataSaved(false);
     }
   };
 
   const updateAsset = (id: number, field: keyof Asset, value: string) => {
     setAssets(assets.map(asset => 
-      asset.id === id ? { ...asset, [field]: value } : asset
+      asset.id === id ? { ...asset, [field]: value, saved: false } : asset
     ));
     
     if (field === 'type' && (value === 'real_estate' || value === 'business')) {
@@ -157,26 +175,65 @@ const AssetLiabilityForm = () => {
           ...asset, 
           [field]: value,
           ownershipPercentage: asset.ownershipPercentage || '100',
-          description: asset.description || ''
+          description: asset.description || '',
+          saved: false
         } : asset
       ));
+    }
+    
+    setAllDataSaved(false);
+  };
+
+  const saveAsset = async (id: number) => {
+    if (!user) {
+      toast.error("You must be logged in to save financial information");
+      return;
+    }
+    
+    setIsSavingAsset(prev => ({ ...prev, [id]: true }));
+    
+    try {
+      // Find the asset to save
+      const assetToSave = assets.find(asset => asset.id === id);
+      if (!assetToSave) {
+        throw new Error("Asset not found");
+      }
+      
+      // Save just this asset
+      await saveAssets([assetToSave]);
+      
+      // Mark this asset as saved
+      setAssets(prevAssets => 
+        prevAssets.map(asset => 
+          asset.id === id ? { ...asset, saved: true } : asset
+        )
+      );
+      
+      toast.success(`Asset "${assetToSave.name || 'Unnamed Asset'}" saved successfully!`);
+    } catch (error) {
+      console.error("Error saving asset:", error);
+      toast.error("Failed to save asset. Please try again.");
+    } finally {
+      setIsSavingAsset(prev => ({ ...prev, [id]: false }));
     }
   };
 
   const addLiability = () => {
     const newId = liabilities.length > 0 ? Math.max(...liabilities.map(l => l.id)) + 1 : 1;
-    setLiabilities([...liabilities, { id: newId, name: '', type: 'credit_card', amount: '', interestRate: '' }]);
+    setLiabilities([...liabilities, { id: newId, name: '', type: 'credit_card', amount: '', interestRate: '', saved: false }]);
+    setAllDataSaved(false);
   };
 
   const removeLiability = (id: number) => {
     if (liabilities.length > 1) {
       setLiabilities(liabilities.filter(liability => liability.id !== id));
+      setAllDataSaved(false);
     }
   };
 
   const updateLiability = (id: number, field: keyof Liability, value: string | number) => {
     setLiabilities(liabilities.map(liability => 
-      liability.id === id ? { ...liability, [field]: value } : liability
+      liability.id === id ? { ...liability, [field]: value, saved: false } : liability
     ));
 
     if (field === 'type' && (value === 'real_estate' || value === 'mortgage' || value === 'business_loan')) {
@@ -184,9 +241,46 @@ const AssetLiabilityForm = () => {
         liability.id === id ? { 
           ...liability, 
           [field]: value as string,
-          ownershipPercentage: liability.ownershipPercentage || '100'
+          ownershipPercentage: liability.ownershipPercentage || '100',
+          saved: false
         } : liability
       ));
+    }
+    
+    setAllDataSaved(false);
+  };
+
+  const saveLiability = async (id: number) => {
+    if (!user) {
+      toast.error("You must be logged in to save financial information");
+      return;
+    }
+    
+    setIsSavingLiability(prev => ({ ...prev, [id]: true }));
+    
+    try {
+      // Find the liability to save
+      const liabilityToSave = liabilities.find(liability => liability.id === id);
+      if (!liabilityToSave) {
+        throw new Error("Liability not found");
+      }
+      
+      // Save just this liability
+      await saveLiabilities([liabilityToSave]);
+      
+      // Mark this liability as saved
+      setLiabilities(prevLiabilities => 
+        prevLiabilities.map(liability => 
+          liability.id === id ? { ...liability, saved: true } : liability
+        )
+      );
+      
+      toast.success(`Liability "${liabilityToSave.name || 'Unnamed Liability'}" saved successfully!`);
+    } catch (error) {
+      console.error("Error saving liability:", error);
+      toast.error("Failed to save liability. Please try again.");
+    } finally {
+      setIsSavingLiability(prev => ({ ...prev, [id]: false }));
     }
   };
 
@@ -201,7 +295,13 @@ const AssetLiabilityForm = () => {
     try {
       await saveAssets(assets);
       await saveLiabilities(liabilities);
-      toast.success("Financial information saved successfully!");
+      
+      // Mark all items as saved
+      setAssets(prevAssets => prevAssets.map(asset => ({ ...asset, saved: true })));
+      setLiabilities(prevLiabilities => prevLiabilities.map(liability => ({ ...liability, saved: true })));
+      setAllDataSaved(true);
+      
+      toast.success("All financial information saved successfully!");
     } catch (error) {
       console.error("Error saving financial data:", error);
       toast.error("Failed to save financial information. Please try again.");
@@ -242,16 +342,29 @@ const AssetLiabilityForm = () => {
               <div key={asset.id} className="p-4 border rounded-lg bg-white">
                 <div className="flex justify-between items-center mb-4">
                   <h4 className="font-medium">Asset #{index + 1}</h4>
-                  {assets.length > 1 && (
+                  <div className="flex gap-2">
                     <Button 
                       type="button" 
-                      variant="destructive" 
+                      variant="outline" 
                       size="sm" 
-                      onClick={() => removeAsset(asset.id)}
+                      onClick={() => saveAsset(asset.id)}
+                      disabled={isSavingAsset[asset.id]}
+                      className={asset.saved ? "bg-green-50 border-green-200 text-green-700" : ""}
                     >
-                      <Trash2 className="h-4 w-4 mr-1" /> Remove
+                      {isSavingAsset[asset.id] ? <Spinner size="sm" className="mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+                      {asset.saved ? "Saved" : "Save Asset"}
                     </Button>
-                  )}
+                    {assets.length > 1 && (
+                      <Button 
+                        type="button" 
+                        variant="destructive" 
+                        size="sm" 
+                        onClick={() => removeAsset(asset.id)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" /> Remove
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="grid gap-4">
@@ -373,16 +486,29 @@ const AssetLiabilityForm = () => {
               <div key={liability.id} className="p-4 border rounded-lg bg-white">
                 <div className="flex justify-between items-center mb-4">
                   <h4 className="font-medium">Liability #{index + 1}</h4>
-                  {liabilities.length > 1 && (
+                  <div className="flex gap-2">
                     <Button 
                       type="button" 
-                      variant="destructive" 
+                      variant="outline" 
                       size="sm" 
-                      onClick={() => removeLiability(liability.id)}
+                      onClick={() => saveLiability(liability.id)}
+                      disabled={isSavingLiability[liability.id]}
+                      className={liability.saved ? "bg-green-50 border-green-200 text-green-700" : ""}
                     >
-                      <Trash2 className="h-4 w-4 mr-1" /> Remove
+                      {isSavingLiability[liability.id] ? <Spinner size="sm" className="mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+                      {liability.saved ? "Saved" : "Save Liability"}
                     </Button>
-                  )}
+                    {liabilities.length > 1 && (
+                      <Button 
+                        type="button" 
+                        variant="destructive" 
+                        size="sm" 
+                        onClick={() => removeLiability(liability.id)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" /> Remove
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="grid gap-4">
@@ -507,9 +633,9 @@ const AssetLiabilityForm = () => {
         <Button 
           type="submit" 
           className="w-full bg-navido-blue-500 hover:bg-navido-blue-600"
-          disabled={loading}
+          disabled={loading || allDataSaved}
         >
-          {loading ? "Saving..." : "Save Financial Information"}
+          {loading ? "Saving..." : allDataSaved ? "All Data Saved" : "Save All Financial Information"}
         </Button>
       </div>
     </form>
