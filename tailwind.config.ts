@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,46 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				// Finance Navido theme colors
+				navido: {
+					blue: {
+						50: '#E6F3F9',
+						100: '#CCE7F3',
+						200: '#99CFE7',
+						300: '#66B7DB',
+						400: '#339FCF',
+						500: '#0087C3',
+						600: '#006C9C',
+						700: '#005175',
+						800: '#00364E',
+						900: '#001B27',
+					},
+					green: {
+						50: '#E6F9F7',
+						100: '#CCF3EF',
+						200: '#99E7DF',
+						300: '#66DBCF',
+						400: '#33CFBF',
+						500: '#00C3AF',
+						600: '#009C8C',
+						700: '#007569',
+						800: '#004E46',
+						900: '#002723',
+					},
+					gray: {
+						50: '#F9FAFB',
+						100: '#F3F4F6',
+						200: '#E5E7EB',
+						300: '#D1D5DB',
+						400: '#9CA3AF',
+						500: '#6B7280',
+						600: '#4B5563',
+						700: '#374151',
+						800: '#1F2937',
+						900: '#111827',
+					},
+				},
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -84,11 +124,47 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'fade-in': {
+					'0%': {
+						opacity: '0'
+					},
+					'100%': {
+						opacity: '1'
+					}
+				},
+				'fade-out': {
+					'0%': {
+						opacity: '1'
+					},
+					'100%': {
+						opacity: '0'
+					}
+				},
+				'slide-in-right': {
+					'0%': {
+						transform: 'translateX(100%)'
+					},
+					'100%': {
+						transform: 'translateX(0)'
+					}
+				},
+				'slide-out-left': {
+					'0%': {
+						transform: 'translateX(0)'
+					},
+					'100%': {
+						transform: 'translateX(-100%)'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'fade-in': 'fade-in 0.3s ease-out',
+				'fade-out': 'fade-out 0.3s ease-out',
+				'slide-in-right': 'slide-in-right 0.3s ease-out',
+				'slide-out-left': 'slide-out-left 0.3s ease-out'
 			}
 		}
 	},
