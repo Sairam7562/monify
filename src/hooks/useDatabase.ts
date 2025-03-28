@@ -27,7 +27,6 @@ export function useDatabase() {
       console.log("Attempting to save personal info for user:", user.id);
       console.log("Personal info data:", data);
       
-      // Convert user.id to string for type safety
       const userId = user.id?.toString();
       if (!userId) {
         return { error: 'Invalid user ID' };
@@ -62,13 +61,11 @@ export function useDatabase() {
       };
       
       if (existingData) {
-        // Update existing record with proper type safety
         result = await supabase
           .from('personal_info')
           .update(formattedData)
           .eq('id', existingData.id);
       } else {
-        // Insert new record with proper type handling
         result = await supabase
           .from('personal_info')
           .insert({
@@ -109,7 +106,6 @@ export function useDatabase() {
         .delete()
         .eq('user_id', userId);
       
-      // Format assets for insertion ensuring each property matches the DB schema
       const formattedAssets = assets.map(asset => ({
         name: asset.name || 'Unnamed Asset',
         type: asset.type,
@@ -119,7 +115,6 @@ export function useDatabase() {
         user_id: userId
       }));
 
-      // Use separate insertion for each asset to avoid type errors
       for (const asset of formattedAssets) {
         const { error } = await supabase
           .from('assets')
@@ -154,7 +149,6 @@ export function useDatabase() {
         .delete()
         .eq('user_id', userId);
       
-      // Format liabilities for insertion
       const formattedLiabilities = liabilities.map(liability => ({
         name: liability.name || 'Unnamed Liability',
         type: liability.type,
@@ -166,7 +160,6 @@ export function useDatabase() {
         user_id: userId
       }));
 
-      // Use separate insertion for each liability to avoid type errors
       for (const liability of formattedLiabilities) {
         const { error } = await supabase
           .from('liabilities')
@@ -201,7 +194,6 @@ export function useDatabase() {
         .delete()
         .eq('user_id', userId);
       
-      // Format income for insertion
       const formattedIncome = incomeData.map(income => ({
         source: income.source || 'Unnamed Source',
         type: income.type,
@@ -210,7 +202,6 @@ export function useDatabase() {
         user_id: userId
       }));
 
-      // Use separate insertion for each income to avoid type errors
       for (const income of formattedIncome) {
         const { error } = await supabase
           .from('income')
@@ -245,7 +236,6 @@ export function useDatabase() {
         .delete()
         .eq('user_id', userId);
       
-      // Format expenses for insertion
       const formattedExpenses = expensesData.map(expense => ({
         name: expense.name || 'Unnamed Expense',
         category: expense.category,
@@ -254,7 +244,6 @@ export function useDatabase() {
         user_id: userId
       }));
 
-      // Use separate insertion for each expense to avoid type errors
       for (const expense of formattedExpenses) {
         const { error } = await supabase
           .from('expenses')
@@ -295,14 +284,24 @@ export function useDatabase() {
         .maybeSingle();
 
       if (error) {
-        // Check if it's a schema error
         if (error.code === 'PGRST106') {
           console.error("Schema error, table might not exist yet:", error);
-          // Return empty data instead of throwing an error
-          return { data: null, error: null };
+          return { 
+            data: {
+              firstName: '',
+              lastName: '',
+              email: user?.email || '',
+              phone: '',
+              address: '',
+              city: '',
+              state: '',
+              zipCode: '',
+              birthDate: undefined,
+            }, 
+            error: error.message 
+          };
         }
         
-        // For other errors (except not found), log and throw
         if (error.code !== 'PGRST116') {
           console.error("Error fetching personal info:", error);
           throw error;
@@ -312,7 +311,6 @@ export function useDatabase() {
       console.log("Personal info fetched:", data);
       
       if (data) {
-        // Transform the database column names to match form field names
         const transformedData = {
           firstName: data.first_name || '',
           lastName: data.last_name || '',
@@ -327,7 +325,6 @@ export function useDatabase() {
         return { data: transformedData, error: null };
       }
       
-      // Return empty data if nothing found (instead of null)
       return { data: {
         firstName: '',
         lastName: '',
@@ -341,11 +338,9 @@ export function useDatabase() {
       }, error: null };
     } catch (error: any) {
       console.error('Error fetching personal info:', error);
-      // Don't show toast for schema errors to avoid confusing the user
       if (error.code !== 'PGRST106') {
         toast.error('Failed to load personal information');
       }
-      // Return empty data instead of error to avoid breaking the form
       return { data: {
         firstName: '',
         lastName: '',
@@ -356,7 +351,7 @@ export function useDatabase() {
         state: '',
         zipCode: '',
         birthDate: undefined,
-      }, error: null };
+      }, error: error.message };
     } finally {
       setLoading(false);
     }
@@ -493,7 +488,6 @@ export function useDatabase() {
     
     setLoading(true);
     try {
-      // Ensure userId is a string
       const userIdStr = userId.toString();
       
       const personalInfo = await supabase

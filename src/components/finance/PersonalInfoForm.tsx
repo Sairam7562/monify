@@ -96,7 +96,7 @@ const PersonalInfoForm = () => {
   const { savePersonalInfo, fetchPersonalInfo, loading } = useDatabase();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [dataLoadError, setDataLoadError] = useState<string | null>(null);
   const [loadAttemptCount, setLoadAttemptCount] = useState(0);
@@ -163,21 +163,21 @@ const PersonalInfoForm = () => {
 
   useEffect(() => {
     const loadPersonalInfo = async () => {
-      setIsLoading(true);
+      if (!user) {
+        console.log("No authenticated user found");
+        setIsLoading(false);
+        return;
+      }
+      
       setDataLoadError(null);
+      
       try {
-        if (!user) {
-          console.log("No authenticated user found");
-          setIsLoading(false);
-          return;
-        }
-        
         console.log("Loading personal info for user:", user.id);
         const { data, error } = await fetchPersonalInfo();
         
         if (error) {
           console.error("Error fetching personal info:", error);
-          setDataLoadError("Could not connect to database. Please try again later.");
+          setDataLoadError("Could not connect to database. This is normal for first-time use.");
           return;
         }
         
@@ -204,12 +204,9 @@ const PersonalInfoForm = () => {
       }
     };
     
-    if (loadAttemptCount < 3) {
+    if (loadAttemptCount === 0) {
       loadPersonalInfo();
-      setLoadAttemptCount(prev => prev + 1);
-    } else if (isLoading) {
-      setIsLoading(false);
-      setDataLoadError("Could not fetch data after multiple attempts. You can still fill out the form.");
+      setLoadAttemptCount(1);
     }
   }, [fetchPersonalInfo, user, loadAttemptCount]);
 
@@ -379,27 +376,25 @@ const PersonalInfoForm = () => {
     );
   }
 
-  if (dataLoadError && loadAttemptCount >= 3) {
-    return (
-      <Alert variant="default" className="mb-6">
-        <InfoIcon className="h-4 w-4" />
-        <AlertTitle>Notice</AlertTitle>
-        <AlertDescription>
-          {dataLoadError} This is normal if you're using the app for the first time.
-          <div className="mt-4">
-            <p className="font-semibold">You can proceed to fill out your information below:</p>
-          </div>
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
   return (
     <Tabs defaultValue="personal" className="w-full">
       <TabsList className="grid w-full grid-cols-2 mb-6">
         <TabsTrigger value="personal">Personal Details</TabsTrigger>
         <TabsTrigger value="business">Business Details</TabsTrigger>
       </TabsList>
+      
+      {dataLoadError && (
+        <Alert variant="default" className="mb-6">
+          <InfoIcon className="h-4 w-4" />
+          <AlertTitle>Notice</AlertTitle>
+          <AlertDescription>
+            {dataLoadError} This is normal if you're using the app for the first time.
+            <div className="mt-4">
+              <p className="font-semibold">You can proceed to fill out your information below:</p>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
       
       <TabsContent value="personal">
         <Card>

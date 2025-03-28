@@ -19,7 +19,7 @@ const PersonalInfoPage = () => {
   const [attemptCount, setAttemptCount] = useState(0);
 
   useEffect(() => {
-    // Check the database connection early and handle schema errors
+    // Only attempt database check once to avoid infinite loading
     const checkDatabase = async () => {
       if (!user) {
         setIsLoading(false);
@@ -42,16 +42,22 @@ const PersonalInfoPage = () => {
         console.error('Error checking database:', err);
         setHasDatabaseError(true);
       } finally {
-        setIsLoading(false);
+        // Always set loading to false after a short timeout to ensure UI renders
+        setTimeout(() => {
+          setIsLoading(false);
+        }, 500);
       }
     };
 
-    // Only try to check database a few times to avoid infinite loading
-    if (attemptCount < 2) {
+    // Only check database once
+    if (attemptCount < 1) {
       checkDatabase();
-      setAttemptCount(prev => prev + 1);
-    } else {
-      setIsLoading(false);
+      setAttemptCount(1);
+    } else if (isLoading) {
+      // Ensure we exit loading state if something went wrong
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 1000);
     }
   }, [user, fetchPersonalInfo, attemptCount]);
 
@@ -62,18 +68,20 @@ const PersonalInfoPage = () => {
     toast.info("Retrying database connection...");
   };
 
-  const renderContent = () => {
-    if (isLoading) {
-      return (
+  if (isLoading) {
+    return (
+      <MainLayout>
         <div className="flex flex-col items-center justify-center py-12">
           <Spinner size="lg" />
           <p className="mt-4 text-muted-foreground">Loading your information...</p>
         </div>
-      );
-    }
-    
-    if (!user) {
-      return (
+      </MainLayout>
+    );
+  }
+  
+  if (!user) {
+    return (
+      <MainLayout>
         <Alert>
           <InfoIcon className="h-4 w-4" />
           <AlertTitle>Authentication Required</AlertTitle>
@@ -81,27 +89,34 @@ const PersonalInfoPage = () => {
             You need to be logged in to view and edit your personal information.
           </AlertDescription>
         </Alert>
-      );
-    }
+      </MainLayout>
+    );
+  }
 
-    if (hasDatabaseError) {
-      return (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Database Connection Issue</AlertTitle>
-          <AlertDescription>
-            <p className="mb-4">There was an error connecting to the database. This might happen if you're using the app for the first time and the database tables haven't been fully set up yet.</p>
-            <p className="mb-4">You can still fill out your information below, and it will be saved once the database is ready.</p>
-            <Button onClick={handleManualRetry} variant="outline" size="sm">
-              Retry Connection
-            </Button>
-          </AlertDescription>
-        </Alert>
-      );
-    }
-
-    return (
-      <>
+  return (
+    <MainLayout>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold">Personal Information</h1>
+          <p className="text-muted-foreground">
+            Enter your personal details to generate accurate financial statements. All sensitive information is encrypted and secure.
+          </p>
+        </div>
+        
+        {hasDatabaseError && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Database Connection Issue</AlertTitle>
+            <AlertDescription>
+              <p className="mb-4">There was an error connecting to the database. This might happen if you're using the app for the first time and the database tables haven't been fully set up yet.</p>
+              <p className="mb-4">You can still fill out your information below, and it will be saved once the database is ready.</p>
+              <Button onClick={handleManualRetry} variant="outline" size="sm">
+                Retry Connection
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <Card>
           <CardHeader>
             <CardTitle>Instructions</CardTitle>
@@ -120,22 +135,8 @@ const PersonalInfoPage = () => {
           </CardContent>
         </Card>
         
+        {/* Always render the form regardless of database status */}
         <PersonalInfoForm />
-      </>
-    );
-  };
-
-  return (
-    <MainLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Personal Information</h1>
-          <p className="text-muted-foreground">
-            Enter your personal details to generate accurate financial statements. All sensitive information is encrypted and secure.
-          </p>
-        </div>
-        
-        {renderContent()}
       </div>
     </MainLayout>
   );
