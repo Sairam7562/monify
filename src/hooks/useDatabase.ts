@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 import { supabase, checkConnection } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -237,6 +238,7 @@ export function useDatabase() {
       
       try {
         // Check if the business_info table exists
+        // @ts-ignore - Type issues with the new table
         const { error: tableCheckError } = await supabase
           .from('business_info')
           .select('id')
@@ -261,6 +263,7 @@ export function useDatabase() {
         }
         
         // Delete existing business records for this user
+        // @ts-ignore - Type issues with the new table
         const { error: deleteError } = await supabase
           .from('business_info')
           .delete()
@@ -273,6 +276,7 @@ export function useDatabase() {
         
         // Insert new business records
         for (const business of businesses) {
+          // @ts-ignore - Type issues with the new table
           const { error: insertError } = await supabase
             .from('business_info')
             .insert({
@@ -363,6 +367,7 @@ export function useDatabase() {
       if (connectionStatus.connected) {
         try {
           console.log("Attempting to fetch business info from database");
+          // @ts-ignore - Type issues with the new table
           const { data, error } = await supabase
             .from('business_info')
             .select('*')

@@ -45,6 +45,66 @@ export type Database = {
         }
         Relationships: []
       }
+      business_info: {
+        Row: {
+          annual_revenue: number | null
+          business_name: string
+          business_type: string
+          city: string | null
+          country: string | null
+          created_at: string | null
+          employee_count: number | null
+          id: string
+          include_in_statements: boolean | null
+          state: string | null
+          street_address: string | null
+          suite: string | null
+          tax_id: string | null
+          updated_at: string | null
+          user_id: string
+          year_established: number | null
+          zip_code: string | null
+        }
+        Insert: {
+          annual_revenue?: number | null
+          business_name: string
+          business_type: string
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          employee_count?: number | null
+          id?: string
+          include_in_statements?: boolean | null
+          state?: string | null
+          street_address?: string | null
+          suite?: string | null
+          tax_id?: string | null
+          updated_at?: string | null
+          user_id: string
+          year_established?: number | null
+          zip_code?: string | null
+        }
+        Update: {
+          annual_revenue?: number | null
+          business_name?: string
+          business_type?: string
+          city?: string | null
+          country?: string | null
+          created_at?: string | null
+          employee_count?: number | null
+          id?: string
+          include_in_statements?: boolean | null
+          state?: string | null
+          street_address?: string | null
+          suite?: string | null
+          tax_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+          year_established?: number | null
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
       expenses: {
         Row: {
           amount: number
