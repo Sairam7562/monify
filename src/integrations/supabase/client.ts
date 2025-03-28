@@ -31,3 +31,7 @@ supabase.auth.onAuthStateChange((event, session) => {
     console.log("Setting redirect URL to:", redirectTo);
   }
 });
+
+// Get the current domain for email settings
+const currentDomain = window.location.origin;
+console.log("Current application domain:", currentDomain);

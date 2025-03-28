@@ -149,6 +149,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           toast.success("Registration successful! You are now logged in.");
         } else {
           toast.success("Registration successful! Please check your email to verify your account.");
+          console.log("Verification email sent to:", email);
+          console.log("Email redirect URL set to:", redirectTo);
+          
+          // Add additional toast with more details
+          toast.info("If you don't see the verification email, please check your spam/junk folder or try again later.", {
+            duration: 8000,
+          });
         }
         
         return supabaseUserToUser(data.user);
