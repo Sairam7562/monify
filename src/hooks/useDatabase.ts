@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -676,10 +675,6 @@ export function useDatabase() {
     fetchLiabilities,
     fetchIncome,
     fetchExpenses,
-    saveAssets,
-    saveLiabilities,
-    saveIncome, 
-    saveExpenses,
     adminFetchAllUsers,
     adminFetchUserData
   };
