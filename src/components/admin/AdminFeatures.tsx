@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -139,7 +138,7 @@ const AdminFeatures = () => {
     const newPlanObj = {
       id: planId,
       name: newPlan.name,
-      price: parseFloat(newPlan.price),
+      price: parseFloat(newPlan.price.toString()),
       enabled: newPlan.enabled,
       features: newPlan.features
     };
@@ -183,7 +182,6 @@ const AdminFeatures = () => {
     });
   };
 
-  // Get all feature IDs from all categories
   const allFeatures = featureCategories.flatMap(category => 
     category.features.map(feature => ({ 
       id: feature.id, 
@@ -318,7 +316,6 @@ const AdminFeatures = () => {
         </CardContent>
       </Card>
 
-      {/* Add Feature Modal */}
       <Dialog open={isAddFeatureModalOpen} onOpenChange={setIsAddFeatureModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -362,7 +359,6 @@ const AdminFeatures = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Add Category Modal */}
       <Dialog open={isAddCategoryModalOpen} onOpenChange={setIsAddCategoryModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -389,7 +385,6 @@ const AdminFeatures = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Add Plan Modal */}
       <Dialog open={isAddPlanModalOpen} onOpenChange={setIsAddPlanModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -464,7 +459,6 @@ const AdminFeatures = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Plan Modal */}
       <Dialog open={isEditPlanModalOpen} onOpenChange={setIsEditPlanModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
