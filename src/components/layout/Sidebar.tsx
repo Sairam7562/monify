@@ -13,6 +13,16 @@ import {
   HelpCircle,
   User,
 } from 'lucide-react';
+import {
+  Sidebar as SidebarComponent,
+  SidebarContent,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarTrigger,
+  SidebarRail,
+  useSidebar
+} from '@/components/ui/sidebar';
 
 interface SidebarItemProps {
   icon: React.ReactNode;
@@ -21,24 +31,27 @@ interface SidebarItemProps {
   isActive?: boolean;
 }
 
-const SidebarItem = ({ icon, label, href, isActive }: SidebarItemProps) => (
-  <Link
-    to={href}
-    className={cn(
-      'flex items-center gap-3 rounded-lg px-3 py-2 transition-colors',
-      isActive
-        ? 'bg-monify-purple-500 text-white'
-        : 'text-gray-200 hover:bg-monify-purple-700 hover:text-white'
-    )}
-  >
-    {icon}
-    <span>{label}</span>
-  </Link>
-);
+const SidebarItem = ({ icon, label, href, isActive }: SidebarItemProps) => {
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        tooltip={label}
+        isActive={isActive}
+        asChild
+      >
+        <Link to={href} className="flex items-center gap-3">
+          {icon}
+          <span>{label}</span>
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+};
 
 const Sidebar = () => {
   const location = useLocation();
   const pathname = location.pathname;
+  const { state } = useSidebar();
 
   const sidebarItems = [
     {
@@ -89,14 +102,21 @@ const Sidebar = () => {
   ];
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-20 flex h-full w-64 flex-col bg-sidebar border-r border-r-sidebar-border">
-      <div className="flex h-16 items-center border-b border-b-sidebar-border px-6">
+    <SidebarComponent
+      className="bg-sidebar"
+      collapsible={state === "collapsed" ? "icon" : "offcanvas"}
+    >
+      <SidebarRail />
+      <div className="flex h-16 items-center px-4 border-b border-b-sidebar-border">
         <Link to="/" className="flex items-center gap-2">
-          <span className="text-xl font-bold text-white">Monify</span>
+          <span className={cn("text-xl font-bold text-white transition-opacity", 
+            state === "collapsed" ? "opacity-0" : "opacity-100")}>
+            Monify
+          </span>
         </Link>
       </div>
-      <div className="flex-1 overflow-auto py-4 px-3">
-        <nav className="flex flex-col gap-1">
+      <SidebarContent className="py-4">
+        <SidebarMenu>
           {sidebarItems.map((item) => (
             <SidebarItem
               key={item.href}
@@ -106,9 +126,10 @@ const Sidebar = () => {
               isActive={pathname === item.href}
             />
           ))}
-        </nav>
-      </div>
-      <div className="mt-auto border-t border-t-sidebar-border p-4">
+        </SidebarMenu>
+      </SidebarContent>
+      <div className={cn("mt-auto border-t border-t-sidebar-border p-4 transition-opacity", 
+          state === "collapsed" ? "opacity-0" : "opacity-100")}>
         <div className="rounded-lg bg-monify-pink-600 p-4 text-sm text-white">
           <p className="mb-2 font-medium">Need help?</p>
           <p className="mb-4 text-xs text-white/80">
@@ -122,7 +143,7 @@ const Sidebar = () => {
           </Link>
         </div>
       </div>
-    </aside>
+    </SidebarComponent>
   );
 };
 
