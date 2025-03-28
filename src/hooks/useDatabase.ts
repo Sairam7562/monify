@@ -28,11 +28,16 @@ export function useDatabase() {
       console.log("Attempting to save personal info for user:", user.id);
       console.log("Personal info data:", data);
       
-      // Use strongly typed filter
+      // Convert user.id to string for type safety
+      const userId = user.id?.toString();
+      if (!userId) {
+        return { error: 'Invalid user ID' };
+      }
+      
       const { data: existingData, error: fetchError } = await supabase
         .from('personal_info')
         .select('*')
-        .eq('user_id', user.id as string)
+        .eq('user_id', userId)
         .maybeSingle();
 
       if (fetchError && fetchError.code !== 'PGRST116') {
@@ -58,20 +63,18 @@ export function useDatabase() {
       };
       
       if (existingData) {
-        // Update existing record - adding a type check
-        console.log("Updating existing record:", existingData.id);
+        // Update existing record with proper type safety
         result = await supabase
           .from('personal_info')
           .update(formattedData)
           .eq('id', existingData.id);
       } else {
-        // Insert new record - ensuring we use the right format for Supabase
-        console.log("Creating new record for user:", user.id);
+        // Insert new record with proper type handling
         result = await supabase
           .from('personal_info')
           .insert({
             ...formattedData,
-            user_id: user.id as string
+            user_id: userId
           });
       }
 
@@ -97,10 +100,15 @@ export function useDatabase() {
     
     setLoading(true);
     try {
+      const userId = user.id?.toString();
+      if (!userId) {
+        return { error: 'Invalid user ID' };
+      }
+      
       await supabase
         .from('assets')
         .delete()
-        .eq('user_id', user.id as string);
+        .eq('user_id', userId);
       
       // Format assets for insertion ensuring each property matches the DB schema
       const formattedAssets = assets.map(asset => ({
@@ -109,17 +117,20 @@ export function useDatabase() {
         value: parseFloat(asset.value) || 0,
         ownership_percentage: parseFloat(asset.ownershipPercentage) || 100,
         description: asset.description || '',
-        user_id: user.id as string
+        user_id: userId
       }));
 
-      const { data, error } = await supabase
-        .from('assets')
-        .insert(formattedAssets);
-
-      if (error) throw error;
+      // Use separate insertion for each asset to avoid type errors
+      for (const asset of formattedAssets) {
+        const { error } = await supabase
+          .from('assets')
+          .insert(asset);
+          
+        if (error) throw error;
+      }
       
       toast.success('Assets saved successfully');
-      return { data, error: null };
+      return { data: formattedAssets, error: null };
     } catch (error: any) {
       console.error('Error saving assets:', error);
       toast.error('Failed to save assets');
@@ -134,12 +145,17 @@ export function useDatabase() {
     
     setLoading(true);
     try {
+      const userId = user.id?.toString();
+      if (!userId) {
+        return { error: 'Invalid user ID' };
+      }
+      
       await supabase
         .from('liabilities')
         .delete()
-        .eq('user_id', user.id as string);
+        .eq('user_id', userId);
       
-      // Format liabilities for insertion ensuring each property matches the DB schema
+      // Format liabilities for insertion
       const formattedLiabilities = liabilities.map(liability => ({
         name: liability.name || 'Unnamed Liability',
         type: liability.type,
@@ -148,17 +164,20 @@ export function useDatabase() {
         associated_asset_id: liability.associatedAssetId ? 
           liability.associatedAssetId > 0 ? liability.associatedAssetId : null : null,
         ownership_percentage: parseFloat(liability.ownershipPercentage) || 100,
-        user_id: user.id as string
+        user_id: userId
       }));
 
-      const { data, error } = await supabase
-        .from('liabilities')
-        .insert(formattedLiabilities);
-
-      if (error) throw error;
+      // Use separate insertion for each liability to avoid type errors
+      for (const liability of formattedLiabilities) {
+        const { error } = await supabase
+          .from('liabilities')
+          .insert(liability);
+          
+        if (error) throw error;
+      }
       
       toast.success('Liabilities saved successfully');
-      return { data, error: null };
+      return { data: formattedLiabilities, error: null };
     } catch (error: any) {
       console.error('Error saving liabilities:', error);
       toast.error('Failed to save liabilities');
@@ -173,28 +192,36 @@ export function useDatabase() {
     
     setLoading(true);
     try {
+      const userId = user.id?.toString();
+      if (!userId) {
+        return { error: 'Invalid user ID' };
+      }
+      
       await supabase
         .from('income')
         .delete()
-        .eq('user_id', user.id as string);
+        .eq('user_id', userId);
       
-      // Format income for insertion ensuring each property matches the DB schema
+      // Format income for insertion
       const formattedIncome = incomeData.map(income => ({
         source: income.source || 'Unnamed Source',
         type: income.type,
         amount: parseFloat(income.amount) || 0,
         frequency: income.frequency,
-        user_id: user.id as string
+        user_id: userId
       }));
 
-      const { data, error } = await supabase
-        .from('income')
-        .insert(formattedIncome);
-
-      if (error) throw error;
+      // Use separate insertion for each income to avoid type errors
+      for (const income of formattedIncome) {
+        const { error } = await supabase
+          .from('income')
+          .insert(income);
+          
+        if (error) throw error;
+      }
       
       toast.success('Income information saved successfully');
-      return { data, error: null };
+      return { data: formattedIncome, error: null };
     } catch (error: any) {
       console.error('Error saving income:', error);
       toast.error('Failed to save income information');
@@ -209,28 +236,36 @@ export function useDatabase() {
     
     setLoading(true);
     try {
+      const userId = user.id?.toString();
+      if (!userId) {
+        return { error: 'Invalid user ID' };
+      }
+      
       await supabase
         .from('expenses')
         .delete()
-        .eq('user_id', user.id as string);
+        .eq('user_id', userId);
       
-      // Format expenses for insertion ensuring each property matches the DB schema
+      // Format expenses for insertion
       const formattedExpenses = expensesData.map(expense => ({
         name: expense.name || 'Unnamed Expense',
         category: expense.category,
         amount: parseFloat(expense.amount) || 0,
         frequency: expense.frequency,
-        user_id: user.id as string
+        user_id: userId
       }));
 
-      const { data, error } = await supabase
-        .from('expenses')
-        .insert(formattedExpenses);
-
-      if (error) throw error;
+      // Use separate insertion for each expense to avoid type errors
+      for (const expense of formattedExpenses) {
+        const { error } = await supabase
+          .from('expenses')
+          .insert(expense);
+          
+        if (error) throw error;
+      }
       
       toast.success('Expense information saved successfully');
-      return { data, error: null };
+      return { data: formattedExpenses, error: null };
     } catch (error: any) {
       console.error('Error saving expenses:', error);
       toast.error('Failed to save expense information');
@@ -249,10 +284,15 @@ export function useDatabase() {
     try {
       console.log("Fetching personal info for user:", user.id);
       
+      const userId = user.id?.toString();
+      if (!userId) {
+        return { error: 'Invalid user ID' };
+      }
+      
       const { data, error } = await supabase
         .from('personal_info')
         .select('*')
-        .eq('user_id', user.id as string)
+        .eq('user_id', userId)
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') {
@@ -263,17 +303,17 @@ export function useDatabase() {
       console.log("Personal info fetched:", data);
       
       if (data) {
-        // Properly handle the data with type safety
+        // Safely handle data with proper type checking
         const transformedData = {
-          firstName: data.first_name,
-          lastName: data.last_name,
-          email: data.email,
-          phone: data.phone,
-          address: data.address,
-          city: data.city,
-          state: data.state,
-          zipCode: data.zip_code,
-          birthDate: data.birth_date,
+          firstName: data?.first_name || '',
+          lastName: data?.last_name || '',
+          email: data?.email || '',
+          phone: data?.phone || '',
+          address: data?.address || '',
+          city: data?.city || '',
+          state: data?.state || '',
+          zipCode: data?.zip_code || '',
+          birthDate: data?.birth_date || null,
         };
         return { data: transformedData, error: null };
       }
@@ -293,10 +333,15 @@ export function useDatabase() {
     
     setLoading(true);
     try {
+      const userId = user.id?.toString();
+      if (!userId) {
+        return { error: 'Invalid user ID' };
+      }
+      
       const { data, error } = await supabase
         .from('assets')
         .select('*')
-        .eq('user_id', user.id as string);
+        .eq('user_id', userId);
 
       if (error) throw error;
       
@@ -314,10 +359,15 @@ export function useDatabase() {
     
     setLoading(true);
     try {
+      const userId = user.id?.toString();
+      if (!userId) {
+        return { error: 'Invalid user ID' };
+      }
+      
       const { data, error } = await supabase
         .from('liabilities')
         .select('*')
-        .eq('user_id', user.id as string);
+        .eq('user_id', userId);
 
       if (error) throw error;
       
@@ -335,10 +385,15 @@ export function useDatabase() {
     
     setLoading(true);
     try {
+      const userId = user.id?.toString();
+      if (!userId) {
+        return { error: 'Invalid user ID' };
+      }
+      
       const { data, error } = await supabase
         .from('income')
         .select('*')
-        .eq('user_id', user.id as string);
+        .eq('user_id', userId);
 
       if (error) throw error;
       
@@ -356,10 +411,15 @@ export function useDatabase() {
     
     setLoading(true);
     try {
+      const userId = user.id?.toString();
+      if (!userId) {
+        return { error: 'Invalid user ID' };
+      }
+      
       const { data, error } = await supabase
         .from('expenses')
         .select('*')
-        .eq('user_id', user.id as string);
+        .eq('user_id', userId);
 
       if (error) throw error;
       
@@ -399,31 +459,34 @@ export function useDatabase() {
     
     setLoading(true);
     try {
+      // Ensure userId is a string
+      const userIdStr = userId.toString();
+      
       const personalInfo = await supabase
         .from('personal_info')
         .select('*')
-        .eq('user_id', userId as string)
+        .eq('user_id', userIdStr)
         .maybeSingle();
         
       const assets = await supabase
         .from('assets')
         .select('*')
-        .eq('user_id', userId as string);
+        .eq('user_id', userIdStr);
         
       const liabilities = await supabase
         .from('liabilities')
         .select('*')
-        .eq('user_id', userId as string);
+        .eq('user_id', userIdStr);
         
       const income = await supabase
         .from('income')
         .select('*')
-        .eq('user_id', userId as string);
+        .eq('user_id', userIdStr);
         
       const expenses = await supabase
         .from('expenses')
         .select('*')
-        .eq('user_id', userId as string);
+        .eq('user_id', userIdStr);
       
       return {
         data: {

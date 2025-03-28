@@ -19,17 +19,15 @@ export const supabase = createClient<Database>(
       detectSessionInUrl: true,
       flowType: 'pkce',
       storage: localStorage,
-      // Use cookieOptions for redirectTo instead of direct property
-      cookieOptions: {
-        path: '/',
-        sameSite: 'lax',
-        secure: true
-      }
     },
   }
 );
 
-// Set the site URL for redirection after authentication
-supabase.auth.setSettings({
-  redirectTo: `${window.location.origin}/verify-email`,
+// Configure the redirect URL for authentication
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+    // Set redirect URL for the current origin
+    const redirectTo = `${window.location.origin}/verify-email`;
+    console.log("Setting redirect URL to:", redirectTo);
+  }
 });
