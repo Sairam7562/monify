@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -102,7 +101,7 @@ const PersonalFinancialStatementForm = () => {
       setFormData(prev => ({
         ...prev,
         [section]: {
-          ...prev[section as keyof typeof prev],
+          ...(prev[section as keyof typeof prev] as object),
           [field]: value
         }
       }));
