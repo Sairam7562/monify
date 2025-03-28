@@ -99,6 +99,7 @@ const PersonalInfoForm = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [dataLoadError, setDataLoadError] = useState<string | null>(null);
+  const [loadAttemptCount, setLoadAttemptCount] = useState(0);
   
   const [personalInfo, setPersonalInfo] = useState<PersonalInfo>({
     profileImage: null,
@@ -176,7 +177,7 @@ const PersonalInfoForm = () => {
         
         if (error) {
           console.error("Error fetching personal info:", error);
-          setDataLoadError(error.toString());
+          setDataLoadError("Could not connect to database. Please try again later.");
           return;
         }
         
@@ -197,14 +198,20 @@ const PersonalInfoForm = () => {
         }
       } catch (err) {
         console.error("Error in loadPersonalInfo:", err);
-        setDataLoadError("Failed to load personal information. Please try again later.");
+        setDataLoadError("Failed to load personal information. The database may not be set up yet.");
       } finally {
         setIsLoading(false);
       }
     };
     
-    loadPersonalInfo();
-  }, [fetchPersonalInfo, user]);
+    if (loadAttemptCount < 3) {
+      loadPersonalInfo();
+      setLoadAttemptCount(prev => prev + 1);
+    } else if (isLoading) {
+      setIsLoading(false);
+      setDataLoadError("Could not fetch data after multiple attempts. You can still fill out the form.");
+    }
+  }, [fetchPersonalInfo, user, loadAttemptCount]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -318,7 +325,7 @@ const PersonalInfoForm = () => {
       } else {
         toast.success("Personal information saved successfully!");
         setTimeout(() => {
-          if (user?.role === 'admin' || user?.role === 'Admin') {
+          if (user?.role?.toLowerCase() === 'admin') {
             navigate('/admin');
           } else {
             navigate('/dashboard');
@@ -327,7 +334,7 @@ const PersonalInfoForm = () => {
       }
     } catch (err) {
       console.error("Error in handleSubmit:", err);
-      toast.error("An unexpected error occurred");
+      toast.error("An unexpected error occurred. The database may not be set up correctly.");
     } finally {
       setFormSubmitting(false);
     }
@@ -352,9 +359,10 @@ const PersonalInfoForm = () => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-64">
+      <div className="flex flex-col justify-center items-center h-64">
         <Spinner size="lg" />
-        <span className="ml-2">Loading your information...</span>
+        <span className="ml-2 mt-4">Loading your information...</span>
+        <p className="text-muted-foreground text-sm mt-2">This may take a moment...</p>
       </div>
     );
   }
@@ -371,20 +379,16 @@ const PersonalInfoForm = () => {
     );
   }
 
-  if (dataLoadError) {
+  if (dataLoadError && loadAttemptCount >= 3) {
     return (
-      <Alert variant="destructive" className="mb-6">
+      <Alert variant="default" className="mb-6">
         <InfoIcon className="h-4 w-4" />
-        <AlertTitle>Error Loading Data</AlertTitle>
+        <AlertTitle>Notice</AlertTitle>
         <AlertDescription>
-          {dataLoadError}
-          <Button 
-            variant="outline" 
-            className="mt-4 w-full" 
-            onClick={() => window.location.reload()}
-          >
-            Try Again
-          </Button>
+          {dataLoadError} This is normal if you're using the app for the first time.
+          <div className="mt-4">
+            <p className="font-semibold">You can proceed to fill out your information below:</p>
+          </div>
         </AlertDescription>
       </Alert>
     );

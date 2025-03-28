@@ -23,7 +23,7 @@ const Navbar = ({ showSidebarToggle = true }: NavbarProps) => {
       // Check role in a case-insensitive way
       const adminRole = 
         typeof user.role === 'string' && 
-        (user.role.toLowerCase() === 'admin');
+        user.role.toLowerCase() === 'admin';
       
       console.log('User role check:', user.role, 'isAdmin:', adminRole);
       setIsAdmin(adminRole);
@@ -71,7 +71,11 @@ const Navbar = ({ showSidebarToggle = true }: NavbarProps) => {
           {user && (
             <>
               {isAdmin && (
-                <Button variant="outline" onClick={handleAdminDashboard} className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={handleAdminDashboard} 
+                  className="flex items-center gap-2 border-2 border-monify-purple-500 text-monify-purple-700 hover:bg-monify-purple-100"
+                >
                   <ShieldCheck className="h-4 w-4" />
                   Admin Dashboard
                 </Button>
@@ -126,7 +130,7 @@ const Navbar = ({ showSidebarToggle = true }: NavbarProps) => {
                     <Button 
                       variant="outline" 
                       onClick={handleAdminDashboard} 
-                      className="w-full flex items-center justify-center gap-2"
+                      className="w-full flex items-center justify-center gap-2 border-2 border-monify-purple-500 text-monify-purple-700 hover:bg-monify-purple-100"
                     >
                       <ShieldCheck className="h-4 w-4" />
                       Admin Dashboard
