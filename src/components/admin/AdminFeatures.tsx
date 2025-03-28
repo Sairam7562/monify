@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Save } from 'lucide-react';
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
@@ -61,12 +62,47 @@ const AdminFeatures = () => {
   const [newFeature, setNewFeature] = useState({ name: '', description: '', enabled: true });
   const [newCategory, setNewCategory] = useState({ name: '' });
   const [newPlan, setNewPlan] = useState({ name: '', price: 0, enabled: true, features: [] });
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const { toast } = useToast();
+
+  // Save data to localStorage whenever state changes
+  useEffect(() => {
+    if (hasUnsavedChanges) {
+      saveChangesToStorage();
+    }
+  }, [hasUnsavedChanges]);
+
+  // Load data from localStorage on initial load
+  useEffect(() => {
+    const savedFeatureCategories = localStorage.getItem('featureCategories');
+    const savedPlans = localStorage.getItem('pricingPlans');
+    
+    if (savedFeatureCategories) {
+      setFeatureCategories(JSON.parse(savedFeatureCategories));
+    }
+    
+    if (savedPlans) {
+      setPlans(JSON.parse(savedPlans));
+    }
+  }, []);
+
+  const saveChangesToStorage = () => {
+    localStorage.setItem('featureCategories', JSON.stringify(featureCategories));
+    localStorage.setItem('pricingPlans', JSON.stringify(plans));
+    
+    toast({
+      title: "Changes Saved",
+      description: "Your changes have been saved successfully.",
+    });
+    
+    setHasUnsavedChanges(false);
+  };
 
   const handleFeatureToggle = (categoryIndex, featureIndex, checked) => {
     const newFeatures = [...featureCategories];
     newFeatures[categoryIndex].features[featureIndex].enabled = checked;
     setFeatureCategories(newFeatures);
+    setHasUnsavedChanges(true);
     
     toast({
       title: checked ? "Feature Enabled" : "Feature Disabled",
@@ -78,6 +114,7 @@ const AdminFeatures = () => {
     const newPlans = [...plans];
     newPlans[planIndex].enabled = checked;
     setPlans(newPlans);
+    setHasUnsavedChanges(true);
     
     toast({
       title: checked ? "Plan Enabled" : "Plan Disabled",
@@ -101,6 +138,7 @@ const AdminFeatures = () => {
     const newCategories = [...featureCategories];
     newCategories[categoryIndex].features.push(newFeatureObj);
     setFeatureCategories(newCategories);
+    setHasUnsavedChanges(true);
     
     setNewFeature({ name: '', description: '', enabled: true });
     setIsAddFeatureModalOpen(false);
@@ -123,6 +161,7 @@ const AdminFeatures = () => {
     setFeatureCategories([...featureCategories, newCategoryObj]);
     setNewCategory({ name: '' });
     setIsAddCategoryModalOpen(false);
+    setHasUnsavedChanges(true);
     
     toast({
       title: "Category Added",
@@ -146,6 +185,7 @@ const AdminFeatures = () => {
     setPlans([...plans, newPlanObj]);
     setNewPlan({ name: '', price: 0, enabled: true, features: [] });
     setIsAddPlanModalOpen(false);
+    setHasUnsavedChanges(true);
     
     toast({
       title: "Plan Added",
@@ -169,6 +209,7 @@ const AdminFeatures = () => {
     const updatedPlans = [...plans];
     updatedPlans[planIndex] = updatedPlan;
     setPlans(updatedPlans);
+    setHasUnsavedChanges(true);
     
     setSelectedPlan(null);
     setIsEditPlanModalOpen(false);
@@ -181,6 +222,7 @@ const AdminFeatures = () => {
 
   const deletePlan = (planId) => {
     setPlans(plans.filter(p => p.id !== planId));
+    setHasUnsavedChanges(true);
     
     toast({
       title: "Plan Deleted",
@@ -202,6 +244,9 @@ const AdminFeatures = () => {
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Feature Controls</h2>
         <div className="flex gap-2">
+          <Button onClick={saveChangesToStorage} disabled={!hasUnsavedChanges} className="bg-green-600 hover:bg-green-700">
+            <Save className="h-4 w-4 mr-2" /> Save Changes
+          </Button>
           <Button onClick={() => setIsAddCategoryModalOpen(true)} variant="outline">
             <PlusCircle className="h-4 w-4 mr-2" /> Add Category
           </Button>
@@ -419,7 +464,7 @@ const AdminFeatures = () => {
                 step="0.01"
                 placeholder="29.99"
                 value={newPlan.price}
-                onChange={(e) => setNewPlan({...newPlan, price: e.target.value})}
+                onChange={(e) => setNewPlan({...newPlan, price: parseFloat(e.target.value || '0')})}
               />
             </div>
             <div className="flex items-center space-x-2">

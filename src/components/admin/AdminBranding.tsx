@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import {
   Palette, Image, Type, Globe, 
   LayoutGrid, FileEdit, Save, Undo
 } from 'lucide-react';
+import { useToast } from "@/hooks/use-toast";
 
 const AdminBranding = () => {
   const [brandingSettings, setBrandingSettings] = useState({
@@ -34,12 +35,29 @@ const AdminBranding = () => {
     secondary: '#d946ef',
     accent: '#22c55e'
   });
+
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const { toast } = useToast();
+  
+  // Load saved settings on initial load
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('brandingSettings');
+    if (savedSettings) {
+      setBrandingSettings(JSON.parse(savedSettings));
+      setPreviewColors({
+        primary: JSON.parse(savedSettings).primaryColor,
+        secondary: JSON.parse(savedSettings).secondaryColor,
+        accent: JSON.parse(savedSettings).accentColor
+      });
+    }
+  }, []);
   
   const handleColorChange = (colorType, value) => {
     setPreviewColors(prev => ({
       ...prev,
       [colorType]: value
     }));
+    setHasUnsavedChanges(true);
   };
   
   const handleColorApply = () => {
@@ -49,6 +67,12 @@ const AdminBranding = () => {
       secondaryColor: previewColors.secondary,
       accentColor: previewColors.accent
     }));
+    setHasUnsavedChanges(true);
+    
+    toast({
+      title: "Colors Updated",
+      description: "Color scheme has been updated. Don't forget to save all changes."
+    });
   };
   
   const handleInputChange = (setting, value) => {
@@ -56,11 +80,69 @@ const AdminBranding = () => {
       ...prev,
       [setting]: value
     }));
+    setHasUnsavedChanges(true);
+  };
+  
+  const saveAllChanges = () => {
+    localStorage.setItem('brandingSettings', JSON.stringify(brandingSettings));
+    setHasUnsavedChanges(false);
+    
+    toast({
+      title: "Settings Saved",
+      description: "All branding settings have been saved successfully."
+    });
+  };
+  
+  const cancelChanges = () => {
+    const savedSettings = localStorage.getItem('brandingSettings');
+    if (savedSettings) {
+      setBrandingSettings(JSON.parse(savedSettings));
+      setPreviewColors({
+        primary: JSON.parse(savedSettings).primaryColor,
+        secondary: JSON.parse(savedSettings).secondaryColor,
+        accent: JSON.parse(savedSettings).accentColor
+      });
+    } else {
+      // Reset to initial state if no saved settings
+      setBrandingSettings({
+        platformName: 'Monify',
+        tagline: 'Your Personal Financial Freedom Assistant',
+        primaryColor: '#9333ea',
+        secondaryColor: '#d946ef',
+        accentColor: '#22c55e',
+        logo: '/path/to/current-logo.png',
+        favicon: '/path/to/favicon.ico',
+        showLogo: true,
+        customFonts: true,
+        customCSS: '',
+        metaTitle: 'Monify - Personal & Business Finance Management',
+        metaDescription: 'Manage your personal and business finances, track assets, liabilities, and grow your wealth with intelligent financial insights.',
+        footerText: '© 2023 Monify. All rights reserved.'
+      });
+      setPreviewColors({
+        primary: '#9333ea',
+        secondary: '#d946ef',
+        accent: '#22c55e'
+      });
+    }
+    setHasUnsavedChanges(false);
+    
+    toast({
+      title: "Changes Discarded",
+      description: "All unsaved changes have been discarded."
+    });
   };
   
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold">Customization & Branding</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold">Customization & Branding</h2>
+        {hasUnsavedChanges && (
+          <div className="bg-amber-50 text-amber-700 px-3 py-1 rounded text-sm border border-amber-200">
+            You have unsaved changes
+          </div>
+        )}
+      </div>
       
       <Tabs defaultValue="general" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
@@ -454,8 +536,21 @@ const AdminBranding = () => {
       </Tabs>
       
       <div className="flex justify-end gap-2">
-        <Button variant="outline">Cancel Changes</Button>
-        <Button>Save All Changes</Button>
+        <Button 
+          variant="outline" 
+          onClick={cancelChanges} 
+          disabled={!hasUnsavedChanges}
+        >
+          Cancel Changes
+        </Button>
+        <Button 
+          onClick={saveAllChanges} 
+          disabled={!hasUnsavedChanges}
+          className="bg-green-600 hover:bg-green-700"
+        >
+          <Save className="h-4 w-4 mr-1" />
+          Save All Changes
+        </Button>
       </div>
     </div>
   );
