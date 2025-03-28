@@ -88,7 +88,7 @@ const AdminBranding = () => {
       ),
     });
     
-    // Force a re-render of the page to show the changes
+    // Force a reload to ensure all changes are applied across the entire application
     setTimeout(() => {
       window.location.reload();
     }, 1000);

@@ -44,7 +44,7 @@
     --sidebar-border: 263 80% 40%;
     --sidebar-ring: 263 90% 51%;
     
-    /* Set these directly via JavaScript too */
+    /* Direct color variables for components that use them directly */
     --monify-purple-600: #7C3AED;
     --monify-pink-600: #DB2777;
     --monify-cyan-500: #06B6D4;
@@ -145,6 +145,7 @@
 /* Force sidebar text visibility */
 [data-sidebar="sidebar"] {
   color: white !important;
+  background-color: var(--monify-purple-600) !important;
 }
 
 [data-sidebar="menu-button"] {

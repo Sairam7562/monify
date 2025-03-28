@@ -65,6 +65,8 @@ export const BrandingProvider: React.FC<{ children: ReactNode }> = ({ children }
           applySettingsToDOM(parsedSettings);
         } catch (error) {
           console.error('Error parsing branding settings:', error);
+          // If there's an error, apply defaults
+          applySettingsToDOM(defaultBrandingSettings);
         }
       } else {
         // If no saved settings, apply defaults
@@ -96,33 +98,75 @@ export const BrandingProvider: React.FC<{ children: ReactNode }> = ({ children }
   const applySettingsToDOM = (settings: BrandingSettings) => {
     console.log("Applying branding settings to DOM:", settings);
     
-    // Update CSS custom properties for colors
-    document.documentElement.style.setProperty('--primary', settings.primaryColor);
-    document.documentElement.style.setProperty('--primary-foreground', '#FFFFFF');
+    // Convert hex to HSL for CSS variables
+    const hexToHSL = (hex) => {
+      // Remove the # if present
+      hex = hex.replace('#', '');
+      
+      // Convert hex to RGB
+      let r = parseInt(hex.substring(0, 2), 16) / 255;
+      let g = parseInt(hex.substring(2, 4), 16) / 255;
+      let b = parseInt(hex.substring(4, 6), 16) / 255;
+      
+      // Find greatest and smallest channel values
+      let cmin = Math.min(r, g, b);
+      let cmax = Math.max(r, g, b);
+      let delta = cmax - cmin;
+      let h = 0;
+      let s = 0;
+      let l = 0;
+      
+      // Calculate hue
+      if (delta === 0) h = 0;
+      else if (cmax === r) h = ((g - b) / delta) % 6;
+      else if (cmax === g) h = (b - r) / delta + 2;
+      else h = (r - g) / delta + 4;
+      
+      h = Math.round(h * 60);
+      if (h < 0) h += 360;
+      
+      // Calculate lightness
+      l = (cmax + cmin) / 2;
+      
+      // Calculate saturation
+      s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
+      
+      // Convert to percentage
+      s = +(s * 100).toFixed(1);
+      l = +(l * 100).toFixed(1);
+      
+      return { h, s, l };
+    };
     
-    document.documentElement.style.setProperty('--secondary', settings.secondaryColor);
-    document.documentElement.style.setProperty('--secondary-foreground', '#FFFFFF');
+    // Convert primary color to HSL
+    const primaryHSL = hexToHSL(settings.primaryColor);
+    const secondaryHSL = hexToHSL(settings.secondaryColor);
+    const accentHSL = hexToHSL(settings.accentColor);
     
-    document.documentElement.style.setProperty('--accent', settings.accentColor);
-    document.documentElement.style.setProperty('--accent-foreground', '#FFFFFF');
+    // Update CSS custom properties for colors using HSL values
+    document.documentElement.style.setProperty('--primary', `${primaryHSL.h} ${primaryHSL.s}% ${primaryHSL.l}%`);
+    document.documentElement.style.setProperty('--primary-foreground', '210 40% 98%');
     
-    // Update monify-specific classes (for the components that use these directly)
+    document.documentElement.style.setProperty('--secondary', `${secondaryHSL.h} ${secondaryHSL.s}% ${secondaryHSL.l}%`);
+    document.documentElement.style.setProperty('--secondary-foreground', '210 40% 98%');
+    
+    document.documentElement.style.setProperty('--accent', `${accentHSL.h} ${accentHSL.s}% ${accentHSL.l}%`);
+    document.documentElement.style.setProperty('--accent-foreground', '210 40% 98%');
+    
+    // Update monify-specific direct color variables (for components that use these directly)
     document.documentElement.style.setProperty('--monify-purple-600', settings.primaryColor);
     document.documentElement.style.setProperty('--monify-pink-600', settings.secondaryColor);
     document.documentElement.style.setProperty('--monify-cyan-500', settings.accentColor);
     
-    // Also update sidebar colors for consistency
-    document.documentElement.style.setProperty('--sidebar-background', settings.primaryColor);
-    document.documentElement.style.setProperty('--sidebar-foreground', '#FFFFFF');
-    document.documentElement.style.setProperty('--sidebar-primary', settings.secondaryColor);
-    document.documentElement.style.setProperty('--sidebar-primary-foreground', '#FFFFFF');
-    document.documentElement.style.setProperty('--sidebar-accent', settings.accentColor);
-    document.documentElement.style.setProperty('--sidebar-accent-foreground', '#FFFFFF');
-    document.documentElement.style.setProperty('--sidebar-border', `rgba(255, 255, 255, 0.2)`);
-    
-    // Directly set the CSS for better visibility in sidebar and menus
-    document.documentElement.style.setProperty('--sidebar-menu-foreground', '#FFFFFF');
-    document.documentElement.style.setProperty('--sidebar-menu-background', 'rgba(255, 255, 255, 0.1)');
+    // Update sidebar colors
+    document.documentElement.style.setProperty('--sidebar-background', `${primaryHSL.h} ${primaryHSL.s}% ${primaryHSL.l}%`);
+    document.documentElement.style.setProperty('--sidebar-foreground', '210 40% 98%');
+    document.documentElement.style.setProperty('--sidebar-primary', `${secondaryHSL.h} ${secondaryHSL.s}% ${secondaryHSL.l}%`);
+    document.documentElement.style.setProperty('--sidebar-primary-foreground', '210 40% 98%');
+    document.documentElement.style.setProperty('--sidebar-accent', `${accentHSL.h} ${accentHSL.s}% ${accentHSL.l}%`);
+    document.documentElement.style.setProperty('--sidebar-accent-foreground', '210 40% 98%');
+    document.documentElement.style.setProperty('--sidebar-border', `${primaryHSL.h} 80% 40%`);
+    document.documentElement.style.setProperty('--sidebar-ring', `${primaryHSL.h} 90% 51%`);
     
     // Update document metadata
     document.title = settings.metaTitle;
@@ -157,7 +201,7 @@ export const BrandingProvider: React.FC<{ children: ReactNode }> = ({ children }
       favicon.setAttribute('href', settings.favicon);
     }
     
-    // Add additional style to ensure text visibility in sidebar
+    // Add persistent style for sidebar text visibility
     const existingSidebarStyle = document.getElementById('sidebar-visibility-fix');
     if (existingSidebarStyle) {
       existingSidebarStyle.remove();
@@ -167,16 +211,21 @@ export const BrandingProvider: React.FC<{ children: ReactNode }> = ({ children }
     sidebarStyle.id = 'sidebar-visibility-fix';
     sidebarStyle.textContent = `
       [data-sidebar="sidebar"] {
-        color: white;
+        background-color: ${settings.primaryColor} !important;
       }
       [data-sidebar="menu-button"] {
-        color: white;
+        color: white !important;
       }
-      [data-sidebar="sidebar"] [data-sidebar="menu-button"]:hover {
-        background-color: rgba(255, 255, 255, 0.2);
+      [data-sidebar="menu-item"] [data-sidebar="menu-button"]:hover {
+        background-color: rgba(255, 255, 255, 0.2) !important;
+        color: white !important;
+      }
+      [data-sidebar="menu-item"] [data-sidebar="menu-button"][data-active="true"] {
+        background-color: rgba(255, 255, 255, 0.2) !important;
+        color: white !important;
       }
       [data-sidebar="group-label"] {
-        color: rgba(255, 255, 255, 0.7);
+        color: rgba(255, 255, 255, 0.8) !important;
       }
     `;
     document.head.appendChild(sidebarStyle);
