@@ -3,6 +3,8 @@ import { toast } from "sonner";
 import { User, getUserByEmail, updateUser } from "./userService";
 import { hashPassword, verifyPassword } from "./securityService";
 import { sendVerificationEmail, sendWelcomeEmail } from "./emailService";
+import { supabase } from "@/integrations/supabase/client";
+import { Provider } from "@supabase/supabase-js";
 
 // Current user management (client-side)
 let currentUser: User | null = null;
@@ -109,8 +111,12 @@ export const registerUser = async (
   }
 };
 
-export const loginWithSocial = async (provider: 'Google' | 'Microsoft' | 'Apple'): Promise<User | null> => {
+export const loginWithSocial = async (provider: 'google' | 'github' | 'apple'): Promise<User | null> => {
   try {
+    // Map to valid Supabase provider
+    const validProvider: Provider = provider === 'google' ? 'google' : 
+                                   provider === 'github' ? 'github' : 'apple';
+                                   
     // This would normally connect to the OAuth provider
     // For demo purposes, we'll create a mock user
     const mockUser: User = {
