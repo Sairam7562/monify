@@ -3,10 +3,11 @@ import React, { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Search, RefreshCw } from 'lucide-react';
+import { Eye, Search, RefreshCw, UserPlus, Trash2, Ban, CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 
 // Mock user data
 const mockUsers = [
@@ -21,8 +22,14 @@ const AdminUsers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [users, setUsers] = useState(mockUsers);
+  const [newUser, setNewUser] = useState({ name: '', email: '', role: 'User', plan: 'Basic' });
+  const { toast } = useToast();
 
-  const filteredUsers = mockUsers.filter(user => 
+  const filteredUsers = users.filter(user => 
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
     user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -30,6 +37,60 @@ const AdminUsers = () => {
   const handleViewUser = (user) => {
     setSelectedUser(user);
     setIsViewModalOpen(true);
+  };
+
+  const handleDeleteUser = (user) => {
+    setUserToDelete(user);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDeleteUser = () => {
+    setUsers(users.filter(user => user.id !== userToDelete.id));
+    setIsDeleteModalOpen(false);
+    toast({
+      title: "User Deleted",
+      description: `${userToDelete.name} has been removed from the system.`,
+      variant: "destructive",
+    });
+  };
+
+  const toggleUserStatus = (userId) => {
+    setUsers(users.map(user => {
+      if (user.id === userId) {
+        const newStatus = user.status === 'active' ? 'inactive' : 'active';
+        toast({
+          title: `User ${newStatus === 'active' ? 'Activated' : 'Deactivated'}`,
+          description: `${user.name}'s account is now ${newStatus}.`,
+          variant: newStatus === 'active' ? "default" : "destructive",
+        });
+        return { ...user, status: newStatus };
+      }
+      return user;
+    }));
+  };
+
+  const handleAddUser = () => {
+    const newId = Math.max(...users.map(u => u.id)) + 1;
+    const currentDate = new Date().toISOString().split('T')[0];
+    
+    const userToAdd = {
+      id: newId,
+      name: newUser.name,
+      email: newUser.email,
+      status: 'active',
+      plan: newUser.plan,
+      lastLogin: currentDate,
+      role: newUser.role
+    };
+    
+    setUsers([...users, userToAdd]);
+    setIsAddUserModalOpen(false);
+    setNewUser({ name: '', email: '', role: 'User', plan: 'Basic' });
+    
+    toast({
+      title: "User Added",
+      description: `${newUser.name} has been added successfully.`,
+    });
   };
 
   const getStatusColor = (status) => {
@@ -58,6 +119,9 @@ const AdminUsers = () => {
           </div>
           <Button variant="outline" size="icon">
             <RefreshCw className="h-4 w-4" />
+          </Button>
+          <Button onClick={() => setIsAddUserModalOpen(true)}>
+            <UserPlus className="h-4 w-4 mr-2" /> Add User
           </Button>
         </div>
       </div>
@@ -94,9 +158,31 @@ const AdminUsers = () => {
                   <TableCell>{user.lastLogin}</TableCell>
                   <TableCell>{user.role}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" onClick={() => handleViewUser(user)}>
-                      <Eye className="h-4 w-4 mr-1" /> View
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => handleViewUser(user)}>
+                        <Eye className="h-4 w-4 mr-1" /> View
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => toggleUserStatus(user.id)}
+                        className={user.status === 'active' ? "text-amber-600" : "text-green-600"}
+                      >
+                        {user.status === 'active' ? (
+                          <><Ban className="h-4 w-4 mr-1" /> Deactivate</>
+                        ) : (
+                          <><CheckCircle className="h-4 w-4 mr-1" /> Activate</>
+                        )}
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleDeleteUser(user)}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" /> Delete
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -105,7 +191,7 @@ const AdminUsers = () => {
         </CardContent>
         <CardFooter className="flex justify-between">
           <div className="text-sm text-gray-500">
-            Showing {filteredUsers.length} of {mockUsers.length} users
+            Showing {filteredUsers.length} of {users.length} users
           </div>
           <div className="flex gap-1">
             <Button variant="outline" size="sm" disabled>Previous</Button>
@@ -114,6 +200,7 @@ const AdminUsers = () => {
         </CardFooter>
       </Card>
 
+      {/* View User Modal */}
       <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -168,6 +255,95 @@ const AdminUsers = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add User Modal */}
+      <Dialog open={isAddUserModalOpen} onOpenChange={setIsAddUserModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New User</DialogTitle>
+            <DialogDescription>
+              Create a new user account for the platform.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-2">
+                <label htmlFor="name" className="text-sm font-medium">Full Name</label>
+                <Input
+                  id="name"
+                  placeholder="John Doe"
+                  value={newUser.name}
+                  onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="email" className="text-sm font-medium">Email Address</label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="john@example.com"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="role" className="text-sm font-medium">User Role</label>
+                <select
+                  id="role"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2"
+                  value={newUser.role}
+                  onChange={(e) => setNewUser({...newUser, role: e.target.value})}
+                >
+                  <option value="User">User</option>
+                  <option value="Admin">Admin</option>
+                  <option value="Support">Support</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="plan" className="text-sm font-medium">Subscription Plan</label>
+                <select
+                  id="plan"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2"
+                  value={newUser.plan}
+                  onChange={(e) => setNewUser({...newUser, plan: e.target.value})}
+                >
+                  <option value="Basic">Basic</option>
+                  <option value="Premium">Premium</option>
+                  <option value="Enterprise">Enterprise</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddUserModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddUser} disabled={!newUser.name || !newUser.email}>Add User</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete User Confirmation Modal */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Confirm User Deletion</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this user? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {userToDelete && (
+            <div className="py-4">
+              <p className="font-medium">{userToDelete.name}</p>
+              <p className="text-sm text-gray-500">{userToDelete.email}</p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteModalOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDeleteUser}>
+              Delete User
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
