@@ -16,6 +16,9 @@ import FinancialStatementsPage from "./pages/FinancialStatementsPage";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 
+// Add print styles to handle printing financial statements
+import "./styles/print.css";
+
 const queryClient = new QueryClient();
 
 const App = () => (

@@ -1,12 +1,89 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Download } from 'lucide-react';
+import PersonalFinancialStatementForm from '@/components/finance/PersonalFinancialStatementForm';
+import PersonalFinancialStatementDisplay from '@/components/finance/PersonalFinancialStatementDisplay';
+
+interface FinancialItem {
+  id: string;
+  name: string;
+  value: string;
+  includeInReport: boolean;
+}
+
+interface PersonalFinancialStatementData {
+  profileImage: string | null;
+  fullName: string;
+  email: string;
+  phone: string;
+  address: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+    includeInReport: boolean;
+  };
+  assets: FinancialItem[];
+  liabilities: FinancialItem[];
+  incomes: FinancialItem[];
+  expenses: FinancialItem[];
+  statementDate: string;
+}
+
+const defaultStatementData: PersonalFinancialStatementData = {
+  profileImage: null,
+  fullName: 'John Doe',
+  email: 'john.doe@example.com',
+  phone: '(123) 456-7890',
+  address: {
+    street: '123 Financial Street',
+    city: 'Money City',
+    state: 'Wealth State',
+    zipCode: '12345',
+    country: 'United States',
+    includeInReport: true
+  },
+  assets: [
+    { id: 'cash', name: 'Cash & Bank Accounts', value: '45000', includeInReport: true },
+    { id: 'investments', name: 'Investments', value: '80000', includeInReport: true },
+    { id: 'realestate', name: 'Real Estate', value: '350000', includeInReport: true },
+    { id: 'vehicles', name: 'Vehicles', value: '25000', includeInReport: true },
+    { id: 'personal', name: 'Personal Property', value: '15000', includeInReport: true }
+  ],
+  liabilities: [
+    { id: 'mortgage', name: 'Mortgage', value: '280000', includeInReport: true },
+    { id: 'autoloan', name: 'Auto Loan', value: '18000', includeInReport: true },
+    { id: 'creditcards', name: 'Credit Cards', value: '5000', includeInReport: true },
+    { id: 'studentloans', name: 'Student Loans', value: '35000', includeInReport: true },
+    { id: 'otherloans', name: 'Other Loans', value: '2000', includeInReport: true }
+  ],
+  incomes: [
+    { id: 'salary', name: 'Salary & Wages', value: '6500', includeInReport: true },
+    { id: 'business', name: 'Business Income', value: '2000', includeInReport: true },
+    { id: 'investment', name: 'Investment Income', value: '375', includeInReport: true },
+    { id: 'rental', name: 'Rental Income', value: '1000', includeInReport: true }
+  ],
+  expenses: [
+    { id: 'housing', name: 'Housing', value: '2000', includeInReport: true },
+    { id: 'transportation', name: 'Transportation', value: '700', includeInReport: true },
+    { id: 'food', name: 'Food & Dining', value: '800', includeInReport: true },
+    { id: 'utilities', name: 'Utilities', value: '400', includeInReport: true },
+    { id: 'insurance', name: 'Insurance', value: '500', includeInReport: true },
+    { id: 'healthcare', name: 'Healthcare', value: '300', includeInReport: true },
+    { id: 'taxes', name: 'Taxes', value: '2300', includeInReport: true }
+  ],
+  statementDate: new Date().toISOString().slice(0, 10)
+};
 
 const FinancialStatementsPage = () => {
+  const [activeView, setActiveView] = useState<'form' | 'preview'>('form');
+  const [statementData, setStatementData] = useState<PersonalFinancialStatementData>(defaultStatementData);
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -17,12 +94,35 @@ const FinancialStatementsPage = () => {
           </p>
         </div>
         
-        <Tabs defaultValue="networth">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="personal">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="personal">Personal Statement</TabsTrigger>
             <TabsTrigger value="networth">Net Worth Statement</TabsTrigger>
             <TabsTrigger value="income">Income Statement</TabsTrigger>
             <TabsTrigger value="cashflow">Cash Flow Statement</TabsTrigger>
           </TabsList>
+          
+          <TabsContent value="personal" className="pt-4">
+            <div className="mb-4 flex justify-end space-x-4">
+              <Button 
+                variant={activeView === 'form' ? 'default' : 'outline'} 
+                onClick={() => setActiveView('form')}
+                className={activeView === 'form' ? 'bg-monify-purple-500 hover:bg-monify-purple-600' : ''}
+              >
+                Edit Statement
+              </Button>
+              <Button 
+                variant={activeView === 'preview' ? 'default' : 'outline'} 
+                onClick={() => setActiveView('preview')}
+                className={activeView === 'preview' ? 'bg-monify-purple-500 hover:bg-monify-purple-600' : ''}
+              >
+                Preview Statement
+              </Button>
+            </div>
+            
+            {activeView === 'form' && <PersonalFinancialStatementForm />}
+            {activeView === 'preview' && <PersonalFinancialStatementDisplay data={statementData} />}
+          </TabsContent>
           
           <TabsContent value="networth" className="pt-4">
             <Card>

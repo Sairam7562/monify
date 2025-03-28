@@ -1,0 +1,80 @@
+
+@media print {
+  /* Hide navigation and UI elements */
+  header, nav, footer, .print:hidden, button {
+    display: none !important;
+  }
+  
+  /* Make the body and html full width */
+  html, body {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Style the financial statement for printing */
+  #personal-financial-statement {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+  }
+  
+  /* Ensure the page breaks appropriately */
+  h2, h3 {
+    page-break-after: avoid;
+  }
+  
+  /* Add page breaks before major sections */
+  .page-break-before {
+    page-break-before: always;
+  }
+  
+  /* Set background to white */
+  * {
+    background-color: white !important;
+    color: black !important;
+  }
+  
+  /* Preserve colors for financials */
+  .text-monify-green-600 {
+    color: #22c55e !important;
+  }
+  
+  .text-red-600 {
+    color: #dc2626 !important;
+  }
+  
+  .text-monify-purple-600 {
+    color: #9333ea !important;
+  }
+  
+  /* Adjust spacing and fonts */
+  p, div {
+    font-size: 11pt;
+  }
+  
+  h1 {
+    font-size: 18pt;
+  }
+  
+  h2 {
+    font-size: 16pt;
+  }
+  
+  h3 {
+    font-size: 14pt;
+  }
+  
+  /* Add a border to the table-like sections */
+  .border-t {
+    border-top: 1px solid #ddd !important;
+  }
+  
+  /* Make sure all content is visible */
+  .hidden, .overflow-hidden {
+    display: block !important;
+    overflow: visible !important;
+  }
+}
