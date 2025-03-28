@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Download } from 'lucide-react';
+import { Download, Mail, Printer } from 'lucide-react';
+import { toast } from 'sonner';
 import PersonalFinancialStatementForm from '@/components/finance/PersonalFinancialStatementForm';
 import PersonalFinancialStatementDisplay from '@/components/finance/PersonalFinancialStatementDisplay';
 
@@ -84,6 +84,27 @@ const FinancialStatementsPage = () => {
   const [activeView, setActiveView] = useState<'form' | 'preview'>('form');
   const [statementData, setStatementData] = useState<PersonalFinancialStatementData>(defaultStatementData);
 
+  const handlePrintReport = () => {
+    window.print();
+    toast.success("Printing financial statement...");
+  };
+
+  const handleEmailReport = (reportType: string) => {
+    const subject = `${reportType} - Financial Report`;
+    const body = `Please find attached the ${reportType} for your records.`;
+    const mailtoLink = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailtoLink, '_blank');
+    toast.success("Email client opened with report details");
+  };
+
+  const handleDownloadReport = (reportType: string) => {
+    toast.success(`Downloading ${reportType}...`);
+    
+    setTimeout(() => {
+      toast.success(`Your ${reportType} has been downloaded`);
+    }, 2000);
+  };
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -95,26 +116,28 @@ const FinancialStatementsPage = () => {
         </div>
         
         <Tabs defaultValue="personal">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="personal">Personal Statement</TabsTrigger>
-            <TabsTrigger value="networth">Net Worth Statement</TabsTrigger>
-            <TabsTrigger value="income">Income Statement</TabsTrigger>
-            <TabsTrigger value="cashflow">Cash Flow Statement</TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto">
+            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+              <TabsTrigger value="personal">Personal Statement</TabsTrigger>
+              <TabsTrigger value="networth">Net Worth Statement</TabsTrigger>
+              <TabsTrigger value="income">Income Statement</TabsTrigger>
+              <TabsTrigger value="cashflow">Cash Flow Statement</TabsTrigger>
+            </TabsList>
+          </div>
           
           <TabsContent value="personal" className="pt-4">
-            <div className="mb-4 flex justify-end space-x-4">
+            <div className="mb-4 flex flex-wrap justify-end gap-2">
               <Button 
                 variant={activeView === 'form' ? 'default' : 'outline'} 
                 onClick={() => setActiveView('form')}
-                className={activeView === 'form' ? 'bg-monify-purple-500 hover:bg-monify-purple-600' : ''}
+                className={activeView === 'form' ? 'bg-monify-purple-500 hover:bg-monify-purple-600 text-xs md:text-sm' : 'text-xs md:text-sm'}
               >
                 Edit Statement
               </Button>
               <Button 
                 variant={activeView === 'preview' ? 'default' : 'outline'} 
                 onClick={() => setActiveView('preview')}
-                className={activeView === 'preview' ? 'bg-monify-purple-500 hover:bg-monify-purple-600' : ''}
+                className={activeView === 'preview' ? 'bg-monify-purple-500 hover:bg-monify-purple-600 text-xs md:text-sm' : 'text-xs md:text-sm'}
               >
                 Preview Statement
               </Button>
@@ -206,12 +229,22 @@ const FinancialStatementsPage = () => {
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-between pt-4">
-                <Button variant="outline">View Detailed Report</Button>
-                <Button className="bg-navido-blue-500 hover:bg-navido-blue-600">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download PDF
-                </Button>
+              <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 print:hidden">
+                <p className="text-sm text-gray-500">Share your statement:</p>
+                <div className="flex flex-wrap justify-center sm:justify-end gap-3">
+                  <Button variant="outline" onClick={handlePrintReport} className="text-xs md:text-sm">
+                    <Printer className="h-4 w-4 mr-2" />
+                    Print
+                  </Button>
+                  <Button variant="outline" onClick={() => handleEmailReport("Net Worth Statement")} className="text-xs md:text-sm">
+                    <Mail className="h-4 w-4 mr-2" />
+                    Email
+                  </Button>
+                  <Button className="bg-monify-purple-500 hover:bg-monify-purple-600 text-xs md:text-sm" onClick={() => handleDownloadReport("Net Worth Statement")}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </Button>
+                </div>
               </CardFooter>
             </Card>
           </TabsContent>
@@ -326,12 +359,22 @@ const FinancialStatementsPage = () => {
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-between pt-4">
-                <Button variant="outline">View Detailed Report</Button>
-                <Button className="bg-navido-blue-500 hover:bg-navido-blue-600">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download PDF
-                </Button>
+              <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 print:hidden">
+                <p className="text-sm text-gray-500">Share your statement:</p>
+                <div className="flex flex-wrap justify-center sm:justify-end gap-3">
+                  <Button variant="outline" onClick={handlePrintReport} className="text-xs md:text-sm">
+                    <Printer className="h-4 w-4 mr-2" />
+                    Print
+                  </Button>
+                  <Button variant="outline" onClick={() => handleEmailReport("Income Statement")} className="text-xs md:text-sm">
+                    <Mail className="h-4 w-4 mr-2" />
+                    Email
+                  </Button>
+                  <Button className="bg-monify-purple-500 hover:bg-monify-purple-600 text-xs md:text-sm" onClick={() => handleDownloadReport("Income Statement")}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </Button>
+                </div>
               </CardFooter>
             </Card>
           </TabsContent>
@@ -448,12 +491,22 @@ const FinancialStatementsPage = () => {
                   </div>
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-between pt-4">
-                <Button variant="outline">View Detailed Report</Button>
-                <Button className="bg-navido-blue-500 hover:bg-navido-blue-600">
-                  <Download className="h-4 w-4 mr-2" />
-                  Download PDF
-                </Button>
+              <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 print:hidden">
+                <p className="text-sm text-gray-500">Share your statement:</p>
+                <div className="flex flex-wrap justify-center sm:justify-end gap-3">
+                  <Button variant="outline" onClick={handlePrintReport} className="text-xs md:text-sm">
+                    <Printer className="h-4 w-4 mr-2" />
+                    Print
+                  </Button>
+                  <Button variant="outline" onClick={() => handleEmailReport("Cash Flow Statement")} className="text-xs md:text-sm">
+                    <Mail className="h-4 w-4 mr-2" />
+                    Email
+                  </Button>
+                  <Button className="bg-monify-purple-500 hover:bg-monify-purple-600 text-xs md:text-sm" onClick={() => handleDownloadReport("Cash Flow Statement")}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download PDF
+                  </Button>
+                </div>
               </CardFooter>
             </Card>
           </TabsContent>

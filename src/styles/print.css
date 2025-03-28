@@ -1,7 +1,7 @@
 
 @media print {
   /* Hide navigation and UI elements */
-  header, nav, footer, .print:hidden, button {
+  header, nav, footer, .print-hidden, button {
     display: none !important;
   }
   
