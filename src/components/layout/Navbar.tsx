@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -6,7 +7,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
-const Navbar = () => {
+interface NavbarProps {
+  showSidebarToggle?: boolean;
+}
+
+const Navbar = ({ showSidebarToggle = true }: NavbarProps) => {
   const { user, logout } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.role === 'Admin';
   const navigate = useNavigate();
