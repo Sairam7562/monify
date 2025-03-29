@@ -1,867 +1,298 @@
 
-import { useState, useCallback, useEffect } from 'react';
-import { supabase, checkConnection } from '@/integrations/supabase/client';
-import { useAuth } from './useAuth';
+import { useState, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
-export function useDatabase() {
-  const { user, session } = useAuth();
+export const useDatabase = () => {
   const [loading, setLoading] = useState(false);
   const [lastError, setLastError] = useState<any>(null);
-  const [schemaChecked, setSchemaChecked] = useState<boolean>(false);
+  const { session } = useAuth();
 
-  // Check for schema issues on mount
-  useEffect(() => {
-    if (user && !schemaChecked) {
-      checkDatabaseStatus().then(isConnected => {
-        setSchemaChecked(true);
-        if (!isConnected) {
-          console.log("Database schema issues detected on hook initialization");
-        }
-      });
-    }
-  }, [user, schemaChecked]);
-
-  const verifyAuth = useCallback(() => {
-    if (!user || !session) {
-      console.error("Authentication required: No user or session found");
-      toast.error("Authentication required. Please log in again.");
-      return false;
-    }
-    return true;
-  }, [user, session]);
-
-  const hasSchemaIssue = () => {
-    return sessionStorage.getItem('db_schema_error') === 'true';
-  };
-
-  const getLocalStorageKey = (userId: string, dataType: string) => {
-    return `${dataType}_${userId}`;
-  };
-
-  const debugLocalStorage = (userId: string) => {
-    if (!userId) return;
-    
-    const keys = ['personal_info', 'assets', 'liabilities', 'income', 'expenses', 'business_info'];
-    console.group('Local Storage Data');
-    keys.forEach(key => {
-      const localKey = getLocalStorageKey(userId, key);
-      const data = localStorage.getItem(localKey);
-      console.log(`${key}:`, data ? 'Data exists' : 'No data');
-    });
-    console.groupEnd();
-  };
-
-  // Function to retry failed database operations using locally stored data
-  const retryWithLocalData = async (dataType: string) => {
-    if (!user) return false;
-    
-    const userId = user.id.toString();
-    const localStorageKey = getLocalStorageKey(userId, dataType);
-    const localData = localStorage.getItem(localStorageKey);
-    
-    if (!localData) return false;
-    
+  const checkDatabaseStatus = useCallback(async (): Promise<boolean> => {
+    console.log("Checking database status...");
     try {
-      console.log(`Attempting to sync local ${dataType} data with database`);
-      const parsed = JSON.parse(localData);
+      // Try a simple query to test the connection
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .limit(1);
       
-      // Implement logic for each data type
-      switch (dataType) {
-        case 'assets':
-          // Handle assets sync
-          break;
-        case 'liabilities':
-          // Handle liabilities sync
-          break;
-        // Add other data types
-        default:
-          break;
+      if (error) {
+        console.error("Database status check error:", error);
+        
+        // Check for schema-related errors
+        if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
+          console.log("Checking Supabase database connection...");
+          
+          // If API schema is mentioned, try to refresh the session to fix
+          if (error.message.includes('api')) {
+            console.log("Attempting to update client configuration to use API schema");
+            
+            if (session) {
+              await supabase.auth.setSession({
+                access_token: session.access_token,
+                refresh_token: session.refresh_token
+              });
+            }
+            
+            // Try the query again with updated session
+            const retryResult = await supabase
+              .from('profiles')
+              .select('id')
+              .limit(1);
+            
+            // Return whether the retry was successful
+            return !retryResult.error;
+          }
+        }
+        
+        return false;
       }
       
       return true;
-    } catch (error) {
-      console.error(`Error syncing local ${dataType} data:`, error);
+    } catch (err) {
+      console.error("Error checking database status:", err);
       return false;
     }
-  };
+  }, [session]);
 
-  // Updated function to check database status with retry logic
-  const checkDatabaseStatus = async () => {
-    try {
-      console.log("Checking database status...");
-      const status = await checkConnection();
-      
-      // If we detect schema issues but have 'api' in the error message,
-      // try updating the client configuration
-      if (!status.connected && 
-          status.reason === 'schema_error' && 
-          status.error && 
-          status.error.message.includes('api')) {
-        
-        console.log("Attempting to update client configuration to use API schema");
-        
-        // Update session using proper method
-        if (session) {
-          const { error } = await supabase.auth.setSession({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-          });
-          
-          if (error) {
-            console.error("Error updating session:", error);
-          }
-        }
-        
-        // Try a second connection check
-        const retryStatus = await checkConnection();
-        return retryStatus.connected;
-      }
-      
-      return status.connected;
-    } catch (error) {
-      console.error("Error checking database status:", error);
-      return false;
-    }
-  };
+  // Check if there's a schema issue based on session storage flag
+  const hasSchemaIssue = useCallback((): boolean => {
+    return sessionStorage.getItem('db_schema_error') === 'true';
+  }, []);
 
+  // Function to save personal information
   const savePersonalInfo = async (data: any) => {
+    setLoading(true);
+    setLastError(null);
+    
     try {
-      setLoading(true);
-      setLastError(null);
+      // First, check if there's an existing record for this user
+      const userId = session?.user?.id;
       
-      if (!verifyAuth()) {
-        return { error: 'Not authenticated' };
-      }
-      
-      console.log("Attempting to save personal info for user:", user.id);
-      console.log("Personal info data:", data);
-      
-      const userId = user.id?.toString();
       if (!userId) {
-        return { error: 'Invalid user ID' };
+        return { error: "User not authenticated" };
       }
       
-      const connectionStatus = await checkConnection();
-      console.log("Database connection status:", connectionStatus);
-      
-      if (!connectionStatus.connected || hasSchemaIssue()) {
-        console.log("Database unavailable, using local storage");
-        const localStorageKey = getLocalStorageKey(userId, 'personal_info');
-        localStorage.setItem(localStorageKey, JSON.stringify({
-          ...data,
-          user_id: userId,
-          updated_at: new Date().toISOString()
-        }));
+      // Handle offline mode or persistent connection issues
+      if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
+        // Save to local storage
+        const backupKey = `personal_info_${userId}`;
+        localStorage.setItem(backupKey, JSON.stringify(data));
         
-        debugLocalStorage(userId);
-        
-        toast.success('Information saved locally. It will be synced when the database is available.');
-        return { data: null, error: null, localSaved: true };
+        // Return success with local flag
+        return { data, error: null, localSaved: true };
       }
       
-      try {
-        const { data: existingData, error: fetchError } = await supabase
+      // Update the session to ensure proper authorization
+      if (session) {
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        });
+      }
+      
+      // Check for existing record
+      const { data: existingData, error: checkError } = await supabase
+        .from('personal_info')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (checkError) {
+        console.error("Error checking for existing personal info:", checkError);
+        
+        // Save to local storage as backup
+        const backupKey = `personal_info_${userId}`;
+        localStorage.setItem(backupKey, JSON.stringify(data));
+        
+        return { data, error: checkError, localSaved: true };
+      }
+      
+      // Prepare data for insert/update
+      const personalData = {
+        ...data,
+        user_id: userId,
+        updated_at: new Date().toISOString()
+      };
+      
+      let result;
+      
+      if (existingData?.id) {
+        // Update existing record
+        result = await supabase
           .from('personal_info')
-          .select('*')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (fetchError) {
-          console.error("Error fetching existing data:", fetchError);
-          if (fetchError.code === 'PGRST106' || fetchError.message.includes('schema must be one of the following')) {
-            console.log("Database schema error - table might not exist yet. Saving to local storage for now.");
-            sessionStorage.setItem('db_schema_error', 'true');
-            const localStorageKey = getLocalStorageKey(userId, 'personal_info');
-            localStorage.setItem(localStorageKey, JSON.stringify({
-              ...data,
-              user_id: userId,
-              updated_at: new Date().toISOString()
-            }));
-            debugLocalStorage(userId);
-            toast.success('Information saved locally. It will be synced when the database is available.');
-            return { data: null, error: null, localSaved: true };
-          } else {
-            throw fetchError;
-          }
-        }
-
-        const formattedData = {
-          first_name: data.firstName,
-          last_name: data.lastName,
-          email: data.email,
-          phone: data.phone,
-          address: data.address,
-          city: data.city,
-          state: data.state,
-          zip_code: data.zipCode,
-          birth_date: data.birthDate instanceof Date 
-            ? data.birthDate.toISOString().split('T')[0] 
-            : data.birthDate,
-          occupation: data.occupation,
-          annual_income: data.annualIncome ? parseFloat(data.annualIncome) : null,
-          profile_image: data.profileImage,
-          updated_at: new Date().toISOString()
-        };
-        
-        let result;
-        
-        if (existingData) {
-          console.log("Updating existing personal info record");
-          result = await supabase
-            .from('personal_info')
-            .update(formattedData)
-            .eq('id', existingData.id);
-        } else {
-          console.log("Inserting new personal info record");
-          result = await supabase
-            .from('personal_info')
-            .insert({
-              ...formattedData,
-              user_id: userId
-            });
-        }
-
-        if (result.error) {
-          console.error("Database save error:", result.error);
-          throw result.error;
-        }
-        
-        console.log("Save operation successful");
-        toast.success('Personal information saved successfully');
-        return { data: result.data, error: null };
-      } catch (err: any) {
-        console.error("Database error during save:", err);
-        setLastError(err);
-        
-        if (err.code === 'PGRST106' || (err.message && err.message.includes('schema must be one of the following'))) {
-          console.error("Database schema error, using local storage fallback:", err);
-          sessionStorage.setItem('db_schema_error', 'true');
-        } else {
-          console.error("Database error, using local storage fallback:", err);
-        }
-        
-        const localStorageKey = getLocalStorageKey(userId, 'personal_info');
-        localStorage.setItem(localStorageKey, JSON.stringify({
-          ...data,
-          user_id: userId,
-          updated_at: new Date().toISOString()
-        }));
-        
-        debugLocalStorage(userId);
-        
-        toast.success('Information saved locally. It will be synced to the database when available.');
-        return { data: null, error: err.message, localSaved: true };
-      }
-    } catch (error: any) {
-      console.error('Error saving personal info:', error);
-      setLastError(error);
-      toast.error('Could not save personal information: ' + error.message);
-      return { data: null, error: error.message };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const saveBusinessInfo = async (businesses: any[]) => {
-    try {
-      setLoading(true);
-      setLastError(null);
-      
-      if (!verifyAuth()) {
-        return { error: 'Not authenticated' };
-      }
-      
-      console.log("Attempting to save business info for user:", user.id);
-      console.log("Business info data:", businesses);
-      
-      const userId = user.id?.toString();
-      if (!userId) {
-        return { error: 'Invalid user ID' };
-      }
-      
-      const connectionStatus = await checkConnection();
-      console.log("Database connection status:", connectionStatus);
-      
-      if (!connectionStatus.connected || hasSchemaIssue()) {
-        console.log("Database unavailable, using local storage");
-        const localStorageKey = getLocalStorageKey(userId, 'business_info');
-        localStorage.setItem(localStorageKey, JSON.stringify({
-          businesses: businesses,
-          user_id: userId,
-          updated_at: new Date().toISOString()
-        }));
-        
-        debugLocalStorage(userId);
-        
-        toast.success('Business information saved locally. It will be synced when the database is available.');
-        return { data: businesses, error: null, localSaved: true };
-      }
-      
-      try {
-        const { error: tableCheckError } = await supabase
-          .from('business_info')
-          .select('id')
-          .limit(1);
-          
-        if (tableCheckError) {
-          if (tableCheckError.code === 'PGRST116' || tableCheckError.message.includes('relation "business_info" does not exist')) {
-            console.log("Business info table does not exist, using local storage fallback");
-            const localStorageKey = getLocalStorageKey(userId, 'business_info');
-            localStorage.setItem(localStorageKey, JSON.stringify({
-              businesses: businesses,
-              user_id: userId,
-              updated_at: new Date().toISOString()
-            }));
-            debugLocalStorage(userId);
-            toast.success('Business information saved locally. It will be synced when the database is available.');
-            return { data: businesses, error: null, localSaved: true };
-          }
-        }
-        
-        const { error: deleteError } = await supabase
-          .from('business_info')
-          .delete()
+          .update(personalData)
           .eq('user_id', userId);
-          
-        if (deleteError) {
-          console.error("Error deleting existing business info:", deleteError);
-          throw deleteError;
-        }
-        
-        for (const business of businesses) {
-          const { error: insertError } = await supabase
-            .from('business_info')
-            .insert({
-              ...business,
-              user_id: userId
-            });
-            
-          if (insertError) {
-            console.error("Error inserting business info:", insertError);
-            throw insertError;
-          }
-        }
-        
-        console.log("Business info save operation successful");
-        toast.success('Business information saved successfully');
-        return { data: businesses, error: null };
-        
-      } catch (err: any) {
-        console.error("Database error during business info save:", err);
-        setLastError(err);
-        
-        const localStorageKey = getLocalStorageKey(userId, 'business_info');
-        localStorage.setItem(localStorageKey, JSON.stringify({
-          businesses: businesses,
-          user_id: userId,
-          updated_at: new Date().toISOString()
-        }));
-        
-        debugLocalStorage(userId);
-        
-        toast.success('Business information saved locally. It will be synced to the database when available.');
-        return { data: businesses, error: err.message, localSaved: true };
+      } else {
+        // Insert new record
+        result = await supabase
+          .from('personal_info')
+          .insert([personalData]);
       }
-    } catch (error: any) {
-      console.error('Error saving business info:', error);
+      
+      if (result.error) {
+        console.error("Error saving personal info:", result.error);
+        
+        // Save to local storage as backup
+        const backupKey = `personal_info_${userId}`;
+        localStorage.setItem(backupKey, JSON.stringify(data));
+        
+        return { data, error: result.error, localSaved: true };
+      }
+      
+      return { data, error: null };
+    } catch (error) {
+      console.error("Exception saving personal info:", error);
       setLastError(error);
-      toast.error('Could not save business information: ' + error.message);
-      return { data: null, error: error.message };
+      
+      // Save to local storage as backup
+      if (session?.user?.id) {
+        const backupKey = `personal_info_${session.user.id}`;
+        localStorage.setItem(backupKey, JSON.stringify(data));
+      }
+      
+      return { data, error, localSaved: true };
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchBusinessInfo = async () => {
-    if (!verifyAuth()) {
-      return { error: 'Not authenticated' };
-    }
-    
+  // Function to save business information
+  const saveBusinessInfo = async (data: any) => {
     setLoading(true);
-    try {
-      console.log("Fetching business info for user:", user.id);
-      
-      const userId = user.id?.toString();
-      if (!userId) {
-        return { error: 'Invalid user ID' };
-      }
-      
-      const connectionStatus = await checkConnection();
-      console.log("Database connection status before fetch:", connectionStatus);
-      
-      const localStorageKey = getLocalStorageKey(userId, 'business_info');
-      const localData = localStorage.getItem(localStorageKey);
-      let localBusinesses = null;
-      
-      if (localData) {
-        console.log("Found local business data:", localData.substring(0, 50) + "...");
-        try {
-          const parsedData = JSON.parse(localData);
-          if (parsedData.businesses && Array.isArray(parsedData.businesses)) {
-            localBusinesses = parsedData.businesses;
-          }
-        } catch (err) {
-          console.error("Error parsing local business data:", err);
-        }
-      }
-      
-      if (!connectionStatus.connected || hasSchemaIssue()) {
-        console.log("Database connection issue, using local business data");
-        return { data: localBusinesses || [], error: null, localData: true };
-      }
-      
-      if (connectionStatus.connected) {
-        try {
-          console.log("Attempting to fetch business info from database");
-          const { data, error } = await supabase
-            .from('business_info')
-            .select('*')
-            .eq('user_id', userId);
-  
-          if (error) {
-            if (error.code === 'PGRST116' || error.message.includes('relation "business_info" does not exist')) {
-              console.log("Business info table doesn't exist yet:", error);
-              return { data: localBusinesses || [], error: null, localData: !!localBusinesses };
-            }
-            
-            if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
-              console.log("Schema error fetching business info:", error);
-              sessionStorage.setItem('db_schema_error', 'true');
-              return { data: localBusinesses || [], error: null, localData: !!localBusinesses };
-            }
-            
-            throw error;
-          }
-  
-          console.log("Business info fetched from database:", data);
-          
-          if (data && data.length > 0) {
-            return { data, error: null };
-          }
-        } catch (dbError) {
-          console.error("Database error fetching business info:", dbError);
-        }
-      }
-      
-      return { data: localBusinesses || [], error: null, localData: !!localBusinesses };
-      
-    } catch (error: any) {
-      console.error('Error fetching business info:', error);
-      setLastError(error);
-      toast.error('Failed to load business information');
-      return { data: [], error: error.message };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchAssets = async () => {
-    if (!verifyAuth()) {
-      return { error: 'Not authenticated' };
-    }
+    setLastError(null);
     
-    setLoading(true);
     try {
-      console.log("Fetching assets for user:", user.id);
+      const userId = session?.user?.id;
       
-      const userId = user.id?.toString();
       if (!userId) {
-        return { error: 'Invalid user ID' };
+        return { error: "User not authenticated" };
       }
       
-      const connectionStatus = await checkConnection();
-      console.log("Database connection status before fetch:", connectionStatus);
-      
-      const localStorageKey = `assets_${userId}`;
-      const localData = localStorage.getItem(localStorageKey);
-      let localAssets = null;
-      
-      if (localData) {
-        console.log("Found local assets data");
-        try {
-          const parsedData = JSON.parse(localData);
-          if (parsedData.assets && Array.isArray(parsedData.assets)) {
-            localAssets = parsedData.assets;
-          }
-        } catch (err) {
-          console.error("Error parsing local assets data:", err);
-        }
+      // Handle offline mode or persistent connection issues
+      if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
+        // Save to local storage
+        const backupKey = `business_info_${userId}`;
+        localStorage.setItem(backupKey, JSON.stringify(data));
+        
+        // Return success with local flag
+        return { data, error: null, localSaved: true };
       }
       
-      if (!connectionStatus.connected || hasSchemaIssue()) {
-        console.log("Database connection issue, using local assets data");
-        return { data: localAssets || [], error: null, localData: true };
+      // Update the session to ensure proper authorization
+      if (session) {
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        });
       }
       
-      if (connectionStatus.connected) {
-        try {
-          console.log("Attempting to fetch assets from database");
-          // Update the session if we have one
-          if (session) {
-            await supabase.auth.setSession({
-              access_token: session.access_token,
-              refresh_token: session.refresh_token,
-            });
-          }
-          
-          const { data, error } = await supabase
-            .from('assets')
-            .select('*')
-            .eq('user_id', userId);
-  
-          if (error) {
-            if (error.code === 'PGRST116' || error.message.includes('relation "assets" does not exist')) {
-              console.log("Assets table doesn't exist yet:", error);
-              return { data: localAssets || [], error: null, localData: !!localAssets };
-            }
-            
-            if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
-              console.log("Schema error fetching assets:", error);
-              sessionStorage.setItem('db_schema_error', 'true');
-              return { data: localAssets || [], error: null, localData: !!localAssets };
-            }
-            
-            throw error;
-          }
-  
-          console.log("Assets fetched from database:", data);
-          
-          if (data && data.length > 0) {
-            return { data, error: null };
-          }
-        } catch (dbError) {
-          console.error("Database error fetching assets:", dbError);
-        }
+      // Check for existing record
+      const { data: existingData, error: checkError } = await supabase
+        .from('business_info')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('business_name', data.business_name)
+        .maybeSingle();
+      
+      if (checkError) {
+        console.error("Error checking for existing business info:", checkError);
+        
+        // Save to local storage as backup
+        const backupKey = `business_info_${userId}_${data.business_name}`;
+        localStorage.setItem(backupKey, JSON.stringify(data));
+        
+        return { data, error: checkError, localSaved: true };
       }
       
-      return { data: localAssets || [], error: null, localData: !!localAssets };
+      // Prepare data for insert/update
+      const businessData = {
+        ...data,
+        user_id: userId,
+        updated_at: new Date().toISOString()
+      };
       
-    } catch (error: any) {
-      console.error('Error fetching assets:', error);
+      let result;
+      
+      if (existingData?.id) {
+        // Update existing record
+        result = await supabase
+          .from('business_info')
+          .update(businessData)
+          .eq('id', existingData.id);
+      } else {
+        // Insert new record
+        result = await supabase
+          .from('business_info')
+          .insert([businessData]);
+      }
+      
+      if (result.error) {
+        console.error("Error saving business info:", result.error);
+        
+        // Save to local storage as backup
+        const backupKey = `business_info_${userId}_${data.business_name}`;
+        localStorage.setItem(backupKey, JSON.stringify(data));
+        
+        return { data, error: result.error, localSaved: true };
+      }
+      
+      return { data, error: null };
+    } catch (error) {
+      console.error("Exception saving business info:", error);
       setLastError(error);
-      toast.error('Failed to load assets information');
-      return { data: [], error: error.message };
+      
+      // Save to local storage as backup
+      if (session?.user?.id) {
+        const backupKey = `business_info_${session.user.id}_${data.business_name}`;
+        localStorage.setItem(backupKey, JSON.stringify(data));
+      }
+      
+      return { data, error, localSaved: true };
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchLiabilities = async () => {
-    if (!verifyAuth()) {
-      return { error: 'Not authenticated' };
-    }
-    
-    setLoading(true);
-    try {
-      console.log("Fetching liabilities for user:", user.id);
-      
-      const userId = user.id?.toString();
-      if (!userId) {
-        return { error: 'Invalid user ID' };
-      }
-      
-      const connectionStatus = await checkConnection();
-      console.log("Database connection status before fetch:", connectionStatus);
-      
-      const localStorageKey = `liabilities_${userId}`;
-      const localData = localStorage.getItem(localStorageKey);
-      let localLiabilities = null;
-      
-      if (localData) {
-        console.log("Found local liabilities data");
-        try {
-          const parsedData = JSON.parse(localData);
-          if (parsedData.liabilities && Array.isArray(parsedData.liabilities)) {
-            localLiabilities = parsedData.liabilities;
-          }
-        } catch (err) {
-          console.error("Error parsing local liabilities data:", err);
-        }
-      }
-      
-      if (!connectionStatus.connected || hasSchemaIssue()) {
-        console.log("Database connection issue, using local liabilities data");
-        return { data: localLiabilities || [], error: null, localData: true };
-      }
-      
-      if (connectionStatus.connected) {
-        try {
-          console.log("Attempting to fetch liabilities from database");
-          // Update the session if we have one
-          if (session) {
-            await supabase.auth.setSession({
-              access_token: session.access_token,
-              refresh_token: session.refresh_token,
-            });
-          }
-          
-          const { data, error } = await supabase
-            .from('liabilities')
-            .select('*')
-            .eq('user_id', userId);
-  
-          if (error) {
-            if (error.code === 'PGRST116' || error.message.includes('relation "liabilities" does not exist')) {
-              console.log("Liabilities table doesn't exist yet:", error);
-              return { data: localLiabilities || [], error: null, localData: !!localLiabilities };
-            }
-            
-            if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
-              console.log("Schema error fetching liabilities:", error);
-              sessionStorage.setItem('db_schema_error', 'true');
-              return { data: localLiabilities || [], error: null, localData: !!localLiabilities };
-            }
-            
-            throw error;
-          }
-  
-          console.log("Liabilities fetched from database:", data);
-          
-          if (data && data.length > 0) {
-            return { data, error: null };
-          }
-        } catch (dbError) {
-          console.error("Database error fetching liabilities:", dbError);
-        }
-      }
-      
-      return { data: localLiabilities || [], error: null, localData: !!localLiabilities };
-      
-    } catch (error: any) {
-      console.error('Error fetching liabilities:', error);
-      setLastError(error);
-      toast.error('Failed to load liabilities information');
-      return { data: [], error: error.message };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchIncome = async () => {
-    if (!verifyAuth()) {
-      return { error: 'Not authenticated' };
-    }
-    
-    setLoading(true);
-    try {
-      console.log("Fetching income for user:", user.id);
-      
-      const userId = user.id?.toString();
-      if (!userId) {
-        return { error: 'Invalid user ID' };
-      }
-      
-      const connectionStatus = await checkConnection();
-      console.log("Database connection status before fetch:", connectionStatus);
-      
-      const localStorageKey = `income_${userId}`;
-      const localData = localStorage.getItem(localStorageKey);
-      let localIncome = null;
-      
-      if (localData) {
-        console.log("Found local income data");
-        try {
-          const parsedData = JSON.parse(localData);
-          if (parsedData.income && Array.isArray(parsedData.income)) {
-            localIncome = parsedData.income;
-          }
-        } catch (err) {
-          console.error("Error parsing local income data:", err);
-        }
-      }
-      
-      if (!connectionStatus.connected || hasSchemaIssue()) {
-        console.log("Database connection issue, using local income data");
-        return { data: localIncome || [], error: null, localData: true };
-      }
-      
-      if (connectionStatus.connected) {
-        try {
-          console.log("Attempting to fetch income from database");
-          // Update the session if we have one
-          if (session) {
-            await supabase.auth.setSession({
-              access_token: session.access_token,
-              refresh_token: session.refresh_token,
-            });
-          }
-          
-          const { data, error } = await supabase
-            .from('income')
-            .select('*')
-            .eq('user_id', userId);
-  
-          if (error) {
-            if (error.code === 'PGRST116' || error.message.includes('relation "income" does not exist')) {
-              console.log("Income table doesn't exist yet:", error);
-              return { data: localIncome || [], error: null, localData: !!localIncome };
-            }
-            
-            if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
-              console.log("Schema error fetching income:", error);
-              sessionStorage.setItem('db_schema_error', 'true');
-              return { data: localIncome || [], error: null, localData: !!localIncome };
-            }
-            
-            throw error;
-          }
-  
-          console.log("Income fetched from database:", data);
-          
-          if (data && data.length > 0) {
-            return { data, error: null };
-          }
-        } catch (dbError) {
-          console.error("Database error fetching income:", dbError);
-        }
-      }
-      
-      return { data: localIncome || [], error: null, localData: !!localIncome };
-      
-    } catch (error: any) {
-      console.error('Error fetching income:', error);
-      setLastError(error);
-      toast.error('Failed to load income information');
-      return { data: [], error: error.message };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchExpenses = async () => {
-    if (!verifyAuth()) {
-      return { error: 'Not authenticated' };
-    }
-    
-    setLoading(true);
-    try {
-      console.log("Fetching expenses for user:", user.id);
-      
-      const userId = user.id?.toString();
-      if (!userId) {
-        return { error: 'Invalid user ID' };
-      }
-      
-      const connectionStatus = await checkConnection();
-      console.log("Database connection status before fetch:", connectionStatus);
-      
-      const localStorageKey = `expenses_${userId}`;
-      const localData = localStorage.getItem(localStorageKey);
-      let localExpenses = null;
-      
-      if (localData) {
-        console.log("Found local expenses data");
-        try {
-          const parsedData = JSON.parse(localData);
-          if (parsedData.expenses && Array.isArray(parsedData.expenses)) {
-            localExpenses = parsedData.expenses;
-          }
-        } catch (err) {
-          console.error("Error parsing local expenses data:", err);
-        }
-      }
-      
-      if (!connectionStatus.connected || hasSchemaIssue()) {
-        console.log("Database connection issue, using local expenses data");
-        return { data: localExpenses || [], error: null, localData: true };
-      }
-      
-      if (connectionStatus.connected) {
-        try {
-          console.log("Attempting to fetch expenses from database");
-          // Update the session if we have one
-          if (session) {
-            await supabase.auth.setSession({
-              access_token: session.access_token,
-              refresh_token: session.refresh_token,
-            });
-          }
-          
-          const { data, error } = await supabase
-            .from('expenses')
-            .select('*')
-            .eq('user_id', userId);
-  
-          if (error) {
-            if (error.code === 'PGRST116' || error.message.includes('relation "expenses" does not exist')) {
-              console.log("Expenses table doesn't exist yet:", error);
-              return { data: localExpenses || [], error: null, localData: !!localExpenses };
-            }
-            
-            if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
-              console.log("Schema error fetching expenses:", error);
-              sessionStorage.setItem('db_schema_error', 'true');
-              return { data: localExpenses || [], error: null, localData: !!localExpenses };
-            }
-            
-            throw error;
-          }
-  
-          console.log("Expenses fetched from database:", data);
-          
-          if (data && data.length > 0) {
-            return { data, error: null };
-          }
-        } catch (dbError) {
-          console.error("Database error fetching expenses:", dbError);
-        }
-      }
-      
-      return { data: localExpenses || [], error: null, localData: !!localExpenses };
-      
-    } catch (error: any) {
-      console.error('Error fetching expenses:', error);
-      setLastError(error);
-      toast.error('Failed to load expenses information');
-      return { data: [], error: error.message };
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // Function to save assets
   const saveAssets = async (assets: any[]) => {
+    setLoading(true);
+    setLastError(null);
+    
     try {
-      if (!user) return { error: 'Not authenticated' };
+      const userId = session?.user?.id;
       
-      setLoading(true);
-      console.log("Attempting to save assets for user:", user.id);
-      
-      const userId = user.id?.toString();
       if (!userId) {
-        return { error: 'Invalid user ID' };
+        return { error: "User not authenticated" };
       }
       
-      // Always store locally first as backup
-      const localStorageKey = `assets_${userId}`;
-      localStorage.setItem(localStorageKey, JSON.stringify({
-        assets: assets,
-        timestamp: new Date().toISOString()
+      // Prepare assets with user ID
+      const assetsWithUserId = assets.map(asset => ({
+        ...asset,
+        user_id: userId,
+        value: parseFloat(asset.value) || 0,
+        ownership_percentage: parseFloat(asset.ownershipPercentage) || 100,
+        updated_at: new Date().toISOString()
       }));
       
-      // Format the assets for database storage
-      const formattedAssets = assets.filter(asset => asset.name.trim() !== '' || parseFloat(asset.value) > 0)
-        .map(asset => ({
-          name: asset.name || 'Unnamed Asset',
-          type: asset.type,
-          value: parseFloat(asset.value) || 0,
-          ownership_percentage: parseFloat(asset.ownershipPercentage) || 100,
-          description: asset.description || '',
-          user_id: userId
-        }));
-
-      if (formattedAssets.length === 0) {
-        toast.success('No assets to save');
-        return { data: [], error: null };
-      }
-
-      // Check for known database schema issues
-      const connectionStatus = await checkConnection();
-      const hasDbIssue = !connectionStatus.connected || hasSchemaIssue();
+      // Format assets for database storage
+      const formattedAssets = assetsWithUserId.map(asset => {
+        const { id, ownershipPercentage, ...rest } = asset;
+        return {
+          ...rest,
+          ownership_percentage: parseFloat(ownershipPercentage) || 100,
+        };
+      });
       
-      if (hasDbIssue) {
-        console.log("Database connection issues detected, saving to local storage only");
-        toast.success('Assets saved locally. They will be synced when database connection is restored.');
+      // Handle offline mode or persistent connection issues
+      if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
+        // Save to local storage
+        const backupKey = `assets_${userId}`;
+        localStorage.setItem(backupKey, JSON.stringify(formattedAssets));
+        
+        // Return success with local flag
         return { data: formattedAssets, error: null, localSaved: true };
       }
 
@@ -869,7 +300,7 @@ export function useDatabase() {
       if (session) {
         await supabase.auth.setSession({
           access_token: session.access_token,
-          refresh_token: session.refresh_token,
+          refresh_token: session.refresh_token
         });
       }
       
@@ -881,89 +312,91 @@ export function useDatabase() {
           .eq('user_id', userId);
         
         if (deleteError) {
-          console.error('Error deleting existing assets:', deleteError);
-          
-          // If it's a schema error, inform the user
-          if (deleteError.code === 'PGRST106' || deleteError.message.includes('schema must be one of the following')) {
-            sessionStorage.setItem('db_schema_error', 'true');
-            toast.error('Database schema issue detected. Data saved locally.');
-            return { data: formattedAssets, error: deleteError.message, localSaved: true };
-          }
-          
-          throw deleteError;
+          console.error("Error deleting existing assets:", deleteError);
+          // Save locally anyway
+          const backupKey = `assets_${userId}`;
+          localStorage.setItem(backupKey, JSON.stringify(formattedAssets));
+          return { data: formattedAssets, error: deleteError, localSaved: true };
         }
-
-        // Insert new assets
-        const insertPromises = formattedAssets.map(asset => 
-          supabase
-            .from('assets')
-            .insert(asset)
-        );
         
-        await Promise.all(insertPromises);
+        // Insert all assets
+        const { error: insertError } = await supabase
+          .from('assets')
+          .insert(formattedAssets);
         
-        toast.success('Assets saved successfully');
+        if (insertError) {
+          console.error("Error inserting assets:", insertError);
+          // Save locally anyway
+          const backupKey = `assets_${userId}`;
+          localStorage.setItem(backupKey, JSON.stringify(formattedAssets));
+          return { data: formattedAssets, error: insertError, localSaved: true };
+        }
+        
         return { data: formattedAssets, error: null };
-      } catch (error: any) {
-        console.error('Error saving assets:', error);
+      } catch (dbError) {
+        console.error("Database error saving assets:", dbError);
         
-        // Save locally and return success with localSaved flag
-        toast.success('Assets saved locally. They will be synced when database connection is restored.');
-        return { data: formattedAssets, error: error.message, localSaved: true };
+        // Save to local storage as backup
+        const backupKey = `assets_${userId}`;
+        localStorage.setItem(backupKey, JSON.stringify(formattedAssets));
+        
+        return { data: formattedAssets, error: dbError, localSaved: true };
       }
-    } catch (error: any) {
-      console.error('Error in saveAssets function:', error);
-      toast.error('Failed to save assets. Data saved locally.');
-      return { data: null, error: error.message, localSaved: true };
+    } catch (error) {
+      console.error("Exception saving assets:", error);
+      setLastError(error);
+      
+      // Save to local storage as backup
+      if (session?.user?.id) {
+        const backupKey = `assets_${session.user.id}`;
+        localStorage.setItem(backupKey, JSON.stringify(assets));
+      }
+      
+      return { data: assets, error, localSaved: true };
     } finally {
       setLoading(false);
     }
   };
 
+  // Function to save liabilities
   const saveLiabilities = async (liabilities: any[]) => {
+    setLoading(true);
+    setLastError(null);
+    
     try {
-      if (!user) return { error: 'Not authenticated' };
+      const userId = session?.user?.id;
       
-      setLoading(true);
-      console.log("Attempting to save liabilities for user:", user.id);
-      
-      const userId = user.id?.toString();
       if (!userId) {
-        return { error: 'Invalid user ID' };
+        return { error: "User not authenticated" };
       }
       
-      // Store locally first as backup
-      const localStorageKey = `liabilities_${userId}`;
-      localStorage.setItem(localStorageKey, JSON.stringify({
-        liabilities: liabilities,
-        timestamp: new Date().toISOString()
+      // Prepare liabilities with user ID
+      const liabilitiesWithUserId = liabilities.map(liability => ({
+        ...liability,
+        user_id: userId,
+        amount: parseFloat(liability.amount) || 0,
+        interest_rate: parseFloat(liability.interestRate) || 0,
+        ownership_percentage: parseFloat(liability.ownershipPercentage) || 100,
+        updated_at: new Date().toISOString()
       }));
       
-      // Format the liabilities for database storage
-      const formattedLiabilities = liabilities.filter(liability => liability.name.trim() !== '' || parseFloat(liability.amount) > 0)
-        .map(liability => ({
-          name: liability.name || 'Unnamed Liability',
-          type: liability.type,
-          amount: parseFloat(liability.amount) || 0,
-          interest_rate: parseFloat(liability.interestRate) || 0,
-          associated_asset_id: liability.associatedAssetId ? 
-            liability.associatedAssetId > 0 ? liability.associatedAssetId : null : null,
-          ownership_percentage: parseFloat(liability.ownershipPercentage) || 100,
-          user_id: userId
-        }));
+      // Format liabilities for database storage
+      const formattedLiabilities = liabilitiesWithUserId.map(liability => {
+        const { id, interestRate, ownershipPercentage, ...rest } = liability;
+        return {
+          ...rest,
+          interest_rate: parseFloat(interestRate) || 0,
+          ownership_percentage: parseFloat(ownershipPercentage) || 100,
+        };
+      });
       
-      if (formattedLiabilities.length === 0) {
-        toast.success('No liabilities to save');
-        return { data: [], error: null };
-      }
-
-      // Check for known database schema issues
-      const connectionStatus = await checkConnection();
-      const hasDbIssue = !connectionStatus.connected || hasSchemaIssue();
-      
-      if (hasDbIssue) {
-        console.log("Database connection issues detected, saving to local storage only");
-        toast.success('Liabilities saved locally. They will be synced when database connection is restored.');
+      // Handle offline mode or persistent connection issues
+      if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
+        // Save to local storage
+        const backupKey = `liabilities_${userId}`;
+        localStorage.setItem(backupKey, JSON.stringify(formattedLiabilities));
+        
+        // Return success with local flag
         return { data: formattedLiabilities, error: null, localSaved: true };
       }
 
@@ -971,7 +404,7 @@ export function useDatabase() {
       if (session) {
         await supabase.auth.setSession({
           access_token: session.access_token,
-          refresh_token: session.refresh_token,
+          refresh_token: session.refresh_token
         });
       }
 
@@ -983,84 +416,85 @@ export function useDatabase() {
           .eq('user_id', userId);
         
         if (deleteError) {
-          console.error('Error deleting existing liabilities:', deleteError);
-          
-          // If it's a schema error, inform the user
-          if (deleteError.code === 'PGRST106' || deleteError.message.includes('schema must be one of the following')) {
-            sessionStorage.setItem('db_schema_error', 'true');
-            toast.error('Database schema issue detected. Data saved locally.');
-            return { data: formattedLiabilities, error: deleteError.message, localSaved: true };
-          }
-          
-          throw deleteError;
+          console.error("Error deleting existing liabilities:", deleteError);
+          // Save locally anyway
+          const backupKey = `liabilities_${userId}`;
+          localStorage.setItem(backupKey, JSON.stringify(formattedLiabilities));
+          return { data: formattedLiabilities, error: deleteError, localSaved: true };
         }
-
-        // Insert new liabilities
-        const insertPromises = formattedLiabilities.map(liability => 
-          supabase
-            .from('liabilities')
-            .insert(liability)
-        );
         
-        await Promise.all(insertPromises);
+        // Insert all liabilities
+        const { error: insertError } = await supabase
+          .from('liabilities')
+          .insert(formattedLiabilities);
         
-        toast.success('Liabilities saved successfully');
+        if (insertError) {
+          console.error("Error inserting liabilities:", insertError);
+          // Save locally anyway
+          const backupKey = `liabilities_${userId}`;
+          localStorage.setItem(backupKey, JSON.stringify(formattedLiabilities));
+          return { data: formattedLiabilities, error: insertError, localSaved: true };
+        }
+        
         return { data: formattedLiabilities, error: null };
-      } catch (error: any) {
-        console.error('Error saving liabilities:', error);
+      } catch (dbError) {
+        console.error("Database error saving liabilities:", dbError);
         
-        // Save locally and return success with localSaved flag
-        toast.success('Liabilities saved locally. They will be synced when database connection is restored.');
-        return { data: formattedLiabilities, error: error.message, localSaved: true };
+        // Save to local storage as backup
+        const backupKey = `liabilities_${userId}`;
+        localStorage.setItem(backupKey, JSON.stringify(formattedLiabilities));
+        
+        return { data: formattedLiabilities, error: dbError, localSaved: true };
       }
-    } catch (error: any) {
-      console.error('Error in saveLiabilities function:', error);
-      toast.error('Failed to save liabilities. Data saved locally.');
-      return { data: null, error: error.message, localSaved: true };
+    } catch (error) {
+      console.error("Exception saving liabilities:", error);
+      setLastError(error);
+      
+      // Save to local storage as backup
+      if (session?.user?.id) {
+        const backupKey = `liabilities_${session.user.id}`;
+        localStorage.setItem(backupKey, JSON.stringify(liabilities));
+      }
+      
+      return { data: liabilities, error, localSaved: true };
     } finally {
       setLoading(false);
     }
   };
 
-  const saveIncome = async (incomeData: any[]) => {
+  // Function to save income
+  const saveIncome = async (incomeItems: any[]) => {
+    setLoading(true);
+    setLastError(null);
+    
     try {
-      if (!user) return { error: 'Not authenticated' };
+      const userId = session?.user?.id;
       
-      setLoading(true);
-      
-      const userId = user.id?.toString();
       if (!userId) {
-        return { error: 'Invalid user ID' };
+        return { error: "User not authenticated" };
       }
       
-      // Store locally first as backup
-      const localStorageKey = `income_${userId}`;
-      localStorage.setItem(localStorageKey, JSON.stringify({
-        income: incomeData,
-        timestamp: new Date().toISOString()
+      // Prepare income with user ID
+      const incomeWithUserId = incomeItems.map(income => ({
+        ...income,
+        user_id: userId,
+        amount: parseFloat(income.amount) || 0,
+        updated_at: new Date().toISOString()
       }));
       
-      const formattedIncome = incomeData.filter(income => income.source.trim() !== '' || parseFloat(income.amount) > 0)
-        .map(income => ({
-          source: income.source || 'Unnamed Source',
-          type: income.type,
-          amount: parseFloat(income.amount) || 0,
-          frequency: income.frequency,
-          user_id: userId
-        }));
-
-      if (formattedIncome.length === 0) {
-        toast.success('No income data to save');
-        return { data: [], error: null };
-      }
-
-      // Check for known database schema issues
-      const connectionStatus = await checkConnection();
-      const hasDbIssue = !connectionStatus.connected || hasSchemaIssue();
+      // Format income for database storage
+      const formattedIncome = incomeWithUserId.map(income => {
+        const { id, ...rest } = income;
+        return rest;
+      });
       
-      if (hasDbIssue) {
-        console.log("Database connection issues detected, saving to local storage only");
-        toast.success('Income saved locally. It will be synced when database connection is restored.');
+      // Handle offline mode or persistent connection issues
+      if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
+        // Save to local storage
+        const backupKey = `income_${userId}`;
+        localStorage.setItem(backupKey, JSON.stringify(formattedIncome));
+        
+        // Return success with local flag
         return { data: formattedIncome, error: null, localSaved: true };
       }
 
@@ -1068,7 +502,7 @@ export function useDatabase() {
       if (session) {
         await supabase.auth.setSession({
           access_token: session.access_token,
-          refresh_token: session.refresh_token,
+          refresh_token: session.refresh_token
         });
       }
       
@@ -1080,84 +514,85 @@ export function useDatabase() {
           .eq('user_id', userId);
         
         if (deleteError) {
-          console.error('Error deleting existing income:', deleteError);
-          
-          // If it's a schema error, inform the user
-          if (deleteError.code === 'PGRST106' || deleteError.message.includes('schema must be one of the following')) {
-            sessionStorage.setItem('db_schema_error', 'true');
-            toast.error('Database schema issue detected. Data saved locally.');
-            return { data: formattedIncome, error: deleteError.message, localSaved: true };
-          }
-          
-          throw deleteError;
+          console.error("Error deleting existing income:", deleteError);
+          // Save locally anyway
+          const backupKey = `income_${userId}`;
+          localStorage.setItem(backupKey, JSON.stringify(formattedIncome));
+          return { data: formattedIncome, error: deleteError, localSaved: true };
         }
-
-        // Insert new income
-        const insertPromises = formattedIncome.map(income => 
-          supabase
-            .from('income')
-            .insert(income)
-        );
         
-        await Promise.all(insertPromises);
+        // Insert all income
+        const { error: insertError } = await supabase
+          .from('income')
+          .insert(formattedIncome);
         
-        toast.success('Income information saved successfully');
+        if (insertError) {
+          console.error("Error inserting income:", insertError);
+          // Save locally anyway
+          const backupKey = `income_${userId}`;
+          localStorage.setItem(backupKey, JSON.stringify(formattedIncome));
+          return { data: formattedIncome, error: insertError, localSaved: true };
+        }
+        
         return { data: formattedIncome, error: null };
-      } catch (error: any) {
-        console.error('Error saving income:', error);
+      } catch (dbError) {
+        console.error("Database error saving income:", dbError);
         
-        // Save locally and return success with localSaved flag
-        toast.success('Income saved locally. It will be synced when database connection is restored.');
-        return { data: formattedIncome, error: error.message, localSaved: true };
+        // Save to local storage as backup
+        const backupKey = `income_${userId}`;
+        localStorage.setItem(backupKey, JSON.stringify(formattedIncome));
+        
+        return { data: formattedIncome, error: dbError, localSaved: true };
       }
-    } catch (error: any) {
-      console.error('Error saving income:', error);
-      toast.error('Failed to save income information: ' + error.message);
-      return { data: null, error: error.message };
+    } catch (error) {
+      console.error("Exception saving income:", error);
+      setLastError(error);
+      
+      // Save to local storage as backup
+      if (session?.user?.id) {
+        const backupKey = `income_${session.user.id}`;
+        localStorage.setItem(backupKey, JSON.stringify(incomeItems));
+      }
+      
+      return { data: incomeItems, error, localSaved: true };
     } finally {
       setLoading(false);
     }
   };
 
-  const saveExpenses = async (expensesData: any[]) => {
+  // Function to save expenses
+  const saveExpenses = async (expenseItems: any[]) => {
+    setLoading(true);
+    setLastError(null);
+    
     try {
-      if (!user) return { error: 'Not authenticated' };
+      const userId = session?.user?.id;
       
-      setLoading(true);
-      
-      const userId = user.id?.toString();
       if (!userId) {
-        return { error: 'Invalid user ID' };
+        return { error: "User not authenticated" };
       }
       
-      // Store locally first as backup
-      const localStorageKey = `expenses_${userId}`;
-      localStorage.setItem(localStorageKey, JSON.stringify({
-        expenses: expensesData,
-        timestamp: new Date().toISOString()
+      // Prepare expenses with user ID
+      const expensesWithUserId = expenseItems.map(expense => ({
+        ...expense,
+        user_id: userId,
+        amount: parseFloat(expense.amount) || 0,
+        updated_at: new Date().toISOString()
       }));
       
-      const formattedExpenses = expensesData.filter(expense => expense.name.trim() !== '' || parseFloat(expense.amount) > 0)
-        .map(expense => ({
-          name: expense.name || 'Unnamed Expense',
-          category: expense.category,
-          amount: parseFloat(expense.amount) || 0,
-          frequency: expense.frequency,
-          user_id: userId
-        }));
-
-      if (formattedExpenses.length === 0) {
-        toast.success('No expense data to save');
-        return { data: [], error: null };
-      }
-
-      // Check for known database schema issues
-      const connectionStatus = await checkConnection();
-      const hasDbIssue = !connectionStatus.connected || hasSchemaIssue();
+      // Format expenses for database storage
+      const formattedExpenses = expensesWithUserId.map(expense => {
+        const { id, ...rest } = expense;
+        return rest;
+      });
       
-      if (hasDbIssue) {
-        console.log("Database connection issues detected, saving to local storage only");
-        toast.success('Expenses saved locally. They will be synced when database connection is restored.');
+      // Handle offline mode or persistent connection issues
+      if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
+        // Save to local storage
+        const backupKey = `expenses_${userId}`;
+        localStorage.setItem(backupKey, JSON.stringify(formattedExpenses));
+        
+        // Return success with local flag
         return { data: formattedExpenses, error: null, localSaved: true };
       }
 
@@ -1165,7 +600,7 @@ export function useDatabase() {
       if (session) {
         await supabase.auth.setSession({
           access_token: session.access_token,
-          refresh_token: session.refresh_token,
+          refresh_token: session.refresh_token
         });
       }
       
@@ -1177,199 +612,364 @@ export function useDatabase() {
           .eq('user_id', userId);
         
         if (deleteError) {
-          console.error('Error deleting existing expenses:', deleteError);
-          
-          // If it's a schema error, inform the user
-          if (deleteError.code === 'PGRST106' || deleteError.message.includes('schema must be one of the following')) {
-            sessionStorage.setItem('db_schema_error', 'true');
-            toast.error('Database schema issue detected. Data saved locally.');
-            return { data: formattedExpenses, error: deleteError.message, localSaved: true };
-          }
-          
-          throw deleteError;
+          console.error("Error deleting existing expenses:", deleteError);
+          // Save locally anyway
+          const backupKey = `expenses_${userId}`;
+          localStorage.setItem(backupKey, JSON.stringify(formattedExpenses));
+          return { data: formattedExpenses, error: deleteError, localSaved: true };
         }
-
-        // Insert new expenses
-        const insertPromises = formattedExpenses.map(expense => 
-          supabase
-            .from('expenses')
-            .insert(expense)
-        );
         
-        await Promise.all(insertPromises);
+        // Insert all expenses
+        const { error: insertError } = await supabase
+          .from('expenses')
+          .insert(formattedExpenses);
         
-        toast.success('Expense information saved successfully');
+        if (insertError) {
+          console.error("Error inserting expenses:", insertError);
+          // Save locally anyway
+          const backupKey = `expenses_${userId}`;
+          localStorage.setItem(backupKey, JSON.stringify(formattedExpenses));
+          return { data: formattedExpenses, error: insertError, localSaved: true };
+        }
+        
         return { data: formattedExpenses, error: null };
-      } catch (error: any) {
-        console.error('Error saving expenses:', error);
+      } catch (dbError) {
+        console.error("Database error saving expenses:", dbError);
         
-        // Save locally and return success with localSaved flag
-        toast.success('Expenses saved locally. They will be synced when database connection is restored.');
-        return { data: formattedExpenses, error: error.message, localSaved: true };
+        // Save to local storage as backup
+        const backupKey = `expenses_${userId}`;
+        localStorage.setItem(backupKey, JSON.stringify(formattedExpenses));
+        
+        return { data: formattedExpenses, error: dbError, localSaved: true };
       }
-    } catch (error: any) {
-      console.error('Error saving expenses:', error);
-      toast.error('Failed to save expense information: ' + error.message);
-      return { data: null, error: error.message };
+    } catch (error) {
+      console.error("Exception saving expenses:", error);
+      setLastError(error);
+      
+      // Save to local storage as backup
+      if (session?.user?.id) {
+        const backupKey = `expenses_${session.user.id}`;
+        localStorage.setItem(backupKey, JSON.stringify(expenseItems));
+      }
+      
+      return { data: expenseItems, error, localSaved: true };
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchPersonalInfo = async () => {
-    if (!verifyAuth()) {
-      return { error: 'Not authenticated' };
-    }
-    
+  // NEW FUNCTION: Function to fetch assets
+  const fetchAssets = async () => {
     setLoading(true);
+    setLastError(null);
+    
     try {
-      console.log("Fetching personal info for user:", user.id);
+      const userId = session?.user?.id;
       
-      const userId = user.id?.toString();
       if (!userId) {
-        return { error: 'Invalid user ID' };
+        return { error: "User not authenticated" };
       }
       
-      const connectionStatus = await checkConnection();
-      console.log("Database connection status before fetch:", connectionStatus);
+      // Check for local data first
+      const localData = localStorage.getItem(`assets_${userId}`);
       
-      if (!connectionStatus.connected || hasSchemaIssue()) {
-        console.log("Database connection issue, checking local storage first");
-        const localStorageKey = getLocalStorageKey(userId, 'personal_info');
-        const localData = localStorage.getItem(localStorageKey);
-        
+      // Handle offline mode or persistent connection issues
+      if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
         if (localData) {
-          console.log("Found local data:", localData.substring(0, 50) + "...");
-          try {
-            const parsedData = JSON.parse(localData);
-            const transformedData = {
-              firstName: parsedData.firstName || '',
-              lastName: parsedData.lastName || '',
-              email: parsedData.email || user?.email || '',
-              phone: parsedData.phone || '',
-              address: parsedData.address || '',
-              city: parsedData.city || '',
-              state: parsedData.state || '',
-              zipCode: parsedData.zipCode || '',
-              birthDate: parsedData.birthDate ? new Date(parsedData.birthDate) : undefined,
-              occupation: parsedData.occupation || '',
-              annualIncome: parsedData.annualIncome || '',
-              profileImage: parsedData.profileImage || null,
-            };
-            return { data: transformedData, error: null, localData: true };
-          } catch (err) {
-            console.error("Error parsing local personal info data:", err);
-          }
+          console.log("Using locally stored assets data");
+          return { data: JSON.parse(localData), error: null, localData: true };
         }
+        return { data: [], error: "Database connection unavailable", localData: false };
       }
       
-      if (connectionStatus.connected) {
-        try {
-          console.log("Attempting to fetch from database");
-          const { data, error } = await supabase
-            .from('personal_info')
-            .select('*')
-            .eq('user_id', userId)
-            .maybeSingle();
-  
-          if (error) {
-            if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
-              console.log("Schema error, table might not exist yet:", error);
-              sessionStorage.setItem('db_schema_error', 'true');
-              throw error;
-            }
-            
-            if (error.code !== 'PGRST116') {
-              throw error;
-            }
-          }
-  
-          console.log("Personal info fetched:", data);
-          
-          if (data) {
-            const transformedData = {
-              firstName: data.first_name || '',
-              lastName: data.last_name || '',
-              email: data.email || '',
-              phone: data.phone || '',
-              address: data.address || '',
-              city: data.city || '',
-              state: data.state || '',
-              zipCode: data.zip_code || '',
-              birthDate: data.birth_date ? new Date(data.birth_date) : undefined,
-              occupation: data.occupation || '',
-              annualIncome: data.annual_income?.toString() || '',
-              profileImage: data.profile_image || null,
-            };
-            return { data: transformedData, error: null };
-          }
-        } catch (dbError) {
-          console.error("Database error fetching personal info:", dbError);
+      // Update the session
+      if (session) {
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        });
+      }
+      
+      console.log("Fetching assets for user:", userId);
+      
+      // Query assets
+      const { data, error } = await supabase
+        .from('assets')
+        .select('*')
+        .eq('user_id', userId);
+      
+      if (error) {
+        console.error("Error fetching assets:", error);
+        
+        // Try local data as fallback
+        if (localData) {
+          console.log("Using locally stored assets as fallback");
+          return { data: JSON.parse(localData), error, localData: true };
         }
+        
+        return { data: [], error };
       }
       
-      console.log("Checking local storage as fallback");
-      const localStorageKey = getLocalStorageKey(userId, 'personal_info');
-      const localData = localStorage.getItem(localStorageKey);
+      // Transform data back for the form
+      const formattedData = data.map((asset: any) => ({
+        id: asset.id,
+        name: asset.name,
+        type: asset.type,
+        value: asset.value.toString(),
+        ownershipPercentage: asset.ownership_percentage?.toString(),
+        description: asset.description,
+        saved: true
+      }));
       
-      if (localData) {
-        console.log("Found local data as fallback");
-        const parsedData = JSON.parse(localData);
-        const transformedData = {
-          firstName: parsedData.firstName || '',
-          lastName: parsedData.lastName || '',
-          email: parsedData.email || user?.email || '',
-          phone: parsedData.phone || '',
-          address: parsedData.address || '',
-          city: parsedData.city || '',
-          state: parsedData.state || '',
-          zipCode: parsedData.zipCode || '',
-          birthDate: parsedData.birthDate ? new Date(parsedData.birthDate) : undefined,
-          occupation: parsedData.occupation || '',
-          annualIncome: parsedData.annualIncome || '',
-          profileImage: parsedData.profileImage || null,
-        };
-        return { data: transformedData, error: null, localData: true };
-      }
-      
-      return { 
-        data: {
-          firstName: '',
-          lastName: '',
-          email: user?.email || '',
-          phone: '',
-          address: '',
-          city: '',
-          state: '',
-          zipCode: '',
-          birthDate: undefined,
-          occupation: '',
-          annualIncome: '',
-          profileImage: null,
-        }, 
-        error: null 
-      };
-    } catch (error: any) {
-      console.error('Error fetching personal info:', error);
+      return { data: formattedData, error: null };
+    } catch (error) {
+      console.error("Exception fetching assets:", error);
       setLastError(error);
-      toast.error('Failed to load personal information');
-      return { 
-        data: {
-          firstName: '',
-          lastName: '',
-          email: user?.email || '',
-          phone: '',
-          address: '',
-          city: '',
-          state: '',
-          zipCode: '',
-          birthDate: undefined,
-          occupation: '',
-          annualIncome: '',
-          profileImage: null,
-        }, 
-        error: error.message 
-      };
+      
+      // Try local data as fallback
+      const localData = localStorage.getItem(`assets_${session?.user?.id}`);
+      if (localData) {
+        console.log("Using locally stored assets as fallback after exception");
+        return { data: JSON.parse(localData), error, localData: true };
+      }
+      
+      return { data: [], error };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // NEW FUNCTION: Function to fetch liabilities
+  const fetchLiabilities = async () => {
+    setLoading(true);
+    setLastError(null);
+    
+    try {
+      const userId = session?.user?.id;
+      
+      if (!userId) {
+        return { error: "User not authenticated" };
+      }
+      
+      // Check for local data first
+      const localData = localStorage.getItem(`liabilities_${userId}`);
+      
+      // Handle offline mode or persistent connection issues
+      if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
+        if (localData) {
+          console.log("Using locally stored liabilities data");
+          return { data: JSON.parse(localData), error: null, localData: true };
+        }
+        return { data: [], error: "Database connection unavailable", localData: false };
+      }
+      
+      // Update the session
+      if (session) {
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        });
+      }
+      
+      // Query liabilities
+      const { data, error } = await supabase
+        .from('liabilities')
+        .select('*')
+        .eq('user_id', userId);
+      
+      if (error) {
+        console.error("Error fetching liabilities:", error);
+        
+        // Try local data as fallback
+        if (localData) {
+          console.log("Using locally stored liabilities as fallback");
+          return { data: JSON.parse(localData), error, localData: true };
+        }
+        
+        return { data: [], error };
+      }
+      
+      // Transform data back for the form
+      const formattedData = data.map((liability: any) => ({
+        id: liability.id,
+        name: liability.name,
+        type: liability.type,
+        amount: liability.amount.toString(),
+        interestRate: liability.interest_rate?.toString() || '0',
+        ownershipPercentage: liability.ownership_percentage?.toString(),
+        associatedAssetId: liability.associated_asset_id,
+        saved: true
+      }));
+      
+      return { data: formattedData, error: null };
+    } catch (error) {
+      console.error("Exception fetching liabilities:", error);
+      setLastError(error);
+      
+      // Try local data as fallback
+      const localData = localStorage.getItem(`liabilities_${session?.user?.id}`);
+      if (localData) {
+        console.log("Using locally stored liabilities as fallback after exception");
+        return { data: JSON.parse(localData), error, localData: true };
+      }
+      
+      return { data: [], error };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // NEW FUNCTION: Function to fetch income
+  const fetchIncome = async () => {
+    setLoading(true);
+    setLastError(null);
+    
+    try {
+      const userId = session?.user?.id;
+      
+      if (!userId) {
+        return { error: "User not authenticated" };
+      }
+      
+      // Check for local data first
+      const localData = localStorage.getItem(`income_${userId}`);
+      
+      // Handle offline mode or persistent connection issues
+      if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
+        if (localData) {
+          console.log("Using locally stored income data");
+          return { data: JSON.parse(localData), error: null, localData: true };
+        }
+        return { data: [], error: "Database connection unavailable", localData: false };
+      }
+      
+      // Update the session
+      if (session) {
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        });
+      }
+      
+      // Query income
+      const { data, error } = await supabase
+        .from('income')
+        .select('*')
+        .eq('user_id', userId);
+      
+      if (error) {
+        console.error("Error fetching income:", error);
+        
+        // Try local data as fallback
+        if (localData) {
+          console.log("Using locally stored income as fallback");
+          return { data: JSON.parse(localData), error, localData: true };
+        }
+        
+        return { data: [], error };
+      }
+      
+      // Transform data back for the form
+      const formattedData = data.map((income: any) => ({
+        id: income.id,
+        source: income.source,
+        type: income.type,
+        amount: income.amount.toString(),
+        frequency: income.frequency,
+        saved: true
+      }));
+      
+      return { data: formattedData, error: null };
+    } catch (error) {
+      console.error("Exception fetching income:", error);
+      setLastError(error);
+      
+      // Try local data as fallback
+      const localData = localStorage.getItem(`income_${session?.user?.id}`);
+      if (localData) {
+        console.log("Using locally stored income as fallback after exception");
+        return { data: JSON.parse(localData), error, localData: true };
+      }
+      
+      return { data: [], error };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // NEW FUNCTION: Function to fetch expenses
+  const fetchExpenses = async () => {
+    setLoading(true);
+    setLastError(null);
+    
+    try {
+      const userId = session?.user?.id;
+      
+      if (!userId) {
+        return { error: "User not authenticated" };
+      }
+      
+      // Check for local data first
+      const localData = localStorage.getItem(`expenses_${userId}`);
+      
+      // Handle offline mode or persistent connection issues
+      if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
+        if (localData) {
+          console.log("Using locally stored expenses data");
+          return { data: JSON.parse(localData), error: null, localData: true };
+        }
+        return { data: [], error: "Database connection unavailable", localData: false };
+      }
+      
+      // Update the session
+      if (session) {
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        });
+      }
+      
+      // Query expenses
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', userId);
+      
+      if (error) {
+        console.error("Error fetching expenses:", error);
+        
+        // Try local data as fallback
+        if (localData) {
+          console.log("Using locally stored expenses as fallback");
+          return { data: JSON.parse(localData), error, localData: true };
+        }
+        
+        return { data: [], error };
+      }
+      
+      // Transform data back for the form
+      const formattedData = data.map((expense: any) => ({
+        id: expense.id,
+        name: expense.name,
+        category: expense.category,
+        amount: expense.amount.toString(),
+        frequency: expense.frequency,
+        saved: true
+      }));
+      
+      return { data: formattedData, error: null };
+    } catch (error) {
+      console.error("Exception fetching expenses:", error);
+      setLastError(error);
+      
+      // Try local data as fallback
+      const localData = localStorage.getItem(`expenses_${session?.user?.id}`);
+      if (localData) {
+        console.log("Using locally stored expenses as fallback after exception");
+        return { data: JSON.parse(localData), error, localData: true };
+      }
+      
+      return { data: [], error };
     } finally {
       setLoading(false);
     }
@@ -1379,9 +979,7 @@ export function useDatabase() {
     loading,
     lastError,
     savePersonalInfo,
-    fetchPersonalInfo,
     saveBusinessInfo,
-    fetchBusinessInfo,
     saveAssets,
     saveLiabilities,
     saveIncome,
@@ -1393,4 +991,4 @@ export function useDatabase() {
     checkDatabaseStatus,
     hasSchemaIssue
   };
-}
+};
