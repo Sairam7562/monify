@@ -78,15 +78,15 @@ export const getUserById = async (id: string): Promise<User | undefined> => {
     if (data) {
       // Type-safe mapping with proper null checks
       return {
-        id: data.id || '',
-        name: data.name || '',
-        email: data.email || '',
-        role: data.role || '',
-        plan: data.plan || '',
-        status: (data.status as 'active' | 'inactive' | 'suspended') || 'active',
-        lastLogin: data.last_login ? new Date(data.last_login).toISOString().split('T')[0] : 
+        id: (data as any).id || '',
+        name: (data as any).name || '',
+        email: (data as any).email || '',
+        role: (data as any).role || '',
+        plan: (data as any).plan || '',
+        status: ((data as any).status as 'active' | 'inactive' | 'suspended') || 'active',
+        lastLogin: (data as any).last_login ? new Date((data as any).last_login).toISOString().split('T')[0] : 
                    new Date().toISOString().split('T')[0],
-        twoFactorEnabled: data.two_factor_enabled || false,
+        twoFactorEnabled: (data as any).two_factor_enabled || false,
       };
     }
     
@@ -114,15 +114,15 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
     if (data) {
       // Type-safe mapping with proper null checks
       return {
-        id: data.id || '',
-        name: data.name || '',
-        email: data.email || '',
-        role: data.role || '',
-        plan: data.plan || '',
-        status: (data.status as 'active' | 'inactive' | 'suspended') || 'active',
-        lastLogin: data.last_login ? new Date(data.last_login).toISOString().split('T')[0] : 
+        id: (data as any).id || '',
+        name: (data as any).name || '',
+        email: (data as any).email || '',
+        role: (data as any).role || '',
+        plan: (data as any).plan || '',
+        status: ((data as any).status as 'active' | 'inactive' | 'suspended') || 'active',
+        lastLogin: (data as any).last_login ? new Date((data as any).last_login).toISOString().split('T')[0] : 
                    new Date().toISOString().split('T')[0],
-        twoFactorEnabled: data.two_factor_enabled || false,
+        twoFactorEnabled: (data as any).two_factor_enabled || false,
       };
     }
     

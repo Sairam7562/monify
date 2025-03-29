@@ -35,7 +35,8 @@ export async function getFinancialSummary(userId: string) {
     () => supabase
       .from('assets')
       .select('value')
-      .eq('user_id', userId as any),
+      .eq('user_id', userId as any)
+      .then(),
     "Error fetching assets"
   );
   
@@ -43,7 +44,8 @@ export async function getFinancialSummary(userId: string) {
     () => supabase
       .from('liabilities')
       .select('amount')
-      .eq('user_id', userId as any),
+      .eq('user_id', userId as any)
+      .then(),
     "Error fetching liabilities"
   );
   
@@ -51,7 +53,8 @@ export async function getFinancialSummary(userId: string) {
     () => supabase
       .from('income')
       .select('amount, frequency')
-      .eq('user_id', userId as any),
+      .eq('user_id', userId as any)
+      .then(),
     "Error fetching income"
   );
   
@@ -59,11 +62,12 @@ export async function getFinancialSummary(userId: string) {
     () => supabase
       .from('expenses')
       .select('amount, frequency')
-      .eq('user_id', userId as any),
+      .eq('user_id', userId as any)
+      .then(),
     "Error fetching expenses"
   );
   
-  // Calculate totals
+  // Calculate totals with appropriate type assertions
   const totalAssets = (assetsResult.data || []).reduce((sum, item: any) => sum + (parseFloat(item.value) || 0), 0);
   const totalLiabilities = (liabilitiesResult.data || []).reduce((sum, item: any) => sum + (parseFloat(item.amount) || 0), 0);
   
@@ -110,7 +114,8 @@ export async function getPersonalInfo(userId: string) {
       .from('personal_info')
       .select('*')
       .eq('user_id', userId as any)
-      .maybeSingle(),
+      .maybeSingle()
+      .then(),
     "Error fetching personal info"
   );
 }
@@ -121,7 +126,8 @@ export async function getBusinessInfo(userId: string) {
     () => supabase
       .from('business_info')
       .select('*')
-      .eq('user_id', userId as any),
+      .eq('user_id', userId as any)
+      .then(),
     "Error fetching business info"
   );
 }
@@ -132,7 +138,8 @@ export async function getAssets(userId: string) {
     () => supabase
       .from('assets')
       .select('*')
-      .eq('user_id', userId as any),
+      .eq('user_id', userId as any)
+      .then(),
     "Error fetching assets"
   );
 }
@@ -143,7 +150,8 @@ export async function getLiabilities(userId: string) {
     () => supabase
       .from('liabilities')
       .select('*')
-      .eq('user_id', userId as any),
+      .eq('user_id', userId as any)
+      .then(),
     "Error fetching liabilities"
   );
 }
@@ -154,7 +162,8 @@ export async function getIncome(userId: string) {
     () => supabase
       .from('income')
       .select('*')
-      .eq('user_id', userId as any),
+      .eq('user_id', userId as any)
+      .then(),
     "Error fetching income"
   );
 }
@@ -165,7 +174,8 @@ export async function getExpenses(userId: string) {
     () => supabase
       .from('expenses')
       .select('*')
-      .eq('user_id', userId as any),
+      .eq('user_id', userId as any)
+      .then(),
     "Error fetching expenses"
   );
 }
@@ -180,39 +190,39 @@ export async function generateFinancialStatementData(userId: string) {
   
   const personalInfo = personalInfoResult.data || {};
   
-  // Format data for financial statement component
+  // Format data for financial statement component with explicit type safety
   return {
-    profileImage: personalInfo.profile_image || null,
-    fullName: `${personalInfo.first_name || ''} ${personalInfo.last_name || ''}`.trim() || 'Anonymous User',
-    email: personalInfo.email || '',
-    phone: personalInfo.phone || '',
+    profileImage: personalInfo.profile_image as string || null,
+    fullName: `${personalInfo.first_name as string || ''} ${personalInfo.last_name as string || ''}`.trim() || 'Anonymous User',
+    email: personalInfo.email as string || '',
+    phone: personalInfo.phone as string || '',
     address: {
-      street: personalInfo.address || '',
-      city: personalInfo.city || '',
-      state: personalInfo.state || '',
-      zipCode: personalInfo.zip_code || '',
+      street: personalInfo.address as string || '',
+      city: personalInfo.city as string || '',
+      state: personalInfo.state as string || '',
+      zipCode: personalInfo.zip_code as string || '',
       country: 'United States', // Default
       includeInReport: true
     },
-    assets: (assetsResult.data || []).map((asset: any) => ({
+    assets: ((assetsResult.data || []) as any[]).map((asset: any) => ({
       id: asset.id,
       name: asset.name,
       value: asset.value.toString(),
       includeInReport: true
     })),
-    liabilities: (liabilitiesResult.data || []).map((liability: any) => ({
+    liabilities: ((liabilitiesResult.data || []) as any[]).map((liability: any) => ({
       id: liability.id,
       name: liability.name,
       value: liability.amount.toString(),
       includeInReport: true
     })),
-    incomes: (incomeResult.data || []).map((income: any) => ({
+    incomes: ((incomeResult.data || []) as any[]).map((income: any) => ({
       id: income.id,
       name: income.source,
       value: income.amount.toString(),
       includeInReport: true
     })),
-    expenses: (expensesResult.data || []).map((expense: any) => ({
+    expenses: ((expensesResult.data || []) as any[]).map((expense: any) => ({
       id: expense.id,
       name: expense.name,
       value: expense.amount.toString(),

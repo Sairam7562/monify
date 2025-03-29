@@ -29,7 +29,7 @@ export const supabase = createClient<Database>(
       },
     },
     db: {
-      schema: 'public', // Using the correct 'public' schema instead of 'api'
+      schema: 'public', // Using the correct 'public' schema
     },
   }
 );
