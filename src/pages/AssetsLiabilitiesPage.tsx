@@ -48,7 +48,7 @@ const AssetsLiabilitiesPage = () => {
     toast.info("Checking database connection...");
     
     try {
-      // Update Accept-Profile header using the auth API
+      // Update session using the auth API
       const { data } = await supabase.auth.getSession();
       if (data.session) {
         await supabase.auth.setSession({

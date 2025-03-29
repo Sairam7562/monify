@@ -100,14 +100,17 @@ export function useDatabase() {
           status.error.message.includes('api')) {
         
         console.log("Attempting to update client configuration to use API schema");
-        // Update the Accept-Profile header using public API
-        const { error } = await supabase.auth.setSession({
-          access_token: session?.access_token || '',
-          refresh_token: session?.refresh_token || '',
-        });
         
-        if (error) {
-          console.error("Error updating session:", error);
+        // Update session using proper method
+        if (session) {
+          const { error } = await supabase.auth.setSession({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+          });
+          
+          if (error) {
+            console.error("Error updating session:", error);
+          }
         }
         
         // Try a second connection check
@@ -494,11 +497,13 @@ export function useDatabase() {
       if (connectionStatus.connected) {
         try {
           console.log("Attempting to fetch assets from database");
-          // Update the Accept-Profile header using public API
-          await supabase.auth.setSession({
-            access_token: session?.access_token || '',
-            refresh_token: session?.refresh_token || '',
-          });
+          // Update the session if we have one
+          if (session) {
+            await supabase.auth.setSession({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token,
+            });
+          }
           
           const { data, error } = await supabase
             .from('assets')
@@ -583,11 +588,13 @@ export function useDatabase() {
       if (connectionStatus.connected) {
         try {
           console.log("Attempting to fetch liabilities from database");
-          // Update the Accept-Profile header using public API
-          await supabase.auth.setSession({
-            access_token: session?.access_token || '',
-            refresh_token: session?.refresh_token || '',
-          });
+          // Update the session if we have one
+          if (session) {
+            await supabase.auth.setSession({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token,
+            });
+          }
           
           const { data, error } = await supabase
             .from('liabilities')
@@ -672,11 +679,13 @@ export function useDatabase() {
       if (connectionStatus.connected) {
         try {
           console.log("Attempting to fetch income from database");
-          // Update the Accept-Profile header using public API
-          await supabase.auth.setSession({
-            access_token: session?.access_token || '',
-            refresh_token: session?.refresh_token || '',
-          });
+          // Update the session if we have one
+          if (session) {
+            await supabase.auth.setSession({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token,
+            });
+          }
           
           const { data, error } = await supabase
             .from('income')
@@ -761,11 +770,13 @@ export function useDatabase() {
       if (connectionStatus.connected) {
         try {
           console.log("Attempting to fetch expenses from database");
-          // Update the Accept-Profile header using public API
-          await supabase.auth.setSession({
-            access_token: session?.access_token || '',
-            refresh_token: session?.refresh_token || '',
-          });
+          // Update the session if we have one
+          if (session) {
+            await supabase.auth.setSession({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token,
+            });
+          }
           
           const { data, error } = await supabase
             .from('expenses')

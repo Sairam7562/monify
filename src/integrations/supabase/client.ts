@@ -53,7 +53,7 @@ const checkConnection = async () => {
         // Check if there's an API schema specified in the error message
         if (error.message.includes('api')) {
           console.log('Detected API schema requirement, updating client configuration');
-          // Update Accept-Profile header using public API
+          // Update auth session to refresh token and potentially fix schema issues
           await supabase.auth.getSession().then(({ data }) => {
             if (data.session) {
               return supabase.auth.setSession({
