@@ -31,48 +31,48 @@ export async function safeQuery<T>(
 
 // Getting total assets and liabilities for the dashboard
 export async function getFinancialSummary(userId: string) {
-  const assetsResult = await safeQuery(
+  const assetsResult = await safeQuery<any[]>(
     () => supabase
       .from('assets')
       .select('value')
       .eq('user_id', userId as any)
-      .then(),
+      .then(res => res),
     "Error fetching assets"
   );
   
-  const liabilitiesResult = await safeQuery(
+  const liabilitiesResult = await safeQuery<any[]>(
     () => supabase
       .from('liabilities')
       .select('amount')
       .eq('user_id', userId as any)
-      .then(),
+      .then(res => res),
     "Error fetching liabilities"
   );
   
-  const incomeResult = await safeQuery(
+  const incomeResult = await safeQuery<any[]>(
     () => supabase
       .from('income')
       .select('amount, frequency')
       .eq('user_id', userId as any)
-      .then(),
+      .then(res => res),
     "Error fetching income"
   );
   
-  const expensesResult = await safeQuery(
+  const expensesResult = await safeQuery<any[]>(
     () => supabase
       .from('expenses')
       .select('amount, frequency')
       .eq('user_id', userId as any)
-      .then(),
+      .then(res => res),
     "Error fetching expenses"
   );
   
   // Calculate totals with appropriate type assertions
-  const totalAssets = (assetsResult.data || []).reduce((sum, item: any) => sum + (parseFloat(item.value) || 0), 0);
-  const totalLiabilities = (liabilitiesResult.data || []).reduce((sum, item: any) => sum + (parseFloat(item.amount) || 0), 0);
+  const totalAssets = ((assetsResult.data || []) as any[]).reduce((sum, item) => sum + (parseFloat(item.value) || 0), 0);
+  const totalLiabilities = ((liabilitiesResult.data || []) as any[]).reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
   
   // Convert all income and expenses to monthly values for proper comparison
-  const monthlyIncome = (incomeResult.data || []).reduce((sum, item: any) => {
+  const monthlyIncome = ((incomeResult.data || []) as any[]).reduce((sum, item) => {
     const amount = parseFloat(item.amount) || 0;
     const frequency = item.frequency;
     
@@ -83,7 +83,7 @@ export async function getFinancialSummary(userId: string) {
     return sum + amount; // monthly is default
   }, 0);
   
-  const monthlyExpenses = (expensesResult.data || []).reduce((sum, item: any) => {
+  const monthlyExpenses = ((expensesResult.data || []) as any[]).reduce((sum, item) => {
     const amount = parseFloat(item.amount) || 0;
     const frequency = item.frequency;
     
@@ -109,73 +109,73 @@ export async function getFinancialSummary(userId: string) {
 
 // Get personal info for statements
 export async function getPersonalInfo(userId: string) {
-  return safeQuery(
+  return safeQuery<any>(
     () => supabase
       .from('personal_info')
       .select('*')
       .eq('user_id', userId as any)
       .maybeSingle()
-      .then(),
+      .then(res => res),
     "Error fetching personal info"
   );
 }
 
 // Get business info for statements
 export async function getBusinessInfo(userId: string) {
-  return safeQuery(
+  return safeQuery<any[]>(
     () => supabase
       .from('business_info')
       .select('*')
       .eq('user_id', userId as any)
-      .then(),
+      .then(res => res),
     "Error fetching business info"
   );
 }
 
 // Get all assets for a user
 export async function getAssets(userId: string) {
-  return safeQuery(
+  return safeQuery<any[]>(
     () => supabase
       .from('assets')
       .select('*')
       .eq('user_id', userId as any)
-      .then(),
+      .then(res => res),
     "Error fetching assets"
   );
 }
 
 // Get all liabilities for a user
 export async function getLiabilities(userId: string) {
-  return safeQuery(
+  return safeQuery<any[]>(
     () => supabase
       .from('liabilities')
       .select('*')
       .eq('user_id', userId as any)
-      .then(),
+      .then(res => res),
     "Error fetching liabilities"
   );
 }
 
 // Get all income sources for a user
 export async function getIncome(userId: string) {
-  return safeQuery(
+  return safeQuery<any[]>(
     () => supabase
       .from('income')
       .select('*')
       .eq('user_id', userId as any)
-      .then(),
+      .then(res => res),
     "Error fetching income"
   );
 }
 
 // Get all expenses for a user
 export async function getExpenses(userId: string) {
-  return safeQuery(
+  return safeQuery<any[]>(
     () => supabase
       .from('expenses')
       .select('*')
       .eq('user_id', userId as any)
-      .then(),
+      .then(res => res),
     "Error fetching expenses"
   );
 }
@@ -188,7 +188,7 @@ export async function generateFinancialStatementData(userId: string) {
   const incomeResult = await getIncome(userId);
   const expensesResult = await getExpenses(userId);
   
-  const personalInfo = personalInfoResult.data || {};
+  const personalInfo = personalInfoResult.data || {} as any;
   
   // Format data for financial statement component with explicit type safety
   return {
