@@ -48,8 +48,14 @@ const AssetsLiabilitiesPage = () => {
     toast.info("Checking database connection...");
     
     try {
-      // Update headers directly instead of using setSession
-      supabase.headers.set('Accept-Profile', 'public,api');
+      // Update Accept-Profile header using the auth API
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token
+        });
+      }
       
       const isConnected = await checkDb();
       

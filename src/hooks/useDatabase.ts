@@ -100,8 +100,15 @@ export function useDatabase() {
           status.error.message.includes('api')) {
         
         console.log("Attempting to update client configuration to use API schema");
-        // Update headers directly
-        supabase.headers.set('Accept-Profile', 'api,public');
+        // Update the Accept-Profile header using public API
+        const { error } = await supabase.auth.setSession({
+          access_token: session?.access_token || '',
+          refresh_token: session?.refresh_token || '',
+        });
+        
+        if (error) {
+          console.error("Error updating session:", error);
+        }
         
         // Try a second connection check
         const retryStatus = await checkConnection();
@@ -446,6 +453,362 @@ export function useDatabase() {
     }
   };
 
+  const fetchAssets = async () => {
+    if (!verifyAuth()) {
+      return { error: 'Not authenticated' };
+    }
+    
+    setLoading(true);
+    try {
+      console.log("Fetching assets for user:", user.id);
+      
+      const userId = user.id?.toString();
+      if (!userId) {
+        return { error: 'Invalid user ID' };
+      }
+      
+      const connectionStatus = await checkConnection();
+      console.log("Database connection status before fetch:", connectionStatus);
+      
+      const localStorageKey = `assets_${userId}`;
+      const localData = localStorage.getItem(localStorageKey);
+      let localAssets = null;
+      
+      if (localData) {
+        console.log("Found local assets data");
+        try {
+          const parsedData = JSON.parse(localData);
+          if (parsedData.assets && Array.isArray(parsedData.assets)) {
+            localAssets = parsedData.assets;
+          }
+        } catch (err) {
+          console.error("Error parsing local assets data:", err);
+        }
+      }
+      
+      if (!connectionStatus.connected || hasSchemaIssue()) {
+        console.log("Database connection issue, using local assets data");
+        return { data: localAssets || [], error: null, localData: true };
+      }
+      
+      if (connectionStatus.connected) {
+        try {
+          console.log("Attempting to fetch assets from database");
+          // Update the Accept-Profile header using public API
+          await supabase.auth.setSession({
+            access_token: session?.access_token || '',
+            refresh_token: session?.refresh_token || '',
+          });
+          
+          const { data, error } = await supabase
+            .from('assets')
+            .select('*')
+            .eq('user_id', userId);
+  
+          if (error) {
+            if (error.code === 'PGRST116' || error.message.includes('relation "assets" does not exist')) {
+              console.log("Assets table doesn't exist yet:", error);
+              return { data: localAssets || [], error: null, localData: !!localAssets };
+            }
+            
+            if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
+              console.log("Schema error fetching assets:", error);
+              sessionStorage.setItem('db_schema_error', 'true');
+              return { data: localAssets || [], error: null, localData: !!localAssets };
+            }
+            
+            throw error;
+          }
+  
+          console.log("Assets fetched from database:", data);
+          
+          if (data && data.length > 0) {
+            return { data, error: null };
+          }
+        } catch (dbError) {
+          console.error("Database error fetching assets:", dbError);
+        }
+      }
+      
+      return { data: localAssets || [], error: null, localData: !!localAssets };
+      
+    } catch (error: any) {
+      console.error('Error fetching assets:', error);
+      setLastError(error);
+      toast.error('Failed to load assets information');
+      return { data: [], error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchLiabilities = async () => {
+    if (!verifyAuth()) {
+      return { error: 'Not authenticated' };
+    }
+    
+    setLoading(true);
+    try {
+      console.log("Fetching liabilities for user:", user.id);
+      
+      const userId = user.id?.toString();
+      if (!userId) {
+        return { error: 'Invalid user ID' };
+      }
+      
+      const connectionStatus = await checkConnection();
+      console.log("Database connection status before fetch:", connectionStatus);
+      
+      const localStorageKey = `liabilities_${userId}`;
+      const localData = localStorage.getItem(localStorageKey);
+      let localLiabilities = null;
+      
+      if (localData) {
+        console.log("Found local liabilities data");
+        try {
+          const parsedData = JSON.parse(localData);
+          if (parsedData.liabilities && Array.isArray(parsedData.liabilities)) {
+            localLiabilities = parsedData.liabilities;
+          }
+        } catch (err) {
+          console.error("Error parsing local liabilities data:", err);
+        }
+      }
+      
+      if (!connectionStatus.connected || hasSchemaIssue()) {
+        console.log("Database connection issue, using local liabilities data");
+        return { data: localLiabilities || [], error: null, localData: true };
+      }
+      
+      if (connectionStatus.connected) {
+        try {
+          console.log("Attempting to fetch liabilities from database");
+          // Update the Accept-Profile header using public API
+          await supabase.auth.setSession({
+            access_token: session?.access_token || '',
+            refresh_token: session?.refresh_token || '',
+          });
+          
+          const { data, error } = await supabase
+            .from('liabilities')
+            .select('*')
+            .eq('user_id', userId);
+  
+          if (error) {
+            if (error.code === 'PGRST116' || error.message.includes('relation "liabilities" does not exist')) {
+              console.log("Liabilities table doesn't exist yet:", error);
+              return { data: localLiabilities || [], error: null, localData: !!localLiabilities };
+            }
+            
+            if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
+              console.log("Schema error fetching liabilities:", error);
+              sessionStorage.setItem('db_schema_error', 'true');
+              return { data: localLiabilities || [], error: null, localData: !!localLiabilities };
+            }
+            
+            throw error;
+          }
+  
+          console.log("Liabilities fetched from database:", data);
+          
+          if (data && data.length > 0) {
+            return { data, error: null };
+          }
+        } catch (dbError) {
+          console.error("Database error fetching liabilities:", dbError);
+        }
+      }
+      
+      return { data: localLiabilities || [], error: null, localData: !!localLiabilities };
+      
+    } catch (error: any) {
+      console.error('Error fetching liabilities:', error);
+      setLastError(error);
+      toast.error('Failed to load liabilities information');
+      return { data: [], error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchIncome = async () => {
+    if (!verifyAuth()) {
+      return { error: 'Not authenticated' };
+    }
+    
+    setLoading(true);
+    try {
+      console.log("Fetching income for user:", user.id);
+      
+      const userId = user.id?.toString();
+      if (!userId) {
+        return { error: 'Invalid user ID' };
+      }
+      
+      const connectionStatus = await checkConnection();
+      console.log("Database connection status before fetch:", connectionStatus);
+      
+      const localStorageKey = `income_${userId}`;
+      const localData = localStorage.getItem(localStorageKey);
+      let localIncome = null;
+      
+      if (localData) {
+        console.log("Found local income data");
+        try {
+          const parsedData = JSON.parse(localData);
+          if (parsedData.income && Array.isArray(parsedData.income)) {
+            localIncome = parsedData.income;
+          }
+        } catch (err) {
+          console.error("Error parsing local income data:", err);
+        }
+      }
+      
+      if (!connectionStatus.connected || hasSchemaIssue()) {
+        console.log("Database connection issue, using local income data");
+        return { data: localIncome || [], error: null, localData: true };
+      }
+      
+      if (connectionStatus.connected) {
+        try {
+          console.log("Attempting to fetch income from database");
+          // Update the Accept-Profile header using public API
+          await supabase.auth.setSession({
+            access_token: session?.access_token || '',
+            refresh_token: session?.refresh_token || '',
+          });
+          
+          const { data, error } = await supabase
+            .from('income')
+            .select('*')
+            .eq('user_id', userId);
+  
+          if (error) {
+            if (error.code === 'PGRST116' || error.message.includes('relation "income" does not exist')) {
+              console.log("Income table doesn't exist yet:", error);
+              return { data: localIncome || [], error: null, localData: !!localIncome };
+            }
+            
+            if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
+              console.log("Schema error fetching income:", error);
+              sessionStorage.setItem('db_schema_error', 'true');
+              return { data: localIncome || [], error: null, localData: !!localIncome };
+            }
+            
+            throw error;
+          }
+  
+          console.log("Income fetched from database:", data);
+          
+          if (data && data.length > 0) {
+            return { data, error: null };
+          }
+        } catch (dbError) {
+          console.error("Database error fetching income:", dbError);
+        }
+      }
+      
+      return { data: localIncome || [], error: null, localData: !!localIncome };
+      
+    } catch (error: any) {
+      console.error('Error fetching income:', error);
+      setLastError(error);
+      toast.error('Failed to load income information');
+      return { data: [], error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchExpenses = async () => {
+    if (!verifyAuth()) {
+      return { error: 'Not authenticated' };
+    }
+    
+    setLoading(true);
+    try {
+      console.log("Fetching expenses for user:", user.id);
+      
+      const userId = user.id?.toString();
+      if (!userId) {
+        return { error: 'Invalid user ID' };
+      }
+      
+      const connectionStatus = await checkConnection();
+      console.log("Database connection status before fetch:", connectionStatus);
+      
+      const localStorageKey = `expenses_${userId}`;
+      const localData = localStorage.getItem(localStorageKey);
+      let localExpenses = null;
+      
+      if (localData) {
+        console.log("Found local expenses data");
+        try {
+          const parsedData = JSON.parse(localData);
+          if (parsedData.expenses && Array.isArray(parsedData.expenses)) {
+            localExpenses = parsedData.expenses;
+          }
+        } catch (err) {
+          console.error("Error parsing local expenses data:", err);
+        }
+      }
+      
+      if (!connectionStatus.connected || hasSchemaIssue()) {
+        console.log("Database connection issue, using local expenses data");
+        return { data: localExpenses || [], error: null, localData: true };
+      }
+      
+      if (connectionStatus.connected) {
+        try {
+          console.log("Attempting to fetch expenses from database");
+          // Update the Accept-Profile header using public API
+          await supabase.auth.setSession({
+            access_token: session?.access_token || '',
+            refresh_token: session?.refresh_token || '',
+          });
+          
+          const { data, error } = await supabase
+            .from('expenses')
+            .select('*')
+            .eq('user_id', userId);
+  
+          if (error) {
+            if (error.code === 'PGRST116' || error.message.includes('relation "expenses" does not exist')) {
+              console.log("Expenses table doesn't exist yet:", error);
+              return { data: localExpenses || [], error: null, localData: !!localExpenses };
+            }
+            
+            if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
+              console.log("Schema error fetching expenses:", error);
+              sessionStorage.setItem('db_schema_error', 'true');
+              return { data: localExpenses || [], error: null, localData: !!localExpenses };
+            }
+            
+            throw error;
+          }
+  
+          console.log("Expenses fetched from database:", data);
+          
+          if (data && data.length > 0) {
+            return { data, error: null };
+          }
+        } catch (dbError) {
+          console.error("Database error fetching expenses:", dbError);
+        }
+      }
+      
+      return { data: localExpenses || [], error: null, localData: !!localExpenses };
+      
+    } catch (error: any) {
+      console.error('Error fetching expenses:', error);
+      setLastError(error);
+      toast.error('Failed to load expenses information');
+      return { data: [], error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const saveAssets = async (assets: any[]) => {
     try {
       if (!user) return { error: 'Not authenticated' };
@@ -491,8 +854,11 @@ export function useDatabase() {
         return { data: formattedAssets, error: null, localSaved: true };
       }
 
-      // Update headers directly
-      supabase.headers.set('Accept-Profile', 'public,api');
+      // Update the Accept-Profile header using public API
+      await supabase.auth.setSession({
+        access_token: session?.access_token || '',
+        refresh_token: session?.refresh_token || '',
+      });
       
       try {
         // Delete existing assets first
@@ -588,8 +954,11 @@ export function useDatabase() {
         return { data: formattedLiabilities, error: null, localSaved: true };
       }
 
-      // Update headers directly
-      supabase.headers.set('Accept-Profile', 'public,api');
+      // Update the Accept-Profile header using public API
+      await supabase.auth.setSession({
+        access_token: session?.access_token || '',
+        refresh_token: session?.refresh_token || '',
+      });
 
       try {
         // Delete existing liabilities first
@@ -680,8 +1049,11 @@ export function useDatabase() {
         return { data: formattedIncome, error: null, localSaved: true };
       }
 
-      // Update headers directly
-      supabase.headers.set('Accept-Profile', 'public,api');
+      // Update the Accept-Profile header using public API
+      await supabase.auth.setSession({
+        access_token: session?.access_token || '',
+        refresh_token: session?.refresh_token || '',
+      });
       
       try {
         // Delete existing income first
@@ -772,8 +1144,11 @@ export function useDatabase() {
         return { data: formattedExpenses, error: null, localSaved: true };
       }
 
-      // Update headers directly
-      supabase.headers.set('Accept-Profile', 'public,api');
+      // Update the Accept-Profile header using public API
+      await supabase.auth.setSession({
+        access_token: session?.access_token || '',
+        refresh_token: session?.refresh_token || '',
+      });
       
       try {
         // Delete existing expenses first
@@ -992,6 +1367,10 @@ export function useDatabase() {
     saveLiabilities,
     saveIncome,
     saveExpenses,
+    fetchAssets,
+    fetchLiabilities,
+    fetchIncome,
+    fetchExpenses,
     checkDatabaseStatus,
     hasSchemaIssue
   };

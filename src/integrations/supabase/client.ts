@@ -22,7 +22,7 @@ export const supabase = createClient<Database>(
     },
     global: {
       headers: {
-        'Accept-Profile': 'public',
+        'Accept-Profile': 'public,api',
       },
     },
     db: {
@@ -53,8 +53,16 @@ const checkConnection = async () => {
         // Check if there's an API schema specified in the error message
         if (error.message.includes('api')) {
           console.log('Detected API schema requirement, updating client configuration');
-          // Update global headers directly instead of using setSession
-          supabase.headers.set('Accept-Profile', 'api,public');
+          // Update Accept-Profile header using public API
+          await supabase.auth.getSession().then(({ data }) => {
+            if (data.session) {
+              return supabase.auth.setSession({
+                access_token: data.session.access_token,
+                refresh_token: data.session.refresh_token
+              });
+            }
+            return null;
+          });
         }
         
         return { connected: false, reason: 'schema_error', error };
