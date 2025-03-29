@@ -865,11 +865,13 @@ export function useDatabase() {
         return { data: formattedAssets, error: null, localSaved: true };
       }
 
-      // Update the Accept-Profile header using public API
-      await supabase.auth.setSession({
-        access_token: session?.access_token || '',
-        refresh_token: session?.refresh_token || '',
-      });
+      // Update the session
+      if (session) {
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+      }
       
       try {
         // Delete existing assets first
@@ -965,11 +967,13 @@ export function useDatabase() {
         return { data: formattedLiabilities, error: null, localSaved: true };
       }
 
-      // Update the Accept-Profile header using public API
-      await supabase.auth.setSession({
-        access_token: session?.access_token || '',
-        refresh_token: session?.refresh_token || '',
-      });
+      // Update the session
+      if (session) {
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+      }
 
       try {
         // Delete existing liabilities first
@@ -1060,11 +1064,13 @@ export function useDatabase() {
         return { data: formattedIncome, error: null, localSaved: true };
       }
 
-      // Update the Accept-Profile header using public API
-      await supabase.auth.setSession({
-        access_token: session?.access_token || '',
-        refresh_token: session?.refresh_token || '',
-      });
+      // Update the session
+      if (session) {
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+      }
       
       try {
         // Delete existing income first
@@ -1155,11 +1161,13 @@ export function useDatabase() {
         return { data: formattedExpenses, error: null, localSaved: true };
       }
 
-      // Update the Accept-Profile header using public API
-      await supabase.auth.setSession({
-        access_token: session?.access_token || '',
-        refresh_token: session?.refresh_token || '',
-      });
+      // Update the session
+      if (session) {
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+      }
       
       try {
         // Delete existing expenses first
