@@ -64,14 +64,11 @@ export const getAllUsers = async (): Promise<User[]> => {
 // Get user by ID
 export const getUserById = async (id: string): Promise<User | undefined> => {
   try {
-    // Ensure id is a string for type safety
-    const userId = id.toString();
-    
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', userId)
-      .single();
+      .eq('id', id as any) // Using type assertion to fix TypeScript error
+      .maybeSingle();
     
     if (error) {
       console.error("Error fetching user by ID:", error);
@@ -81,15 +78,15 @@ export const getUserById = async (id: string): Promise<User | undefined> => {
     if (data) {
       // Type-safe mapping with proper null checks
       return {
-        id: data?.id || '',
-        name: data?.name || '',
-        email: data?.email || '',
-        role: data?.role || '',
-        plan: data?.plan || '',
-        status: (data?.status as 'active' | 'inactive' | 'suspended') || 'active',
-        lastLogin: data?.last_login ? new Date(data?.last_login).toISOString().split('T')[0] : 
+        id: data.id || '',
+        name: data.name || '',
+        email: data.email || '',
+        role: data.role || '',
+        plan: data.plan || '',
+        status: (data.status as 'active' | 'inactive' | 'suspended') || 'active',
+        lastLogin: data.last_login ? new Date(data.last_login).toISOString().split('T')[0] : 
                    new Date().toISOString().split('T')[0],
-        twoFactorEnabled: data?.two_factor_enabled || false,
+        twoFactorEnabled: data.two_factor_enabled || false,
       };
     }
     
@@ -103,14 +100,11 @@ export const getUserById = async (id: string): Promise<User | undefined> => {
 // Get user by email
 export const getUserByEmail = async (email: string): Promise<User | undefined> => {
   try {
-    // Ensure email is a string for type safety
-    const emailStr = email.toString();
-    
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('email', emailStr)
-      .single();
+      .eq('email', email as any) // Using type assertion to fix TypeScript error
+      .maybeSingle();
     
     if (error) {
       console.error("Error fetching user by email:", error);
@@ -120,15 +114,15 @@ export const getUserByEmail = async (email: string): Promise<User | undefined> =
     if (data) {
       // Type-safe mapping with proper null checks
       return {
-        id: data?.id || '',
-        name: data?.name || '',
-        email: data?.email || '',
-        role: data?.role || '',
-        plan: data?.plan || '',
-        status: (data?.status as 'active' | 'inactive' | 'suspended') || 'active',
-        lastLogin: data?.last_login ? new Date(data?.last_login).toISOString().split('T')[0] : 
+        id: data.id || '',
+        name: data.name || '',
+        email: data.email || '',
+        role: data.role || '',
+        plan: data.plan || '',
+        status: (data.status as 'active' | 'inactive' | 'suspended') || 'active',
+        lastLogin: data.last_login ? new Date(data.last_login).toISOString().split('T')[0] : 
                    new Date().toISOString().split('T')[0],
-        twoFactorEnabled: data?.two_factor_enabled || false,
+        twoFactorEnabled: data.two_factor_enabled || false,
       };
     }
     
@@ -174,18 +168,17 @@ export const toggleUserStatus = async (id: string): Promise<User | null> => {
     if (!user) return null;
     
     const newStatus = user.status === 'active' ? 'inactive' : 'active';
-    const userId = id.toString();
     
     // Create update data object with strongly typed status
     const updateData = { 
       status: newStatus 
-    };
+    } as any; // Using type assertion to fix TypeScript error
     
     // Update the user profile with status change
     const { error } = await supabase
       .from('profiles')
       .update(updateData)
-      .eq('id', userId);
+      .eq('id', id as any); // Using type assertion to fix TypeScript error
     
     if (error) {
       console.error("Error updating user status:", error);
@@ -230,13 +223,11 @@ export const updateUser = async (id: string, userData: Partial<User>): Promise<U
     if ('twoFactorEnabled' in userData) dbData.two_factor_enabled = userData.twoFactorEnabled;
     dbData.updated_at = new Date();
     
-    const userId = id.toString();
-    
     // Update the user in the profiles table
     const { error } = await supabase
       .from('profiles')
       .update(dbData)
-      .eq('id', userId);
+      .eq('id', id as any); // Using type assertion to fix TypeScript error
     
     if (error) {
       console.error("Error updating user:", error);

@@ -1,3 +1,4 @@
+
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -96,7 +97,7 @@ export const useDatabase = () => {
       const { data: existingData, error: checkError } = await supabase
         .from('personal_info')
         .select('id')
-        .eq('user_id', userId)
+        .eq('user_id', userId as any)
         .maybeSingle();
       
       if (checkError) {
@@ -123,7 +124,7 @@ export const useDatabase = () => {
         result = await supabase
           .from('personal_info')
           .update(personalData)
-          .eq('user_id', userId);
+          .eq('user_id', userId as any);
       } else {
         // Insert new record
         result = await supabase
@@ -192,7 +193,7 @@ export const useDatabase = () => {
       const { data: existingData, error: checkError } = await supabase
         .from('business_info')
         .select('id')
-        .eq('user_id', userId)
+        .eq('user_id', userId as any)
         .eq('business_name', data.business_name)
         .maybeSingle();
       
@@ -220,7 +221,7 @@ export const useDatabase = () => {
         result = await supabase
           .from('business_info')
           .update(businessData)
-          .eq('id', existingData.id);
+          .eq('id', existingData.id as any);
       } else {
         // Insert new record
         result = await supabase
@@ -308,7 +309,7 @@ export const useDatabase = () => {
         const { error: deleteError } = await supabase
           .from('assets')
           .delete()
-          .eq('user_id', userId);
+          .eq('user_id', userId as any);
         
         if (deleteError) {
           console.error("Error deleting existing assets:", deleteError);
@@ -412,7 +413,7 @@ export const useDatabase = () => {
         const { error: deleteError } = await supabase
           .from('liabilities')
           .delete()
-          .eq('user_id', userId);
+          .eq('user_id', userId as any);
         
         if (deleteError) {
           console.error("Error deleting existing liabilities:", deleteError);
@@ -510,7 +511,7 @@ export const useDatabase = () => {
         const { error: deleteError } = await supabase
           .from('income')
           .delete()
-          .eq('user_id', userId);
+          .eq('user_id', userId as any);
         
         if (deleteError) {
           console.error("Error deleting existing income:", deleteError);
@@ -608,7 +609,7 @@ export const useDatabase = () => {
         const { error: deleteError } = await supabase
           .from('expenses')
           .delete()
-          .eq('user_id', userId);
+          .eq('user_id', userId as any);
         
         if (deleteError) {
           console.error("Error deleting existing expenses:", deleteError);
@@ -693,7 +694,7 @@ export const useDatabase = () => {
       const { data, error } = await supabase
         .from('personal_info')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', userId as any)
         .maybeSingle();
       
       if (error) {
@@ -767,7 +768,7 @@ export const useDatabase = () => {
       const { data, error } = await supabase
         .from('business_info')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId as any);
       
       if (error) {
         console.error("Error fetching business info:", error);
@@ -809,7 +810,7 @@ export const useDatabase = () => {
     }
   };
 
-  // NEW FUNCTION: Function to fetch assets
+  // Function to fetch assets
   const fetchAssets = async () => {
     setLoading(true);
     setLastError(null);
@@ -847,7 +848,7 @@ export const useDatabase = () => {
       const { data, error } = await supabase
         .from('assets')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId as any);
       
       if (error) {
         console.error("Error fetching assets:", error);
@@ -890,7 +891,7 @@ export const useDatabase = () => {
     }
   };
 
-  // NEW FUNCTION: Function to fetch liabilities
+  // Function to fetch liabilities
   const fetchLiabilities = async () => {
     setLoading(true);
     setLastError(null);
@@ -926,7 +927,7 @@ export const useDatabase = () => {
       const { data, error } = await supabase
         .from('liabilities')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId as any);
       
       if (error) {
         console.error("Error fetching liabilities:", error);
@@ -970,7 +971,7 @@ export const useDatabase = () => {
     }
   };
 
-  // NEW FUNCTION: Function to fetch income
+  // Function to fetch income
   const fetchIncome = async () => {
     setLoading(true);
     setLastError(null);
@@ -1006,7 +1007,7 @@ export const useDatabase = () => {
       const { data, error } = await supabase
         .from('income')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId as any);
       
       if (error) {
         console.error("Error fetching income:", error);
@@ -1048,7 +1049,7 @@ export const useDatabase = () => {
     }
   };
 
-  // NEW FUNCTION: Function to fetch expenses
+  // Function to fetch expenses
   const fetchExpenses = async () => {
     setLoading(true);
     setLastError(null);
@@ -1084,7 +1085,7 @@ export const useDatabase = () => {
       const { data, error } = await supabase
         .from('expenses')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId as any);
       
       if (error) {
         console.error("Error fetching expenses:", error);
