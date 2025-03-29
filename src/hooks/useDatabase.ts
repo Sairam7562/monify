@@ -1,4 +1,3 @@
-
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -407,7 +406,7 @@ export const useDatabase = () => {
           refresh_token: session.refresh_token
         });
       }
-
+      
       try {
         // Delete existing liabilities first
         const { error: deleteError } = await supabase
@@ -653,6 +652,158 @@ export const useDatabase = () => {
       }
       
       return { data: expenseItems, error, localSaved: true };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to fetch personal information
+  const fetchPersonalInfo = async () => {
+    setLoading(true);
+    setLastError(null);
+    
+    try {
+      const userId = session?.user?.id;
+      
+      if (!userId) {
+        return { error: "User not authenticated" };
+      }
+      
+      // Check for local data first
+      const localData = localStorage.getItem(`personal_info_${userId}`);
+      
+      // Handle offline mode or persistent connection issues
+      if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
+        if (localData) {
+          console.log("Using locally stored personal info data");
+          return { data: JSON.parse(localData), error: null, localData: true };
+        }
+        return { data: null, error: "Database connection unavailable", localData: false };
+      }
+      
+      // Update the session
+      if (session) {
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        });
+      }
+      
+      // Query personal info
+      const { data, error } = await supabase
+        .from('personal_info')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (error) {
+        console.error("Error fetching personal info:", error);
+        
+        // Try local data as fallback
+        if (localData) {
+          console.log("Using locally stored personal info as fallback");
+          return { data: JSON.parse(localData), error, localData: true };
+        }
+        
+        return { data: null, error };
+      }
+      
+      return { data, error: null };
+    } catch (error) {
+      console.error("Exception fetching personal info:", error);
+      setLastError(error);
+      
+      // Try local data as fallback
+      const localData = localStorage.getItem(`personal_info_${session?.user?.id}`);
+      if (localData) {
+        console.log("Using locally stored personal info as fallback after exception");
+        return { data: JSON.parse(localData), error, localData: true };
+      }
+      
+      return { data: null, error };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to fetch business information
+  const fetchBusinessInfo = async () => {
+    setLoading(true);
+    setLastError(null);
+    
+    try {
+      const userId = session?.user?.id;
+      
+      if (!userId) {
+        return { error: "User not authenticated" };
+      }
+      
+      // Check for local data first
+      const localData = localStorage.getItem(`business_info_${userId}`);
+      
+      // Handle offline mode or persistent connection issues
+      if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
+        if (localData) {
+          console.log("Using locally stored business info data");
+          try {
+            return { data: JSON.parse(localData), error: null, localData: true };
+          } catch (e) {
+            console.error("Error parsing local business data:", e);
+            return { data: [], error: null, localData: false };
+          }
+        }
+        return { data: [], error: "Database connection unavailable", localData: false };
+      }
+      
+      // Update the session
+      if (session) {
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        });
+      }
+      
+      // Query business info
+      const { data, error } = await supabase
+        .from('business_info')
+        .select('*')
+        .eq('user_id', userId);
+      
+      if (error) {
+        console.error("Error fetching business info:", error);
+        
+        // Try local data as fallback
+        if (localData) {
+          console.log("Using locally stored business info as fallback");
+          try {
+            return { data: JSON.parse(localData), error, localData: true };
+          } catch (e) {
+            console.error("Error parsing local business data:", e);
+            return { data: [], error, localData: false };
+          }
+        }
+        
+        return { data: [], error };
+      }
+      
+      return { data, error: null };
+    } catch (error) {
+      console.error("Exception fetching business info:", error);
+      setLastError(error);
+      
+      // Try local data as fallback
+      const localData = localStorage.getItem(`business_info_${session?.user?.id}`);
+      if (localData) {
+        console.log("Using locally stored business info as fallback after exception");
+        try {
+          return { data: JSON.parse(localData), error, localData: true };
+        } catch (e) {
+          console.error("Error parsing local business data:", e);
+          return { data: [], error, localData: false };
+        }
+      }
+      
+      return { data: [], error };
     } finally {
       setLoading(false);
     }
@@ -988,6 +1139,8 @@ export const useDatabase = () => {
     fetchLiabilities,
     fetchIncome,
     fetchExpenses,
+    fetchPersonalInfo,
+    fetchBusinessInfo,
     checkDatabaseStatus,
     hasSchemaIssue
   };
