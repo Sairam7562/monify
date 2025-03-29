@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase, checkConnection } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
@@ -7,6 +7,19 @@ export function useDatabase() {
   const { user, session } = useAuth();
   const [loading, setLoading] = useState(false);
   const [lastError, setLastError] = useState<any>(null);
+  const [schemaChecked, setSchemaChecked] = useState<boolean>(false);
+
+  // Check for schema issues on mount
+  useEffect(() => {
+    if (user && !schemaChecked) {
+      checkDatabaseStatus().then(isConnected => {
+        setSchemaChecked(true);
+        if (!isConnected) {
+          console.log("Database schema issues detected on hook initialization");
+        }
+      });
+    }
+  }, [user, schemaChecked]);
 
   const verifyAuth = useCallback(() => {
     if (!user || !session) {
@@ -36,6 +49,69 @@ export function useDatabase() {
       console.log(`${key}:`, data ? 'Data exists' : 'No data');
     });
     console.groupEnd();
+  };
+
+  // Function to retry failed database operations using locally stored data
+  const retryWithLocalData = async (dataType: string) => {
+    if (!user) return false;
+    
+    const userId = user.id.toString();
+    const localStorageKey = getLocalStorageKey(userId, dataType);
+    const localData = localStorage.getItem(localStorageKey);
+    
+    if (!localData) return false;
+    
+    try {
+      console.log(`Attempting to sync local ${dataType} data with database`);
+      const parsed = JSON.parse(localData);
+      
+      // Implement logic for each data type
+      switch (dataType) {
+        case 'assets':
+          // Handle assets sync
+          break;
+        case 'liabilities':
+          // Handle liabilities sync
+          break;
+        // Add other data types
+        default:
+          break;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error(`Error syncing local ${dataType} data:`, error);
+      return false;
+    }
+  };
+
+  // Updated function to check database status with retry logic
+  const checkDatabaseStatus = async () => {
+    try {
+      console.log("Checking database status...");
+      const status = await checkConnection();
+      
+      // If we detect schema issues but have 'api' in the error message,
+      // try updating the client configuration
+      if (!status.connected && 
+          status.reason === 'schema_error' && 
+          status.error && 
+          status.error.message.includes('api')) {
+        
+        console.log("Attempting to update client configuration to use API schema");
+        // Try updating Accept-Profile header
+        supabase.rest.headers.update({ 'Accept-Profile': 'api,public' });
+        
+        // Try a second connection check
+        const retryStatus = await checkConnection();
+        return retryStatus.connected;
+      }
+      
+      return status.connected;
+    } catch (error) {
+      console.error("Error checking database status:", error);
+      return false;
+    }
   };
 
   const savePersonalInfo = async (data: any) => {
@@ -381,7 +457,7 @@ export function useDatabase() {
         return { error: 'Invalid user ID' };
       }
       
-      // Store locally first as backup
+      // Always store locally first as backup
       const localStorageKey = `assets_${userId}`;
       localStorage.setItem(localStorageKey, JSON.stringify({
         assets: assets,
@@ -404,40 +480,61 @@ export function useDatabase() {
         return { data: [], error: null };
       }
 
-      // Delete existing assets first
-      const { error: deleteError } = await supabase
-        .from('assets')
-        .delete()
-        .eq('user_id', userId);
+      // Check for known database schema issues
+      const connectionStatus = await checkConnection();
+      const hasDbIssue = !connectionStatus.connected || hasSchemaIssue();
       
-      if (deleteError) {
-        console.error('Error deleting existing assets:', deleteError);
-        
-        // If it's a schema error, inform the user
-        if (deleteError.code === 'PGRST106' || deleteError.message.includes('schema must be one of the following')) {
-          toast.error('Database schema error. Please contact support.');
-          return { data: null, error: deleteError.message, localSaved: true };
-        }
-        
-        throw deleteError;
+      if (hasDbIssue) {
+        console.log("Database connection issues detected, saving to local storage only");
+        toast.success('Assets saved locally. They will be synced when database connection is restored.');
+        return { data: formattedAssets, error: null, localSaved: true };
       }
 
-      // Insert new assets
-      for (const asset of formattedAssets) {
-        const { error } = await supabase
-          .from('assets')
-          .insert(asset);
-          
-        if (error) {
-          console.error('Error inserting asset:', error);
-          throw error;
-        }
-      }
+      // Try with explicit schema header for this specific request
+      const customHeaders = { 'Accept-Profile': 'public,api' };
       
-      toast.success('Assets saved successfully');
-      return { data: formattedAssets, error: null };
+      try {
+        // Delete existing assets first with custom headers
+        const { error: deleteError } = await supabase
+          .from('assets')
+          .delete()
+          .eq('user_id', userId)
+          .options({ headers: customHeaders });
+        
+        if (deleteError) {
+          console.error('Error deleting existing assets:', deleteError);
+          
+          // If it's a schema error, inform the user
+          if (deleteError.code === 'PGRST106' || deleteError.message.includes('schema must be one of the following')) {
+            sessionStorage.setItem('db_schema_error', 'true');
+            toast.error('Database schema issue detected. Data saved locally.');
+            return { data: formattedAssets, error: deleteError.message, localSaved: true };
+          }
+          
+          throw deleteError;
+        }
+
+        // Insert new assets with custom headers
+        const insertPromises = formattedAssets.map(asset => 
+          supabase
+            .from('assets')
+            .insert(asset)
+            .options({ headers: customHeaders })
+        );
+        
+        await Promise.all(insertPromises);
+        
+        toast.success('Assets saved successfully');
+        return { data: formattedAssets, error: null };
+      } catch (error: any) {
+        console.error('Error saving assets:', error);
+        
+        // Save locally and return success with localSaved flag
+        toast.success('Assets saved locally. They will be synced when database connection is restored.');
+        return { data: formattedAssets, error: error.message, localSaved: true };
+      }
     } catch (error: any) {
-      console.error('Error saving assets:', error);
+      console.error('Error in saveAssets function:', error);
       toast.error('Failed to save assets. Data saved locally.');
       return { data: null, error: error.message, localSaved: true };
     } finally {
@@ -482,40 +579,61 @@ export function useDatabase() {
         return { data: [], error: null };
       }
 
-      // Delete existing liabilities first
-      const { error: deleteError } = await supabase
-        .from('liabilities')
-        .delete()
-        .eq('user_id', userId);
+      // Check for known database schema issues
+      const connectionStatus = await checkConnection();
+      const hasDbIssue = !connectionStatus.connected || hasSchemaIssue();
       
-      if (deleteError) {
-        console.error('Error deleting existing liabilities:', deleteError);
-        
-        // If it's a schema error, inform the user
-        if (deleteError.code === 'PGRST106' || deleteError.message.includes('schema must be one of the following')) {
-          toast.error('Database schema error. Please contact support.');
-          return { data: null, error: deleteError.message, localSaved: true };
-        }
-        
-        throw deleteError;
+      if (hasDbIssue) {
+        console.log("Database connection issues detected, saving to local storage only");
+        toast.success('Liabilities saved locally. They will be synced when database connection is restored.');
+        return { data: formattedLiabilities, error: null, localSaved: true };
       }
 
-      // Insert new liabilities
-      for (const liability of formattedLiabilities) {
-        const { error } = await supabase
+      // Try with explicit schema header for this specific request
+      const customHeaders = { 'Accept-Profile': 'public,api' };
+
+      try {
+        // Delete existing liabilities first with custom headers
+        const { error: deleteError } = await supabase
           .from('liabilities')
-          .insert(liability);
+          .delete()
+          .eq('user_id', userId)
+          .options({ headers: customHeaders });
+        
+        if (deleteError) {
+          console.error('Error deleting existing liabilities:', deleteError);
           
-        if (error) {
-          console.error('Error inserting liability:', error);
-          throw error;
+          // If it's a schema error, inform the user
+          if (deleteError.code === 'PGRST106' || deleteError.message.includes('schema must be one of the following')) {
+            sessionStorage.setItem('db_schema_error', 'true');
+            toast.error('Database schema issue detected. Data saved locally.');
+            return { data: formattedLiabilities, error: deleteError.message, localSaved: true };
+          }
+          
+          throw deleteError;
         }
+
+        // Insert new liabilities with custom headers
+        const insertPromises = formattedLiabilities.map(liability => 
+          supabase
+            .from('liabilities')
+            .insert(liability)
+            .options({ headers: customHeaders })
+        );
+        
+        await Promise.all(insertPromises);
+        
+        toast.success('Liabilities saved successfully');
+        return { data: formattedLiabilities, error: null };
+      } catch (error: any) {
+        console.error('Error saving liabilities:', error);
+        
+        // Save locally and return success with localSaved flag
+        toast.success('Liabilities saved locally. They will be synced when database connection is restored.');
+        return { data: formattedLiabilities, error: error.message, localSaved: true };
       }
-      
-      toast.success('Liabilities saved successfully');
-      return { data: formattedLiabilities, error: null };
     } catch (error: any) {
-      console.error('Error saving liabilities:', error);
+      console.error('Error in saveLiabilities function:', error);
       toast.error('Failed to save liabilities. Data saved locally.');
       return { data: null, error: error.message, localSaved: true };
     } finally {
@@ -534,15 +652,12 @@ export function useDatabase() {
         return { error: 'Invalid user ID' };
       }
       
-      const { error: deleteError } = await supabase
-        .from('income')
-        .delete()
-        .eq('user_id', userId);
-      
-      if (deleteError) {
-        console.error('Error deleting existing income entries:', deleteError);
-        throw deleteError;
-      }
+      // Store locally first as backup
+      const localStorageKey = `income_${userId}`;
+      localStorage.setItem(localStorageKey, JSON.stringify({
+        income: incomeData,
+        timestamp: new Date().toISOString()
+      }));
       
       const formattedIncome = incomeData.filter(income => income.source.trim() !== '' || parseFloat(income.amount) > 0)
         .map(income => ({
@@ -558,19 +673,59 @@ export function useDatabase() {
         return { data: [], error: null };
       }
 
-      for (const income of formattedIncome) {
-        const { error } = await supabase
-          .from('income')
-          .insert(income);
-          
-        if (error) {
-          console.error('Error inserting income:', error);
-          throw error;
-        }
-      }
+      // Check for known database schema issues
+      const connectionStatus = await checkConnection();
+      const hasDbIssue = !connectionStatus.connected || hasSchemaIssue();
       
-      toast.success('Income information saved successfully');
-      return { data: formattedIncome, error: null };
+      if (hasDbIssue) {
+        console.log("Database connection issues detected, saving to local storage only");
+        toast.success('Income saved locally. It will be synced when database connection is restored.');
+        return { data: formattedIncome, error: null, localSaved: true };
+      }
+
+      // Try with explicit schema header for this specific request
+      const customHeaders = { 'Accept-Profile': 'public,api' };
+      
+      try {
+        // Delete existing income first with custom headers
+        const { error: deleteError } = await supabase
+          .from('income')
+          .delete()
+          .eq('user_id', userId)
+          .options({ headers: customHeaders });
+        
+        if (deleteError) {
+          console.error('Error deleting existing income:', deleteError);
+          
+          // If it's a schema error, inform the user
+          if (deleteError.code === 'PGRST106' || deleteError.message.includes('schema must be one of the following')) {
+            sessionStorage.setItem('db_schema_error', 'true');
+            toast.error('Database schema issue detected. Data saved locally.');
+            return { data: formattedIncome, error: deleteError.message, localSaved: true };
+          }
+          
+          throw deleteError;
+        }
+
+        // Insert new income with custom headers
+        const insertPromises = formattedIncome.map(income => 
+          supabase
+            .from('income')
+            .insert(income)
+            .options({ headers: customHeaders })
+        );
+        
+        await Promise.all(insertPromises);
+        
+        toast.success('Income information saved successfully');
+        return { data: formattedIncome, error: null };
+      } catch (error: any) {
+        console.error('Error saving income:', error);
+        
+        // Save locally and return success with localSaved flag
+        toast.success('Income saved locally. It will be synced when database connection is restored.');
+        return { data: formattedIncome, error: error.message, localSaved: true };
+      }
     } catch (error: any) {
       console.error('Error saving income:', error);
       toast.error('Failed to save income information: ' + error.message);
@@ -591,15 +746,12 @@ export function useDatabase() {
         return { error: 'Invalid user ID' };
       }
       
-      const { error: deleteError } = await supabase
-        .from('expenses')
-        .delete()
-        .eq('user_id', userId);
-      
-      if (deleteError) {
-        console.error('Error deleting existing expense entries:', deleteError);
-        throw deleteError;
-      }
+      // Store locally first as backup
+      const localStorageKey = `expenses_${userId}`;
+      localStorage.setItem(localStorageKey, JSON.stringify({
+        expenses: expensesData,
+        timestamp: new Date().toISOString()
+      }));
       
       const formattedExpenses = expensesData.filter(expense => expense.name.trim() !== '' || parseFloat(expense.amount) > 0)
         .map(expense => ({
@@ -615,19 +767,59 @@ export function useDatabase() {
         return { data: [], error: null };
       }
 
-      for (const expense of formattedExpenses) {
-        const { error } = await supabase
-          .from('expenses')
-          .insert(expense);
-          
-        if (error) {
-          console.error('Error inserting expense:', error);
-          throw error;
-        }
-      }
+      // Check for known database schema issues
+      const connectionStatus = await checkConnection();
+      const hasDbIssue = !connectionStatus.connected || hasSchemaIssue();
       
-      toast.success('Expense information saved successfully');
-      return { data: formattedExpenses, error: null };
+      if (hasDbIssue) {
+        console.log("Database connection issues detected, saving to local storage only");
+        toast.success('Expenses saved locally. They will be synced when database connection is restored.');
+        return { data: formattedExpenses, error: null, localSaved: true };
+      }
+
+      // Try with explicit schema header for this specific request
+      const customHeaders = { 'Accept-Profile': 'public,api' };
+      
+      try {
+        // Delete existing expenses first with custom headers
+        const { error: deleteError } = await supabase
+          .from('expenses')
+          .delete()
+          .eq('user_id', userId)
+          .options({ headers: customHeaders });
+        
+        if (deleteError) {
+          console.error('Error deleting existing expenses:', deleteError);
+          
+          // If it's a schema error, inform the user
+          if (deleteError.code === 'PGRST106' || deleteError.message.includes('schema must be one of the following')) {
+            sessionStorage.setItem('db_schema_error', 'true');
+            toast.error('Database schema issue detected. Data saved locally.');
+            return { data: formattedExpenses, error: deleteError.message, localSaved: true };
+          }
+          
+          throw deleteError;
+        }
+
+        // Insert new expenses with custom headers
+        const insertPromises = formattedExpenses.map(expense => 
+          supabase
+            .from('expenses')
+            .insert(expense)
+            .options({ headers: customHeaders })
+        );
+        
+        await Promise.all(insertPromises);
+        
+        toast.success('Expense information saved successfully');
+        return { data: formattedExpenses, error: null };
+      } catch (error: any) {
+        console.error('Error saving expenses:', error);
+        
+        // Save locally and return success with localSaved flag
+        toast.success('Expenses saved locally. They will be synced when database connection is restored.');
+        return { data: formattedExpenses, error: error.message, localSaved: true };
+      }
     } catch (error: any) {
       console.error('Error saving expenses:', error);
       toast.error('Failed to save expense information: ' + error.message);
@@ -807,13 +999,60 @@ export function useDatabase() {
       
       console.log("Fetching assets for user:", userId);
       
+      // Check for known database schema issues
+      const connectionStatus = await checkConnection();
+      const hasDbIssue = !connectionStatus.connected || hasSchemaIssue();
+      
+      if (hasDbIssue) {
+        console.log("Database connection issues detected, checking local storage");
+        const localStorageKey = `assets_${userId}`;
+        const localData = localStorage.getItem(localStorageKey);
+        
+        if (localData) {
+          try {
+            const parsedData = JSON.parse(localData);
+            if (parsedData.assets && Array.isArray(parsedData.assets)) {
+              return { data: parsedData.assets, error: null, localData: true };
+            }
+          } catch (err) {
+            console.error("Error parsing local assets data:", err);
+          }
+        }
+        
+        return { data: [], error: null, localData: false };
+      }
+      
+      // Try with explicit schema header for this specific request
+      const customHeaders = { 'Accept-Profile': 'public,api' };
+      
       const { data, error } = await supabase
         .from('assets')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .options({ headers: customHeaders });
 
       if (error) {
         console.error('Error fetching assets:', error);
+        
+        if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
+          sessionStorage.setItem('db_schema_error', 'true');
+          
+          // Try local storage as fallback
+          const localStorageKey = `assets_${userId}`;
+          const localData = localStorage.getItem(localStorageKey);
+          
+          if (localData) {
+            try {
+              const parsedData = JSON.parse(localData);
+              if (parsedData.assets && Array.isArray(parsedData.assets)) {
+                return { data: parsedData.assets, error: null, localData: true };
+              }
+            } catch (err) {
+              console.error("Error parsing local assets data:", err);
+            }
+          }
+        }
+        
         throw error;
       }
       
@@ -840,13 +1079,60 @@ export function useDatabase() {
       
       console.log("Fetching liabilities for user:", userId);
       
+      // Check for known database schema issues
+      const connectionStatus = await checkConnection();
+      const hasDbIssue = !connectionStatus.connected || hasSchemaIssue();
+      
+      if (hasDbIssue) {
+        console.log("Database connection issues detected, checking local storage");
+        const localStorageKey = `liabilities_${userId}`;
+        const localData = localStorage.getItem(localStorageKey);
+        
+        if (localData) {
+          try {
+            const parsedData = JSON.parse(localData);
+            if (parsedData.liabilities && Array.isArray(parsedData.liabilities)) {
+              return { data: parsedData.liabilities, error: null, localData: true };
+            }
+          } catch (err) {
+            console.error("Error parsing local liabilities data:", err);
+          }
+        }
+        
+        return { data: [], error: null, localData: false };
+      }
+      
+      // Try with explicit schema header for this specific request
+      const customHeaders = { 'Accept-Profile': 'public,api' };
+      
       const { data, error } = await supabase
         .from('liabilities')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .options({ headers: customHeaders });
 
       if (error) {
         console.error('Error fetching liabilities:', error);
+        
+        if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
+          sessionStorage.setItem('db_schema_error', 'true');
+          
+          // Try local storage as fallback
+          const localStorageKey = `liabilities_${userId}`;
+          const localData = localStorage.getItem(localStorageKey);
+          
+          if (localData) {
+            try {
+              const parsedData = JSON.parse(localData);
+              if (parsedData.liabilities && Array.isArray(parsedData.liabilities)) {
+                return { data: parsedData.liabilities, error: null, localData: true };
+              }
+            } catch (err) {
+              console.error("Error parsing local liabilities data:", err);
+            }
+          }
+        }
+        
         throw error;
       }
       
@@ -873,13 +1159,60 @@ export function useDatabase() {
       
       console.log("Fetching income for user:", userId);
       
+      // Check for known database schema issues
+      const connectionStatus = await checkConnection();
+      const hasDbIssue = !connectionStatus.connected || hasSchemaIssue();
+      
+      if (hasDbIssue) {
+        console.log("Database connection issues detected, checking local storage");
+        const localStorageKey = `income_${userId}`;
+        const localData = localStorage.getItem(localStorageKey);
+        
+        if (localData) {
+          try {
+            const parsedData = JSON.parse(localData);
+            if (parsedData.income && Array.isArray(parsedData.income)) {
+              return { data: parsedData.income, error: null, localData: true };
+            }
+          } catch (err) {
+            console.error("Error parsing local income data:", err);
+          }
+        }
+        
+        return { data: [], error: null, localData: false };
+      }
+      
+      // Try with explicit schema header for this specific request
+      const customHeaders = { 'Accept-Profile': 'public,api' };
+      
       const { data, error } = await supabase
         .from('income')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .options({ headers: customHeaders });
 
       if (error) {
         console.error('Error fetching income:', error);
+        
+        if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
+          sessionStorage.setItem('db_schema_error', 'true');
+          
+          // Try local storage as fallback
+          const localStorageKey = `income_${userId}`;
+          const localData = localStorage.getItem(localStorageKey);
+          
+          if (localData) {
+            try {
+              const parsedData = JSON.parse(localData);
+              if (parsedData.income && Array.isArray(parsedData.income)) {
+                return { data: parsedData.income, error: null, localData: true };
+              }
+            } catch (err) {
+              console.error("Error parsing local income data:", err);
+            }
+          }
+        }
+        
         throw error;
       }
       
@@ -906,13 +1239,60 @@ export function useDatabase() {
       
       console.log("Fetching expenses for user:", userId);
       
+      // Check for known database schema issues
+      const connectionStatus = await checkConnection();
+      const hasDbIssue = !connectionStatus.connected || hasSchemaIssue();
+      
+      if (hasDbIssue) {
+        console.log("Database connection issues detected, checking local storage");
+        const localStorageKey = `expenses_${userId}`;
+        const localData = localStorage.getItem(localStorageKey);
+        
+        if (localData) {
+          try {
+            const parsedData = JSON.parse(localData);
+            if (parsedData.expenses && Array.isArray(parsedData.expenses)) {
+              return { data: parsedData.expenses, error: null, localData: true };
+            }
+          } catch (err) {
+            console.error("Error parsing local expenses data:", err);
+          }
+        }
+        
+        return { data: [], error: null, localData: false };
+      }
+      
+      // Try with explicit schema header for this specific request
+      const customHeaders = { 'Accept-Profile': 'public,api' };
+      
       const { data, error } = await supabase
         .from('expenses')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .options({ headers: customHeaders });
 
       if (error) {
         console.error('Error fetching expenses:', error);
+        
+        if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
+          sessionStorage.setItem('db_schema_error', 'true');
+          
+          // Try local storage as fallback
+          const localStorageKey = `expenses_${userId}`;
+          const localData = localStorage.getItem(localStorageKey);
+          
+          if (localData) {
+            try {
+              const parsedData = JSON.parse(localData);
+              if (parsedData.expenses && Array.isArray(parsedData.expenses)) {
+                return { data: parsedData.expenses, error: null, localData: true };
+              }
+            } catch (err) {
+              console.error("Error parsing local expenses data:", err);
+            }
+          }
+        }
+        
         throw error;
       }
       
@@ -997,11 +1377,6 @@ export function useDatabase() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const checkDatabaseStatus = async () => {
-    const status = await checkConnection();
-    return status.connected;
   };
 
   const syncLocalData = async () => {

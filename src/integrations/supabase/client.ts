@@ -36,17 +36,29 @@ const checkConnection = async () => {
   try {
     console.log('Checking Supabase database connection...');
     
-    // Try a simple query to validate connection
-    const { data, error } = await supabase.from('profiles').select('id').limit(1);
+    // Try a simple query to validate connection with explicit schema
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id')
+      .limit(1);
     
     if (error) {
+      console.error('Database connection error:', error.message);
+      
       if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
         console.error('Database schema error detected:', error.message);
         // Store a flag in session storage indicating schema issue
         sessionStorage.setItem('db_schema_error', 'true');
+        
+        // Check if there's an API schema specified in the error message
+        if (error.message.includes('api')) {
+          console.log('Detected API schema requirement, updating client configuration');
+          // Update global schema for future requests
+          supabase.rest.headers.update({ 'Accept-Profile': 'api,public' });
+        }
+        
         return { connected: false, reason: 'schema_error', error };
       } else {
-        console.error('Database connection error:', error.message);
         return { connected: false, reason: 'connection_error', error };
       }
     } else {

@@ -1,22 +1,72 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import AssetLiabilityForm from '@/components/finance/AssetLiabilityForm';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Info, Database } from 'lucide-react';
+import { Info, Database, RefreshCw } from 'lucide-react';
 import { useDatabase } from '@/hooks/useDatabase';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
+import { supabase, checkConnection } from '@/integrations/supabase/client';
 
 const AssetsLiabilitiesPage = () => {
   const { checkDatabaseStatus } = useDatabase();
-  const [dbConnected, setDbConnected] = React.useState<boolean | null>(null);
+  const [dbConnected, setDbConnected] = useState<boolean | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
 
-  React.useEffect(() => {
-    const checkDb = async () => {
-      const isConnected = await checkDatabaseStatus();
-      setDbConnected(isConnected);
-    };
+  const checkDb = async () => {
+    setIsChecking(true);
+    try {
+      // First try direct connection check
+      const connectionResult = await checkConnection();
+      const isConnected = connectionResult.connected;
+      
+      // Then check database status through the hook
+      const hookStatus = await checkDatabaseStatus();
+      
+      // Use a combination of both results
+      setDbConnected(isConnected && hookStatus);
+      
+      if (isConnected && hookStatus) {
+        // Clear any previous schema error
+        sessionStorage.removeItem('db_schema_error');
+      }
+      
+      return isConnected && hookStatus;
+    } catch (error) {
+      console.error("Error checking database status:", error);
+      setDbConnected(false);
+      return false;
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
+  const handleRetryConnection = async () => {
+    setIsChecking(true);
+    toast.info("Checking database connection...");
     
+    try {
+      // Update headers to try different schema
+      supabase.rest.headers.update({ 'Accept-Profile': 'public,api' });
+      
+      const isConnected = await checkDb();
+      
+      if (isConnected) {
+        toast.success("Database connection restored!");
+      } else {
+        toast.error("Still having connection issues. Your data will be saved locally.");
+      }
+    } catch (error) {
+      console.error("Error retrying connection:", error);
+      toast.error("Connection retry failed. Please try again later.");
+    } finally {
+      setIsChecking(false);
+    }
+  };
+  
+  useEffect(() => {
     checkDb();
   }, [checkDatabaseStatus]);
   
@@ -33,7 +83,19 @@ const AssetsLiabilitiesPage = () => {
         {dbConnected === false && (
           <Alert className="bg-amber-50 border-amber-200">
             <Database className="h-4 w-4 text-amber-500" />
-            <AlertTitle>Database Connection Notice</AlertTitle>
+            <AlertTitle className="flex items-center justify-between">
+              <span>Database Connection Notice</span>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="flex items-center gap-1 text-xs"
+                onClick={handleRetryConnection}
+                disabled={isChecking}
+              >
+                <RefreshCw className={`h-3 w-3 ${isChecking ? 'animate-spin' : ''}`} />
+                Retry Connection
+              </Button>
+            </AlertTitle>
             <AlertDescription>
               We're experiencing temporary database connection issues. Your data will be saved locally and synced when the connection is restored.
             </AlertDescription>
