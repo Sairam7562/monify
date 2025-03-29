@@ -49,7 +49,14 @@ const AssetsLiabilitiesPage = () => {
     
     try {
       // Update headers to try different schema
-      supabase.rest.headers.update({ 'Accept-Profile': 'public,api' });
+      supabase.auth.setSession({
+        access_token: '',
+        refresh_token: ''
+      }, {
+        headers: {
+          'Accept-Profile': 'public,api'
+        }
+      });
       
       const isConnected = await checkDb();
       

@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import { supabase, checkConnection } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -100,7 +101,14 @@ export function useDatabase() {
         
         console.log("Attempting to update client configuration to use API schema");
         // Try updating Accept-Profile header
-        supabase.rest.headers.update({ 'Accept-Profile': 'api,public' });
+        supabase.auth.setSession({
+          access_token: '',
+          refresh_token: ''
+        }, {
+          headers: {
+            'Accept-Profile': 'api,public'
+          }
+        });
         
         // Try a second connection check
         const retryStatus = await checkConnection();
@@ -490,16 +498,22 @@ export function useDatabase() {
         return { data: formattedAssets, error: null, localSaved: true };
       }
 
-      // Try with explicit schema header for this specific request
-      const customHeaders = { 'Accept-Profile': 'public,api' };
+      // Apply headers for all requests using auth setSession
+      supabase.auth.setSession({
+        access_token: '',
+        refresh_token: ''
+      }, {
+        headers: {
+          'Accept-Profile': 'public,api'
+        }
+      });
       
       try {
-        // Delete existing assets first with custom headers
+        // Delete existing assets first
         const { error: deleteError } = await supabase
           .from('assets')
           .delete()
-          .eq('user_id', userId)
-          .options({ headers: customHeaders });
+          .eq('user_id', userId);
         
         if (deleteError) {
           console.error('Error deleting existing assets:', deleteError);
@@ -514,12 +528,11 @@ export function useDatabase() {
           throw deleteError;
         }
 
-        // Insert new assets with custom headers
+        // Insert new assets
         const insertPromises = formattedAssets.map(asset => 
           supabase
             .from('assets')
             .insert(asset)
-            .options({ headers: customHeaders })
         );
         
         await Promise.all(insertPromises);
@@ -589,16 +602,22 @@ export function useDatabase() {
         return { data: formattedLiabilities, error: null, localSaved: true };
       }
 
-      // Try with explicit schema header for this specific request
-      const customHeaders = { 'Accept-Profile': 'public,api' };
+      // Apply headers for all requests using auth setSession
+      supabase.auth.setSession({
+        access_token: '',
+        refresh_token: ''
+      }, {
+        headers: {
+          'Accept-Profile': 'public,api'
+        }
+      });
 
       try {
-        // Delete existing liabilities first with custom headers
+        // Delete existing liabilities first
         const { error: deleteError } = await supabase
           .from('liabilities')
           .delete()
-          .eq('user_id', userId)
-          .options({ headers: customHeaders });
+          .eq('user_id', userId);
         
         if (deleteError) {
           console.error('Error deleting existing liabilities:', deleteError);
@@ -613,12 +632,11 @@ export function useDatabase() {
           throw deleteError;
         }
 
-        // Insert new liabilities with custom headers
+        // Insert new liabilities
         const insertPromises = formattedLiabilities.map(liability => 
           supabase
             .from('liabilities')
             .insert(liability)
-            .options({ headers: customHeaders })
         );
         
         await Promise.all(insertPromises);
@@ -683,16 +701,22 @@ export function useDatabase() {
         return { data: formattedIncome, error: null, localSaved: true };
       }
 
-      // Try with explicit schema header for this specific request
-      const customHeaders = { 'Accept-Profile': 'public,api' };
+      // Apply headers for all requests using auth setSession
+      supabase.auth.setSession({
+        access_token: '',
+        refresh_token: ''
+      }, {
+        headers: {
+          'Accept-Profile': 'public,api'
+        }
+      });
       
       try {
-        // Delete existing income first with custom headers
+        // Delete existing income first
         const { error: deleteError } = await supabase
           .from('income')
           .delete()
-          .eq('user_id', userId)
-          .options({ headers: customHeaders });
+          .eq('user_id', userId);
         
         if (deleteError) {
           console.error('Error deleting existing income:', deleteError);
@@ -707,12 +731,11 @@ export function useDatabase() {
           throw deleteError;
         }
 
-        // Insert new income with custom headers
+        // Insert new income
         const insertPromises = formattedIncome.map(income => 
           supabase
             .from('income')
             .insert(income)
-            .options({ headers: customHeaders })
         );
         
         await Promise.all(insertPromises);
@@ -777,16 +800,22 @@ export function useDatabase() {
         return { data: formattedExpenses, error: null, localSaved: true };
       }
 
-      // Try with explicit schema header for this specific request
-      const customHeaders = { 'Accept-Profile': 'public,api' };
+      // Apply headers for all requests using auth setSession
+      supabase.auth.setSession({
+        access_token: '',
+        refresh_token: ''
+      }, {
+        headers: {
+          'Accept-Profile': 'public,api'
+        }
+      });
       
       try {
-        // Delete existing expenses first with custom headers
+        // Delete existing expenses first
         const { error: deleteError } = await supabase
           .from('expenses')
           .delete()
-          .eq('user_id', userId)
-          .options({ headers: customHeaders });
+          .eq('user_id', userId);
         
         if (deleteError) {
           console.error('Error deleting existing expenses:', deleteError);
@@ -801,12 +830,11 @@ export function useDatabase() {
           throw deleteError;
         }
 
-        // Insert new expenses with custom headers
+        // Insert new expenses
         const insertPromises = formattedExpenses.map(expense => 
           supabase
             .from('expenses')
             .insert(expense)
-            .options({ headers: customHeaders })
         );
         
         await Promise.all(insertPromises);
@@ -1022,14 +1050,20 @@ export function useDatabase() {
         return { data: [], error: null, localData: false };
       }
       
-      // Try with explicit schema header for this specific request
-      const customHeaders = { 'Accept-Profile': 'public,api' };
+      // Apply headers for all requests using auth setSession
+      supabase.auth.setSession({
+        access_token: '',
+        refresh_token: ''
+      }, {
+        headers: {
+          'Accept-Profile': 'public,api'
+        }
+      });
       
       const { data, error } = await supabase
         .from('assets')
         .select('*')
-        .eq('user_id', userId)
-        .options({ headers: customHeaders });
+        .eq('user_id', userId);
 
       if (error) {
         console.error('Error fetching assets:', error);
@@ -1102,14 +1136,20 @@ export function useDatabase() {
         return { data: [], error: null, localData: false };
       }
       
-      // Try with explicit schema header for this specific request
-      const customHeaders = { 'Accept-Profile': 'public,api' };
+      // Apply headers for all requests using auth setSession
+      supabase.auth.setSession({
+        access_token: '',
+        refresh_token: ''
+      }, {
+        headers: {
+          'Accept-Profile': 'public,api'
+        }
+      });
       
       const { data, error } = await supabase
         .from('liabilities')
         .select('*')
-        .eq('user_id', userId)
-        .options({ headers: customHeaders });
+        .eq('user_id', userId);
 
       if (error) {
         console.error('Error fetching liabilities:', error);
@@ -1182,14 +1222,20 @@ export function useDatabase() {
         return { data: [], error: null, localData: false };
       }
       
-      // Try with explicit schema header for this specific request
-      const customHeaders = { 'Accept-Profile': 'public,api' };
+      // Apply headers for all requests using auth setSession
+      supabase.auth.setSession({
+        access_token: '',
+        refresh_token: ''
+      }, {
+        headers: {
+          'Accept-Profile': 'public,api'
+        }
+      });
       
       const { data, error } = await supabase
         .from('income')
         .select('*')
-        .eq('user_id', userId)
-        .options({ headers: customHeaders });
+        .eq('user_id', userId);
 
       if (error) {
         console.error('Error fetching income:', error);
@@ -1262,14 +1308,20 @@ export function useDatabase() {
         return { data: [], error: null, localData: false };
       }
       
-      // Try with explicit schema header for this specific request
-      const customHeaders = { 'Accept-Profile': 'public,api' };
+      // Apply headers for all requests using auth setSession
+      supabase.auth.setSession({
+        access_token: '',
+        refresh_token: ''
+      }, {
+        headers: {
+          'Accept-Profile': 'public,api'
+        }
+      });
       
       const { data, error } = await supabase
         .from('expenses')
         .select('*')
-        .eq('user_id', userId)
-        .options({ headers: customHeaders });
+        .eq('user_id', userId);
 
       if (error) {
         console.error('Error fetching expenses:', error);
