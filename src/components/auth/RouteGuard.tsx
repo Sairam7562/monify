@@ -1,5 +1,5 @@
 
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState, useRef } from 'react';
 import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Spinner } from '@/components/ui/spinner';
@@ -16,6 +16,8 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
   const navigate = useNavigate();
   const location = useLocation();
   const [isChecking, setIsChecking] = useState(true);
+  const redirectAttempts = useRef(0);
+  const lastRedirectTime = useRef(0);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -49,8 +51,25 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
         return;
       }
       
+      // Prevent redirect loops
+      const now = Date.now();
+      if (now - lastRedirectTime.current < 2000) { // Less than 2 seconds since last redirect
+        redirectAttempts.current++;
+        
+        if (redirectAttempts.current > 3) {
+          console.error("Detected potential redirect loop, stopping redirection");
+          setIsChecking(false);
+          toast.error("Authentication error detected. Please try refreshing the page.");
+          return;
+        }
+      } else {
+        // Reset counter if it's been more than 2 seconds
+        redirectAttempts.current = 0;
+      }
+      
       // If page requires authentication and user is not logged in, redirect to login
       if (requireAuth && !user) {
+        lastRedirectTime.current = now;
         toast.error("Please log in to access this page");
         navigate('/login', { state: { from: location.pathname } });
         return;
@@ -58,6 +77,7 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
       
       // If page requires admin and user is not an admin, redirect to dashboard
       if (requireAdmin && user?.role !== 'admin' && user?.role !== 'Admin') {
+        lastRedirectTime.current = now;
         toast.error("You don't have permission to access this page");
         navigate('/dashboard');
         return;

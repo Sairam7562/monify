@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState, useRef } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/services/userService';
@@ -25,20 +25,54 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
+  const initializingAuth = useRef(true);
+  
+  // Prevent excessive toast notifications
+  const toastTimestamps = useRef<Record<string, number>>({});
+  
+  const showThrottledToast = (id: string, type: 'success' | 'error' | 'info', message: string) => {
+    const now = Date.now();
+    const lastShown = toastTimestamps.current[id] || 0;
+    
+    // Only show toast if it hasn't been shown in the last 5 seconds
+    if (now - lastShown > 5000) {
+      toastTimestamps.current[id] = now;
+      if (type === 'success') toast.success(message);
+      else if (type === 'error') toast.error(message);
+      else toast.info(message);
+    }
+  };
 
   useEffect(() => {
     console.log("Setting up auth state listener");
-
+    
     // Check for hash params from email verification
     const hasHashParams = window.location.hash && window.location.hash.includes('type=recovery');
     if (hasHashParams) {
       console.log("Hash parameters detected, handling authentication...");
     }
     
-    // Set up the auth state listener first
+    // Prevent multiple subscriptions
+    if (subscriptionRef.current) {
+      subscriptionRef.current.unsubscribe();
+    }
+    
+    // First set up the listener before checking for an existing session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
         console.log("Auth state change event:", event);
+        
+        if (initializingAuth.current) {
+          // Skip toast notifications during initial auth setup
+          console.log("Initializing auth, skipping notifications");
+          setSession(newSession);
+          setSupabaseUser(newSession?.user ?? null);
+          setUser(newSession?.user ? supabaseUserToUser(newSession.user) : null);
+          initializingAuth.current = false;
+          return;
+        }
+        
         setSession(newSession);
         setSupabaseUser(newSession?.user ?? null);
         setUser(newSession?.user ? supabaseUserToUser(newSession.user) : null);
@@ -46,21 +80,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         // Use a type assertion to treat the event as our extended AuthChangeEvent type
         const authEvent = event as AuthChangeEvent;
         
+        // Only show notifications for major events (not TOKEN_REFRESHED)
         if (authEvent === 'SIGNED_IN') {
-          toast.success("Signed in successfully!");
+          showThrottledToast('signed-in', 'success', "Signed in successfully!");
         } else if (authEvent === 'SIGNED_OUT') {
-          toast.success("Signed out successfully");
-        } else if (authEvent === 'TOKEN_REFRESHED') {
-          console.log("Auth token refreshed");
+          showThrottledToast('signed-out', 'success', "Signed out successfully");
         } else if (authEvent === 'USER_UPDATED') {
-          toast.success("User profile updated");
+          showThrottledToast('user-updated', 'success', "User profile updated");
         } else if (authEvent === 'PASSWORD_RECOVERY') {
-          toast.info("Password recovery initiated");
+          showThrottledToast('password-recovery', 'info', "Password recovery initiated");
         } else if (authEvent === 'USER_DELETED') {
-          toast.info("Account deleted");
+          showThrottledToast('user-deleted', 'info', "Account deleted");
         }
       }
     );
+    
+    subscriptionRef.current = subscription;
 
     // Then check for existing session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
@@ -69,11 +104,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setSupabaseUser(currentSession?.user ?? null);
       setUser(currentSession?.user ? supabaseUserToUser(currentSession.user) : null);
       setLoading(false);
+      initializingAuth.current = false;
     });
 
     return () => {
       console.log("Cleaning up auth subscription");
-      subscription.unsubscribe();
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+      }
     };
   }, []);
 

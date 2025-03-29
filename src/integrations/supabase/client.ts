@@ -9,6 +9,9 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+// Create a lock to prevent multiple simultaneous token refreshes
+let isRefreshing = false;
+
 export const supabase = createClient<Database>(
   SUPABASE_URL, 
   SUPABASE_PUBLISHABLE_KEY,
@@ -16,7 +19,7 @@ export const supabase = createClient<Database>(
     auth: {
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: true,
+      detectSessionInUrl: false, // Changed to false to prevent URL token detection loops
       flowType: 'pkce',
       storage: localStorage,
     },
@@ -26,7 +29,7 @@ export const supabase = createClient<Database>(
       },
     },
     db: {
-      schema: 'public',
+      schema: 'api', // Changed to api schema based on error logs
     },
   }
 );
@@ -50,21 +53,7 @@ const checkConnection = async () => {
         // Store a flag in session storage indicating schema issue
         sessionStorage.setItem('db_schema_error', 'true');
         
-        // Check if there's an API schema specified in the error message
-        if (error.message.includes('api')) {
-          console.log('Detected API schema requirement, updating client configuration');
-          // Update auth session to refresh token and potentially fix schema issues
-          await supabase.auth.getSession().then(({ data }) => {
-            if (data.session) {
-              return supabase.auth.setSession({
-                access_token: data.session.access_token,
-                refresh_token: data.session.refresh_token
-              });
-            }
-            return null;
-          });
-        }
-        
+        // No need to attempt token refresh on schema issues
         return { connected: false, reason: 'schema_error', error };
       } else {
         return { connected: false, reason: 'connection_error', error };
@@ -94,17 +83,50 @@ checkConnection().then(result => {
   }
 });
 
-// Configure the redirect URL for authentication
+// Configure the redirect URL for authentication and prevent auth loops
+let authChangeCount = 0;
+const MAX_AUTH_CHANGES = 10;
+const AUTH_CHANGE_TIMEOUT = 5000; // 5 seconds
+let lastAuthChange = 0;
+
 supabase.auth.onAuthStateChange((event, session) => {
+  const now = Date.now();
+  
+  // Check if we're in a potential auth loop
+  if (now - lastAuthChange < 1000) { // If changes are happening faster than once per second
+    authChangeCount++;
+    console.warn(`Rapid auth state changes detected: ${authChangeCount}`);
+    
+    if (authChangeCount > MAX_AUTH_CHANGES) {
+      console.error("Auth loop detected, ignoring further auth changes for 5 seconds");
+      // Skip processing this auth change to break the loop
+      setTimeout(() => {
+        authChangeCount = 0; // Reset counter after timeout
+      }, AUTH_CHANGE_TIMEOUT);
+      return;
+    }
+  } else {
+    // Reset counter if changes aren't happening rapidly
+    authChangeCount = 0;
+  }
+  
+  lastAuthChange = now;
+  
+  // Process the auth event
+  console.log(`Auth state change event: ${event}`);
+  
   if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
     // Set redirect URL for the current origin
-    const redirectTo = `${window.location.origin}/verify-email`;
+    const redirectTo = `${window.location.origin}/dashboard`;
     console.log("Setting redirect URL to:", redirectTo);
     
     // Check connection again after sign in
-    checkConnection().then(result => {
-      console.log('Post-auth database check result:', result);
-    });
+    // Use setTimeout to avoid potential recursive loop
+    setTimeout(() => {
+      checkConnection().then(result => {
+        console.log('Post-auth database check result:', result);
+      });
+    }, 0);
   }
 });
 
