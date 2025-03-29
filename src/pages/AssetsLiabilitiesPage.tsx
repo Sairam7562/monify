@@ -4,9 +4,22 @@ import MainLayout from '@/components/layout/MainLayout';
 import AssetLiabilityForm from '@/components/finance/AssetLiabilityForm';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Info } from 'lucide-react';
+import { Info, Database } from 'lucide-react';
+import { useDatabase } from '@/hooks/useDatabase';
 
 const AssetsLiabilitiesPage = () => {
+  const { checkDatabaseStatus } = useDatabase();
+  const [dbConnected, setDbConnected] = React.useState<boolean | null>(null);
+
+  React.useEffect(() => {
+    const checkDb = async () => {
+      const isConnected = await checkDatabaseStatus();
+      setDbConnected(isConnected);
+    };
+    
+    checkDb();
+  }, [checkDatabaseStatus]);
+  
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -17,12 +30,23 @@ const AssetsLiabilitiesPage = () => {
           </p>
         </div>
         
+        {dbConnected === false && (
+          <Alert className="bg-amber-50 border-amber-200">
+            <Database className="h-4 w-4 text-amber-500" />
+            <AlertTitle>Database Connection Notice</AlertTitle>
+            <AlertDescription>
+              We're experiencing temporary database connection issues. Your data will be saved locally and synced when the connection is restored.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <Alert className="bg-monify-purple-50 border-monify-purple-200">
           <Info className="h-4 w-4 text-monify-purple-500" />
           <AlertTitle>Understanding Your Net Worth</AlertTitle>
           <AlertDescription>
             Your net worth is calculated by subtracting your total liabilities from your total assets. 
             Monitoring this value over time helps you track your financial progress.
+            Use the save buttons to save each item individually or use the "Save All" button at the bottom.
           </AlertDescription>
         </Alert>
         

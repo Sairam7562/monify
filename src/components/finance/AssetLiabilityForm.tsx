@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -144,7 +143,6 @@ const AssetLiabilityForm = () => {
   }, [liabilities]);
 
   useEffect(() => {
-    // Check if all items are saved
     const allAssetsSaved = assets.every(asset => asset.saved);
     const allLiabilitiesSaved = liabilities.every(liability => liability.saved);
     setAllDataSaved(allAssetsSaved && allLiabilitiesSaved);
@@ -193,16 +191,34 @@ const AssetLiabilityForm = () => {
     setIsSavingAsset(prev => ({ ...prev, [id]: true }));
     
     try {
-      // Find the asset to save
+      console.log("Saving asset with ID:", id);
       const assetToSave = assets.find(asset => asset.id === id);
       if (!assetToSave) {
         throw new Error("Asset not found");
       }
       
-      // Save just this asset
-      await saveAssets([assetToSave]);
+      if (!assetToSave.name.trim()) {
+        toast.error("Asset name is required");
+        setIsSavingAsset(prev => ({ ...prev, [id]: false }));
+        return;
+      }
       
-      // Mark this asset as saved
+      if (!assetToSave.value || isNaN(Number(assetToSave.value))) {
+        toast.error("Please enter a valid asset value");
+        setIsSavingAsset(prev => ({ ...prev, [id]: false }));
+        return;
+      }
+      
+      const backupKey = `asset_backup_${id}_${user.id}`;
+      localStorage.setItem(backupKey, JSON.stringify(assetToSave));
+      
+      const result = await saveAssets([assetToSave]);
+      
+      if (result.error) {
+        console.error("Error from saveAssets:", result.error);
+        throw new Error(result.error);
+      }
+      
       setAssets(prevAssets => 
         prevAssets.map(asset => 
           asset.id === id ? { ...asset, saved: true } : asset
@@ -212,7 +228,7 @@ const AssetLiabilityForm = () => {
       toast.success(`Asset "${assetToSave.name || 'Unnamed Asset'}" saved successfully!`);
     } catch (error) {
       console.error("Error saving asset:", error);
-      toast.error("Failed to save asset. Please try again.");
+      toast.error("Failed to save asset. Please try again or refresh the page.");
     } finally {
       setIsSavingAsset(prev => ({ ...prev, [id]: false }));
     }
@@ -259,16 +275,34 @@ const AssetLiabilityForm = () => {
     setIsSavingLiability(prev => ({ ...prev, [id]: true }));
     
     try {
-      // Find the liability to save
+      console.log("Saving liability with ID:", id);
       const liabilityToSave = liabilities.find(liability => liability.id === id);
       if (!liabilityToSave) {
         throw new Error("Liability not found");
       }
       
-      // Save just this liability
-      await saveLiabilities([liabilityToSave]);
+      if (!liabilityToSave.name.trim()) {
+        toast.error("Liability name is required");
+        setIsSavingLiability(prev => ({ ...prev, [id]: false }));
+        return;
+      }
       
-      // Mark this liability as saved
+      if (!liabilityToSave.amount || isNaN(Number(liabilityToSave.amount))) {
+        toast.error("Please enter a valid liability amount");
+        setIsSavingLiability(prev => ({ ...prev, [id]: false }));
+        return;
+      }
+      
+      const backupKey = `liability_backup_${id}_${user.id}`;
+      localStorage.setItem(backupKey, JSON.stringify(liabilityToSave));
+      
+      const result = await saveLiabilities([liabilityToSave]);
+      
+      if (result.error) {
+        console.error("Error from saveLiabilities:", result.error);
+        throw new Error(result.error);
+      }
+      
       setLiabilities(prevLiabilities => 
         prevLiabilities.map(liability => 
           liability.id === id ? { ...liability, saved: true } : liability
@@ -278,7 +312,7 @@ const AssetLiabilityForm = () => {
       toast.success(`Liability "${liabilityToSave.name || 'Unnamed Liability'}" saved successfully!`);
     } catch (error) {
       console.error("Error saving liability:", error);
-      toast.error("Failed to save liability. Please try again.");
+      toast.error("Failed to save liability. Please try again or refresh the page.");
     } finally {
       setIsSavingLiability(prev => ({ ...prev, [id]: false }));
     }
@@ -292,19 +326,41 @@ const AssetLiabilityForm = () => {
       return;
     }
     
+    const hasEmptyAssets = assets.some(asset => !asset.name.trim() || !asset.value);
+    const hasEmptyLiabilities = liabilities.some(liability => !liability.name.trim() || !liability.amount);
+    
+    if (hasEmptyAssets || hasEmptyLiabilities) {
+      toast.error("Please complete all required fields before saving");
+      return;
+    }
+    
     try {
-      await saveAssets(assets);
-      await saveLiabilities(liabilities);
+      setAllDataSaved(false);
       
-      // Mark all items as saved
-      setAssets(prevAssets => prevAssets.map(asset => ({ ...asset, saved: true })));
-      setLiabilities(prevLiabilities => prevLiabilities.map(liability => ({ ...liability, saved: true })));
-      setAllDataSaved(true);
+      console.log("Saving all assets and liabilities");
       
-      toast.success("All financial information saved successfully!");
-    } catch (error) {
+      const assetsResult = await saveAssets(assets);
+      const liabilitiesResult = await saveLiabilities(liabilities);
+      
+      if (assetsResult.error || liabilitiesResult.error) {
+        if (assetsResult.error) console.error("Assets save error:", assetsResult.error);
+        if (liabilitiesResult.error) console.error("Liabilities save error:", liabilitiesResult.error);
+        
+        if (assetsResult.localSaved || liabilitiesResult.localSaved) {
+          toast.info("Data saved locally and will be synced when connection is restored");
+        } else {
+          throw new Error(assetsResult.error || liabilitiesResult.error);
+        }
+      } else {
+        setAssets(prevAssets => prevAssets.map(asset => ({ ...asset, saved: true })));
+        setLiabilities(prevLiabilities => prevLiabilities.map(liability => ({ ...liability, saved: true })));
+        setAllDataSaved(true);
+        
+        toast.success("All financial information saved successfully!");
+      }
+    } catch (error: any) {
       console.error("Error saving financial data:", error);
-      toast.error("Failed to save financial information. Please try again.");
+      toast.error("Failed to save all financial information. Please try again.");
     }
   };
 

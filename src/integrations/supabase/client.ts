@@ -36,89 +36,24 @@ const checkConnection = async () => {
   try {
     console.log('Checking Supabase database connection...');
     
-    // Perform more specific table checks to detect schema issues early
-    const tables = ['profiles', 'personal_info', 'assets', 'liabilities', 'income', 'expenses', 'business_info'];
-    let allTablesOk = true;
-    let firstError = null;
-    
-    // Check personal_info table specifically first (most important for this feature)
-    try {
-      const { data: personalInfoTest, error: personalInfoError } = await supabase
-        .from('personal_info')
-        .select('id')
-        .limit(1);
-        
-      if (personalInfoError) {
-        console.error('Error checking personal_info table:', personalInfoError);
-        allTablesOk = false;
-        firstError = firstError || personalInfoError;
-        
-        if (personalInfoError.code === 'PGRST106' || personalInfoError.message.includes('schema must be one of the following')) {
-          console.error('Database schema error detected in personal_info table');
-          sessionStorage.setItem('db_schema_error', 'true');
-        }
-      } else {
-        console.log('personal_info table check successful');
-      }
-    } catch (err) {
-      console.error('Exception checking personal_info table:', err);
-      allTablesOk = false;
-      firstError = firstError || err;
-    }
-    
-    // Check for business_info table - using type assertion to avoid TypeScript errors
-    try {
-      // @ts-ignore - we know this table exists even if TypeScript doesn't
-      const { data: businessInfoTest, error: businessInfoError } = await supabase
-        .from('business_info')
-        .select('id')
-        .limit(1);
-        
-      if (businessInfoError) {
-        console.error('Error checking business_info table:', businessInfoError);
-        if (businessInfoError.code === 'PGRST116' || businessInfoError.message.includes('relation "business_info" does not exist')) {
-          console.log('Business info table does not exist yet - this is expected for new installations');
-          // This is normal for new installations, don't mark as schema error
-        } else if (businessInfoError.code === 'PGRST106' || businessInfoError.message.includes('schema must be one of the following')) {
-          console.error('Database schema error detected in business_info table');
-          sessionStorage.setItem('db_schema_error', 'true');
-        }
-      } else {
-        console.log('business_info table check successful');
-      }
-    } catch (err) {
-      console.error('Exception checking business_info table:', err);
-      // Don't fail the whole connection check for business_info table
-    }
-    
     // Try a simple query to validate connection
-    if (allTablesOk) {
-      const { data, error } = await supabase.from('profiles').select('id').limit(1);
-      
-      if (error) {
-        if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
-          console.error('Database schema error detected:', error.message);
-          // Store a flag in session storage indicating schema issue
-          sessionStorage.setItem('db_schema_error', 'true');
-          return { connected: false, reason: 'schema_error', error };
-        } else {
-          console.error('Database connection error:', error.message);
-          return { connected: false, reason: 'connection_error', error };
-        }
+    const { data, error } = await supabase.from('profiles').select('id').limit(1);
+    
+    if (error) {
+      if (error.code === 'PGRST106' || error.message.includes('schema must be one of the following')) {
+        console.error('Database schema error detected:', error.message);
+        // Store a flag in session storage indicating schema issue
+        sessionStorage.setItem('db_schema_error', 'true');
+        return { connected: false, reason: 'schema_error', error };
       } else {
-        // Clear any previous schema error flag if connection is successful
-        console.log('Database connection successful, clearing schema error flag');
-        sessionStorage.removeItem('db_schema_error');
-        return { connected: true, data };
+        console.error('Database connection error:', error.message);
+        return { connected: false, reason: 'connection_error', error };
       }
     } else {
-      // Report the first error we encountered
-      return { 
-        connected: false, 
-        reason: 'schema_error', 
-        error: firstError,
-        message: 'Some tables are missing or have schema issues'
-      };
+      // Clear any previous schema error flag if connection is successful
+      console.log('Database connection successful, clearing schema error flag');
+      sessionStorage.removeItem('db_schema_error');
+      return { connected: true, data };
     }
   } catch (err) {
     console.error('Error checking database connection:', err);

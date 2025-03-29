@@ -374,22 +374,21 @@ export function useDatabase() {
       if (!user) return { error: 'Not authenticated' };
       
       setLoading(true);
+      console.log("Attempting to save assets for user:", user.id);
       
       const userId = user.id?.toString();
       if (!userId) {
         return { error: 'Invalid user ID' };
       }
       
-      const { error: deleteError } = await supabase
-        .from('assets')
-        .delete()
-        .eq('user_id', userId);
+      // Store locally first as backup
+      const localStorageKey = `assets_${userId}`;
+      localStorage.setItem(localStorageKey, JSON.stringify({
+        assets: assets,
+        timestamp: new Date().toISOString()
+      }));
       
-      if (deleteError) {
-        console.error('Error deleting existing assets:', deleteError);
-        throw deleteError;
-      }
-      
+      // Format the assets for database storage
       const formattedAssets = assets.filter(asset => asset.name.trim() !== '' || parseFloat(asset.value) > 0)
         .map(asset => ({
           name: asset.name || 'Unnamed Asset',
@@ -405,6 +404,25 @@ export function useDatabase() {
         return { data: [], error: null };
       }
 
+      // Delete existing assets first
+      const { error: deleteError } = await supabase
+        .from('assets')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (deleteError) {
+        console.error('Error deleting existing assets:', deleteError);
+        
+        // If it's a schema error, inform the user
+        if (deleteError.code === 'PGRST106' || deleteError.message.includes('schema must be one of the following')) {
+          toast.error('Database schema error. Please contact support.');
+          return { data: null, error: deleteError.message, localSaved: true };
+        }
+        
+        throw deleteError;
+      }
+
+      // Insert new assets
       for (const asset of formattedAssets) {
         const { error } = await supabase
           .from('assets')
@@ -420,8 +438,8 @@ export function useDatabase() {
       return { data: formattedAssets, error: null };
     } catch (error: any) {
       console.error('Error saving assets:', error);
-      toast.error('Failed to save assets: ' + error.message);
-      return { data: null, error: error.message };
+      toast.error('Failed to save assets. Data saved locally.');
+      return { data: null, error: error.message, localSaved: true };
     } finally {
       setLoading(false);
     }
@@ -432,22 +450,21 @@ export function useDatabase() {
       if (!user) return { error: 'Not authenticated' };
       
       setLoading(true);
+      console.log("Attempting to save liabilities for user:", user.id);
       
       const userId = user.id?.toString();
       if (!userId) {
         return { error: 'Invalid user ID' };
       }
       
-      const { error: deleteError } = await supabase
-        .from('liabilities')
-        .delete()
-        .eq('user_id', userId);
+      // Store locally first as backup
+      const localStorageKey = `liabilities_${userId}`;
+      localStorage.setItem(localStorageKey, JSON.stringify({
+        liabilities: liabilities,
+        timestamp: new Date().toISOString()
+      }));
       
-      if (deleteError) {
-        console.error('Error deleting existing liabilities:', deleteError);
-        throw deleteError;
-      }
-      
+      // Format the liabilities for database storage
       const formattedLiabilities = liabilities.filter(liability => liability.name.trim() !== '' || parseFloat(liability.amount) > 0)
         .map(liability => ({
           name: liability.name || 'Unnamed Liability',
@@ -465,6 +482,25 @@ export function useDatabase() {
         return { data: [], error: null };
       }
 
+      // Delete existing liabilities first
+      const { error: deleteError } = await supabase
+        .from('liabilities')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (deleteError) {
+        console.error('Error deleting existing liabilities:', deleteError);
+        
+        // If it's a schema error, inform the user
+        if (deleteError.code === 'PGRST106' || deleteError.message.includes('schema must be one of the following')) {
+          toast.error('Database schema error. Please contact support.');
+          return { data: null, error: deleteError.message, localSaved: true };
+        }
+        
+        throw deleteError;
+      }
+
+      // Insert new liabilities
       for (const liability of formattedLiabilities) {
         const { error } = await supabase
           .from('liabilities')
@@ -480,8 +516,8 @@ export function useDatabase() {
       return { data: formattedLiabilities, error: null };
     } catch (error: any) {
       console.error('Error saving liabilities:', error);
-      toast.error('Failed to save liabilities: ' + error.message);
-      return { data: null, error: error.message };
+      toast.error('Failed to save liabilities. Data saved locally.');
+      return { data: null, error: error.message, localSaved: true };
     } finally {
       setLoading(false);
     }
@@ -625,22 +661,26 @@ export function useDatabase() {
         
         if (localData) {
           console.log("Found local data:", localData.substring(0, 50) + "...");
-          const parsedData = JSON.parse(localData);
-          const transformedData = {
-            firstName: parsedData.firstName || '',
-            lastName: parsedData.lastName || '',
-            email: parsedData.email || user?.email || '',
-            phone: parsedData.phone || '',
-            address: parsedData.address || '',
-            city: parsedData.city || '',
-            state: parsedData.state || '',
-            zipCode: parsedData.zipCode || '',
-            birthDate: parsedData.birthDate ? new Date(parsedData.birthDate) : undefined,
-            occupation: parsedData.occupation || '',
-            annualIncome: parsedData.annualIncome || '',
-            profileImage: parsedData.profileImage || null,
-          };
-          return { data: transformedData, error: null, localData: true };
+          try {
+            const parsedData = JSON.parse(localData);
+            const transformedData = {
+              firstName: parsedData.firstName || '',
+              lastName: parsedData.lastName || '',
+              email: parsedData.email || user?.email || '',
+              phone: parsedData.phone || '',
+              address: parsedData.address || '',
+              city: parsedData.city || '',
+              state: parsedData.state || '',
+              zipCode: parsedData.zipCode || '',
+              birthDate: parsedData.birthDate ? new Date(parsedData.birthDate) : undefined,
+              occupation: parsedData.occupation || '',
+              annualIncome: parsedData.annualIncome || '',
+              profileImage: parsedData.profileImage || null,
+            };
+            return { data: transformedData, error: null, localData: true };
+          } catch (err) {
+            console.error("Error parsing local personal info data:", err);
+          }
         }
       }
       
@@ -1014,6 +1054,8 @@ export function useDatabase() {
     fetchAssets,
     fetchLiabilities,
     fetchIncome,
-    fetchExpenses
+    fetchExpenses,
+    adminFetchAllUsers,
+    adminFetchUserData
   };
 }
