@@ -53,15 +53,8 @@ const checkConnection = async () => {
         // Check if there's an API schema specified in the error message
         if (error.message.includes('api')) {
           console.log('Detected API schema requirement, updating client configuration');
-          // Use setHeader instead of direct rest.headers access
-          supabase.auth.setSession({
-            access_token: '',
-            refresh_token: ''
-          }, {
-            headers: {
-              'Accept-Profile': 'api,public'
-            }
-          });
+          // Update global headers directly instead of using setSession
+          supabase.headers.set('Accept-Profile', 'api,public');
         }
         
         return { connected: false, reason: 'schema_error', error };

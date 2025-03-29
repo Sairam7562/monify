@@ -48,15 +48,8 @@ const AssetsLiabilitiesPage = () => {
     toast.info("Checking database connection...");
     
     try {
-      // Update headers to try different schema
-      supabase.auth.setSession({
-        access_token: '',
-        refresh_token: ''
-      }, {
-        headers: {
-          'Accept-Profile': 'public,api'
-        }
-      });
+      // Update headers directly instead of using setSession
+      supabase.headers.set('Accept-Profile', 'public,api');
       
       const isConnected = await checkDb();
       
