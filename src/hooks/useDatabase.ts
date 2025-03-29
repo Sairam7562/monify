@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import { supabase, checkConnection } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -923,4 +924,75 @@ export function useDatabase() {
         const transformedData = {
           firstName: parsedData.firstName || '',
           lastName: parsedData.lastName || '',
-          email: parsedData
+          email: parsedData.email || user?.email || '',
+          phone: parsedData.phone || '',
+          address: parsedData.address || '',
+          city: parsedData.city || '',
+          state: parsedData.state || '',
+          zipCode: parsedData.zipCode || '',
+          birthDate: parsedData.birthDate ? new Date(parsedData.birthDate) : undefined,
+          occupation: parsedData.occupation || '',
+          annualIncome: parsedData.annualIncome || '',
+          profileImage: parsedData.profileImage || null,
+        };
+        return { data: transformedData, error: null, localData: true };
+      }
+      
+      return { 
+        data: {
+          firstName: '',
+          lastName: '',
+          email: user?.email || '',
+          phone: '',
+          address: '',
+          city: '',
+          state: '',
+          zipCode: '',
+          birthDate: undefined,
+          occupation: '',
+          annualIncome: '',
+          profileImage: null,
+        }, 
+        error: null 
+      };
+    } catch (error: any) {
+      console.error('Error fetching personal info:', error);
+      setLastError(error);
+      toast.error('Failed to load personal information');
+      return { 
+        data: {
+          firstName: '',
+          lastName: '',
+          email: user?.email || '',
+          phone: '',
+          address: '',
+          city: '',
+          state: '',
+          zipCode: '',
+          birthDate: undefined,
+          occupation: '',
+          annualIncome: '',
+          profileImage: null,
+        }, 
+        error: error.message 
+      };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    loading,
+    lastError,
+    savePersonalInfo,
+    fetchPersonalInfo,
+    saveBusinessInfo,
+    fetchBusinessInfo,
+    saveAssets,
+    saveLiabilities,
+    saveIncome,
+    saveExpenses,
+    checkDatabaseStatus,
+    hasSchemaIssue
+  };
+}
