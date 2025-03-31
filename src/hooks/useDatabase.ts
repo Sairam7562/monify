@@ -119,8 +119,8 @@ export const useDatabase = () => {
       
       let result;
       
-      // Fix for TypeScript error - check if existingData is valid and has an id
-      if (existingData && 'id' in existingData && existingData.id) {
+      // Add proper type check for existingData before accessing id property
+      if (existingData && typeof existingData === 'object' && 'id' in existingData && existingData.id) {
         // Update existing record
         result = await supabase
           .from('personal_info')
@@ -217,8 +217,8 @@ export const useDatabase = () => {
       
       let result;
       
-      // Fix for TypeScript error - check if existingData is valid and has an id
-      if (existingData && 'id' in existingData && existingData.id) {
+      // Add proper type check for existingData before accessing id property
+      if (existingData && typeof existingData === 'object' && 'id' in existingData && existingData.id) {
         // Update existing record
         result = await supabase
           .from('business_info')
