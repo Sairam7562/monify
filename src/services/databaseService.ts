@@ -33,44 +33,40 @@ export async function safeQuery<T>(
 export async function getFinancialSummary(userId: string) {
   const assetsResult = await safeQuery<any[]>(
     async () => {
-      const response = await supabase
+      return await supabase
         .from('assets')
         .select('value')
         .eq('user_id', userId as any);
-      return response;
     },
     "Error fetching assets"
   );
   
   const liabilitiesResult = await safeQuery<any[]>(
     async () => {
-      const response = await supabase
+      return await supabase
         .from('liabilities')
         .select('amount')
         .eq('user_id', userId as any);
-      return response;
     },
     "Error fetching liabilities"
   );
   
   const incomeResult = await safeQuery<any[]>(
     async () => {
-      const response = await supabase
+      return await supabase
         .from('income')
         .select('amount, frequency')
         .eq('user_id', userId as any);
-      return response;
     },
     "Error fetching income"
   );
   
   const expensesResult = await safeQuery<any[]>(
     async () => {
-      const response = await supabase
+      return await supabase
         .from('expenses')
         .select('amount, frequency')
         .eq('user_id', userId as any);
-      return response;
     },
     "Error fetching expenses"
   );
@@ -117,14 +113,13 @@ export async function getFinancialSummary(userId: string) {
 
 // Get personal info for statements
 export async function getPersonalInfo(userId: string) {
-  return safeQuery<any>(
+  return await safeQuery<any>(
     async () => {
-      const response = await supabase
+      return await supabase
         .from('personal_info')
         .select('*')
         .eq('user_id', userId as any)
         .maybeSingle();
-      return response;
     },
     "Error fetching personal info"
   );
@@ -132,13 +127,12 @@ export async function getPersonalInfo(userId: string) {
 
 // Get business info for statements
 export async function getBusinessInfo(userId: string) {
-  return safeQuery<any[]>(
+  return await safeQuery<any[]>(
     async () => {
-      const response = await supabase
+      return await supabase
         .from('business_info')
         .select('*')
         .eq('user_id', userId as any);
-      return response;
     },
     "Error fetching business info"
   );
@@ -146,13 +140,12 @@ export async function getBusinessInfo(userId: string) {
 
 // Get all assets for a user
 export async function getAssets(userId: string) {
-  return safeQuery<any[]>(
+  return await safeQuery<any[]>(
     async () => {
-      const response = await supabase
+      return await supabase
         .from('assets')
         .select('*')
         .eq('user_id', userId as any);
-      return response;
     },
     "Error fetching assets"
   );
@@ -160,13 +153,12 @@ export async function getAssets(userId: string) {
 
 // Get all liabilities for a user
 export async function getLiabilities(userId: string) {
-  return safeQuery<any[]>(
+  return await safeQuery<any[]>(
     async () => {
-      const response = await supabase
+      return await supabase
         .from('liabilities')
         .select('*')
         .eq('user_id', userId as any);
-      return response;
     },
     "Error fetching liabilities"
   );
@@ -174,13 +166,12 @@ export async function getLiabilities(userId: string) {
 
 // Get all income sources for a user
 export async function getIncome(userId: string) {
-  return safeQuery<any[]>(
+  return await safeQuery<any[]>(
     async () => {
-      const response = await supabase
+      return await supabase
         .from('income')
         .select('*')
         .eq('user_id', userId as any);
-      return response;
     },
     "Error fetching income"
   );
@@ -188,13 +179,12 @@ export async function getIncome(userId: string) {
 
 // Get all expenses for a user
 export async function getExpenses(userId: string) {
-  return safeQuery<any[]>(
+  return await safeQuery<any[]>(
     async () => {
-      const response = await supabase
+      return await supabase
         .from('expenses')
         .select('*')
         .eq('user_id', userId as any);
-      return response;
     },
     "Error fetching expenses"
   );

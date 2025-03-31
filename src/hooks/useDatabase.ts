@@ -119,7 +119,8 @@ export const useDatabase = () => {
       
       let result;
       
-      if (existingData?.id) {
+      // Fix for TypeScript error - check if existingData is valid and has an id
+      if (existingData && 'id' in existingData && existingData.id) {
         // Update existing record
         result = await supabase
           .from('personal_info')
@@ -216,7 +217,8 @@ export const useDatabase = () => {
       
       let result;
       
-      if (existingData?.id) {
+      // Fix for TypeScript error - check if existingData is valid and has an id
+      if (existingData && 'id' in existingData && existingData.id) {
         // Update existing record
         result = await supabase
           .from('business_info')
