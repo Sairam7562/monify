@@ -24,11 +24,11 @@ export const supabase = createClient<Database>(
     },
     global: {
       headers: {
-        'Accept-Profile': 'api', // Changed to 'api' as required by the error message
+        'Accept-Profile': 'public', // Use 'public' schema for database operations
       },
     },
     db: {
-      schema: 'api', // Changed to 'api' as required by the error message
+      schema: 'public', // Use 'public' schema for database operations
     },
   }
 );
