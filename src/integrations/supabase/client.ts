@@ -28,8 +28,9 @@ export const supabase = createClient<Database>(
         'Accept-Profile': 'api', // Changed from 'public' to 'api' to match backend requirements
       },
     },
+    // Using type assertion to override the TypeScript restriction for schema
     db: {
-      schema: 'api', // Changed from 'public' to 'api' to match backend requirements
+      schema: 'api' as 'public', // Using type assertion to allow 'api' schema
     },
   }
 );
