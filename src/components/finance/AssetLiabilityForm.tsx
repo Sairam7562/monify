@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,7 +39,13 @@ interface Liability {
   saved?: boolean;
 }
 
-const AssetLiabilityForm = () => {
+interface AssetLiabilityFormProps {
+  persistDataOnTabChange?: boolean;
+}
+
+const TEMPORARY_STORAGE_KEY = 'temp_asset_liability_form_data';
+
+const AssetLiabilityForm = ({ persistDataOnTabChange = false }: AssetLiabilityFormProps) => {
   const { user } = useAuth();
   const { 
     saveAssets, 
@@ -56,6 +63,7 @@ const AssetLiabilityForm = () => {
     { id: 1, name: '', type: 'credit_card', amount: '', interestRate: '', saved: false },
   ]);
 
+  const [activeTab, setActiveTab] = useState<string>("assets");
   const [isSavingAsset, setIsSavingAsset] = useState<{[key: number]: boolean}>({});
   const [isSavingLiability, setIsSavingLiability] = useState<{[key: number]: boolean}>({});
   const [calculatedAssetValue, setCalculatedAssetValue] = useState<{[key: number]: string}>({});
@@ -63,9 +71,57 @@ const AssetLiabilityForm = () => {
   const [formLoading, setFormLoading] = useState(true);
   const [allDataSaved, setAllDataSaved] = useState(false);
 
+  // Load existing data on component mount
   useEffect(() => {
     loadExistingData();
+    
+    // Check for temporarily stored data (for tab switching persistence)
+    const tempData = localStorage.getItem(TEMPORARY_STORAGE_KEY);
+    if (tempData && persistDataOnTabChange) {
+      try {
+        const parsedData = JSON.parse(tempData);
+        if (parsedData.assets && parsedData.assets.length > 0) {
+          setAssets(parsedData.assets);
+        }
+        if (parsedData.liabilities && parsedData.liabilities.length > 0) {
+          setLiabilities(parsedData.liabilities);
+        }
+        localStorage.removeItem(TEMPORARY_STORAGE_KEY);
+      } catch (error) {
+        console.error("Error parsing temporary stored form data:", error);
+      }
+    }
+    
+    // Save form data when user navigates away from page
+    const handleBeforeUnload = () => {
+      if (persistDataOnTabChange) {
+        localStorage.setItem(TEMPORARY_STORAGE_KEY, JSON.stringify({ 
+          assets,
+          liabilities,
+          timestamp: new Date().toISOString()
+        }));
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, [user]);
+
+  // Save form data when tab changes
+  const handleTabChange = (value: string) => {
+    if (persistDataOnTabChange) {
+      // Store the current state before changing tabs to prevent data loss
+      localStorage.setItem(TEMPORARY_STORAGE_KEY, JSON.stringify({ 
+        assets,
+        liabilities,
+        lastTab: activeTab,
+        timestamp: new Date().toISOString()
+      }));
+    }
+    setActiveTab(value);
+  };
 
   const loadExistingData = async () => {
     if (!user) return;
@@ -124,6 +180,16 @@ const AssetLiabilityForm = () => {
     });
     
     setCalculatedAssetValue(calculated);
+    
+    // Automatically save to temporary storage when assets change
+    if (persistDataOnTabChange && assets.length > 0) {
+      localStorage.setItem(TEMPORARY_STORAGE_KEY, JSON.stringify({ 
+        assets,
+        liabilities,
+        lastTab: activeTab,
+        timestamp: new Date().toISOString()
+      }));
+    }
   }, [assets]);
 
   useEffect(() => {
@@ -140,6 +206,16 @@ const AssetLiabilityForm = () => {
     });
     
     setCalculatedLiabilityAmount(calculated);
+    
+    // Automatically save to temporary storage when liabilities change
+    if (persistDataOnTabChange && liabilities.length > 0) {
+      localStorage.setItem(TEMPORARY_STORAGE_KEY, JSON.stringify({ 
+        assets,
+        liabilities,
+        lastTab: activeTab,
+        timestamp: new Date().toISOString()
+      }));
+    }
   }, [liabilities]);
 
   useEffect(() => {
@@ -211,6 +287,22 @@ const AssetLiabilityForm = () => {
       
       const backupKey = `asset_backup_${id}_${user.id}`;
       localStorage.setItem(backupKey, JSON.stringify(assetToSave));
+      
+      // Also save to financial statements data for persistence
+      const financialStatementsData = JSON.parse(localStorage.getItem('financial_statements_data') || '{}');
+      if (!financialStatementsData.assets) {
+        financialStatementsData.assets = [];
+      }
+      
+      // Update or add this asset to financial statements data
+      const existingIndex = financialStatementsData.assets.findIndex((a: any) => a.id === assetToSave.id);
+      if (existingIndex >= 0) {
+        financialStatementsData.assets[existingIndex] = assetToSave;
+      } else {
+        financialStatementsData.assets.push(assetToSave);
+      }
+      
+      localStorage.setItem('financial_statements_data', JSON.stringify(financialStatementsData));
       
       const result = await saveAssets([assetToSave]);
       
@@ -296,6 +388,22 @@ const AssetLiabilityForm = () => {
       const backupKey = `liability_backup_${id}_${user.id}`;
       localStorage.setItem(backupKey, JSON.stringify(liabilityToSave));
       
+      // Also save to financial statements data for persistence
+      const financialStatementsData = JSON.parse(localStorage.getItem('financial_statements_data') || '{}');
+      if (!financialStatementsData.liabilities) {
+        financialStatementsData.liabilities = [];
+      }
+      
+      // Update or add this liability to financial statements data
+      const existingIndex = financialStatementsData.liabilities.findIndex((l: any) => l.id === liabilityToSave.id);
+      if (existingIndex >= 0) {
+        financialStatementsData.liabilities[existingIndex] = liabilityToSave;
+      } else {
+        financialStatementsData.liabilities.push(liabilityToSave);
+      }
+      
+      localStorage.setItem('financial_statements_data', JSON.stringify(financialStatementsData));
+      
       const result = await saveLiabilities([liabilityToSave]);
       
       if (result.error) {
@@ -338,6 +446,13 @@ const AssetLiabilityForm = () => {
       setAllDataSaved(false);
       
       console.log("Saving all assets and liabilities");
+      
+      // Save to financial statements data for persistence and cross-component usage
+      const financialStatementsData = JSON.parse(localStorage.getItem('financial_statements_data') || '{}');
+      financialStatementsData.assets = assets;
+      financialStatementsData.liabilities = liabilities;
+      financialStatementsData.lastUpdated = new Date().toISOString();
+      localStorage.setItem('financial_statements_data', JSON.stringify(financialStatementsData));
       
       const assetsResult = await saveAssets(assets);
       const liabilitiesResult = await saveLiabilities(liabilities);
@@ -386,7 +501,7 @@ const AssetLiabilityForm = () => {
 
   return (
     <form onSubmit={handleSubmit}>
-      <Tabs defaultValue="assets">
+      <Tabs defaultValue="assets" onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="assets">Assets</TabsTrigger>
           <TabsTrigger value="liabilities">Liabilities</TabsTrigger>

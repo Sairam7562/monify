@@ -26,17 +26,22 @@ const AssetsLiabilitiesPage = () => {
       const hookStatus = await checkDatabaseStatus();
       
       // Use a combination of both results
-      setDbConnected(isConnected && hookStatus);
+      const connectionStatus = isConnected && hookStatus;
+      setDbConnected(connectionStatus);
       
-      if (isConnected && hookStatus) {
+      if (connectionStatus) {
         // Clear any previous schema error
         sessionStorage.removeItem('db_schema_error');
+        localStorage.setItem('db_connection_status', 'connected');
+      } else {
+        localStorage.setItem('db_connection_status', 'disconnected');
       }
       
-      return isConnected && hookStatus;
+      return connectionStatus;
     } catch (error) {
       console.error("Error checking database status:", error);
       setDbConnected(false);
+      localStorage.setItem('db_connection_status', 'disconnected');
       return false;
     } finally {
       setIsChecking(false);
@@ -74,7 +79,17 @@ const AssetsLiabilitiesPage = () => {
   
   useEffect(() => {
     checkDb();
-  }, [checkDatabaseStatus]);
+    
+    // Setup interval to periodically check connection status
+    const intervalId = setInterval(() => {
+      const lastConnectionStatus = localStorage.getItem('db_connection_status');
+      if (lastConnectionStatus === 'disconnected') {
+        checkDb();
+      }
+    }, 30000); // Check every 30 seconds if previously disconnected
+    
+    return () => clearInterval(intervalId);
+  }, []);
   
   return (
     <MainLayout>
@@ -148,7 +163,7 @@ const AssetsLiabilitiesPage = () => {
         
         <Separator />
         
-        <AssetLiabilityForm />
+        <AssetLiabilityForm persistDataOnTabChange={true} />
       </div>
     </MainLayout>
   );

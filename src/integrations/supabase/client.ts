@@ -25,12 +25,12 @@ export const supabase = createClient<Database>(
     },
     global: {
       headers: {
-        'Accept-Profile': 'api', // Changed from 'public' to 'api' to match backend requirements
+        'Accept-Profile': 'public', // Using 'public' schema for API calls
       },
     },
     // Using type assertion to override the TypeScript restriction for schema
     db: {
-      schema: 'api' as 'public', // Using type assertion to allow 'api' schema
+      schema: 'public', // Using standard 'public' schema for consistency
     },
   }
 );
