@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -186,27 +187,27 @@ const AssetLiabilityForm: React.FC<AssetLiabilityFormProps> = ({ persistDataOnTa
   };
 
   const handleSaveAsset = async (asset: any) => {
-    const currentAssets = editingItem
+    const updatedAssets = editingItem
       ? assets.map(a => (a.id === editingItem.id ? asset : a))
       : [...assets, asset];
-    handleSaveAssets(currentAssets);
+    handleSaveAssets(updatedAssets);
   };
 
   const handleSaveLiability = async (liability: any) => {
-    const currentLiabilities = editingItem
+    const updatedLiabilities = editingItem
       ? liabilities.map(l => (l.id === editingItem.id ? liability : l))
       : [...liabilities, liability];
-    handleSaveLiabilities(currentLiabilities);
+    handleSaveLiabilities(updatedLiabilities);
   };
 
-  const handleSaveAssets = async (currentAssets: any) => {
+  const handleSaveAssets = async (updatedAssets: any) => {
     if (!user) {
       toast.error("You must be logged in to save assets.");
       return;
     }
 
     try {
-      const response = await saveAssets(currentAssets);
+      const response = await saveAssets(updatedAssets);
 
       if (response.success) {
         toast.success(`${isEditing ? "Updated" : "Added"} ${type} successfully!`);
@@ -222,11 +223,7 @@ const AssetLiabilityForm: React.FC<AssetLiabilityFormProps> = ({ persistDataOnTa
             try {
               const parsedData = JSON.parse(savedData);
               // Update saved data with the new state
-              if (type === "asset") {
-                parsedData.assets = currentAssets;
-              } else {
-                parsedData.liabilities = currentLiabilities;
-              }
+              parsedData.assets = updatedAssets;
               localStorage.setItem(`asset_liability_form_${userId}`, JSON.stringify(parsedData));
             } catch (e) {
               console.error("Error updating saved asset/liability data:", e);
@@ -236,8 +233,7 @@ const AssetLiabilityForm: React.FC<AssetLiabilityFormProps> = ({ persistDataOnTa
 
         // Update the UI
         setIsDirty(false);
-        setAssets(currentAssets);
-        setLiabilities(currentLiabilities);
+        setAssets(updatedAssets);
       } else {
         toast.error(response.error || "Failed to save asset.");
       }
@@ -247,14 +243,14 @@ const AssetLiabilityForm: React.FC<AssetLiabilityFormProps> = ({ persistDataOnTa
     }
   };
 
-  const handleSaveLiabilities = async (currentLiabilities: any) => {
+  const handleSaveLiabilities = async (updatedLiabilities: any) => {
     if (!user) {
       toast.error("You must be logged in to save liabilities.");
       return;
     }
 
     try {
-      const response = await saveLiabilities(currentLiabilities);
+      const response = await saveLiabilities(updatedLiabilities);
 
       if (response.success) {
         toast.success(`${isEditing ? "Updated" : "Added"} ${type} successfully!`);
@@ -270,11 +266,7 @@ const AssetLiabilityForm: React.FC<AssetLiabilityFormProps> = ({ persistDataOnTa
             try {
               const parsedData = JSON.parse(savedData);
               // Update saved data with the new state
-              if (type === "asset") {
-                parsedData.assets = currentAssets;
-              } else {
-                parsedData.liabilities = currentLiabilities;
-              }
+              parsedData.liabilities = updatedLiabilities;
               localStorage.setItem(`asset_liability_form_${userId}`, JSON.stringify(parsedData));
             } catch (e) {
               console.error("Error updating saved asset/liability data:", e);
@@ -284,8 +276,7 @@ const AssetLiabilityForm: React.FC<AssetLiabilityFormProps> = ({ persistDataOnTa
 
         // Update the UI
         setIsDirty(false);
-        setAssets(currentAssets);
-        setLiabilities(currentLiabilities);
+        setLiabilities(updatedLiabilities);
       } else {
         toast.error(response.error || "Failed to save liability.");
       }

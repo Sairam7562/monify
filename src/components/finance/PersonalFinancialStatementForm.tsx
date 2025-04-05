@@ -9,6 +9,7 @@ import ProfileImageUploader from './ProfileImageUploader';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { generateFinancialStatementData } from '@/services/databaseService';
+import { Spinner } from '@/components/ui/spinner';
 
 interface FinancialItem {
   id: string;

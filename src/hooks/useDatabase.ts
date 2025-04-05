@@ -69,7 +69,7 @@ export const useDatabase = () => {
       const userId = session?.user?.id;
       
       if (!userId) {
-        return { error: "User not authenticated" };
+        return { success: false, error: "User not authenticated" };
       }
       
       // Handle offline mode or persistent connection issues
@@ -79,7 +79,7 @@ export const useDatabase = () => {
         localStorage.setItem(backupKey, JSON.stringify(data));
         
         // Return success with local flag
-        return { data, error: null, localSaved: true };
+        return { success: true, data, error: null, localSaved: true };
       }
       
       // Update the session to ensure proper authorization
@@ -104,7 +104,7 @@ export const useDatabase = () => {
         const backupKey = `personal_info_${userId}`;
         localStorage.setItem(backupKey, JSON.stringify(data));
         
-        return { data, error: checkError, localSaved: true };
+        return { success: false, data, error: checkError, localSaved: true };
       }
       
       // Prepare data for insert/update
@@ -140,10 +140,10 @@ export const useDatabase = () => {
         const backupKey = `personal_info_${userId}`;
         localStorage.setItem(backupKey, JSON.stringify(data));
         
-        return { data, error: result.error, localSaved: true };
+        return { success: false, data, error: result.error, localSaved: true };
       }
       
-      return { data, error: null };
+      return { success: true, data, error: null };
     } catch (error) {
       console.error("Exception saving personal info:", error);
       setLastError(error);
@@ -154,7 +154,7 @@ export const useDatabase = () => {
         localStorage.setItem(backupKey, JSON.stringify(data));
       }
       
-      return { data, error, localSaved: true };
+      return { success: false, data, error, localSaved: true };
     } finally {
       setLoading(false);
     }
@@ -168,7 +168,7 @@ export const useDatabase = () => {
       const userId = session?.user?.id;
       
       if (!userId) {
-        return { error: "User not authenticated" };
+        return { success: false, error: "User not authenticated" };
       }
       
       // Handle offline mode or persistent connection issues
@@ -178,7 +178,7 @@ export const useDatabase = () => {
         localStorage.setItem(backupKey, JSON.stringify(data));
         
         // Return success with local flag
-        return { data, error: null, localSaved: true };
+        return { success: true, data, error: null, localSaved: true };
       }
       
       // Update the session to ensure proper authorization
@@ -204,7 +204,7 @@ export const useDatabase = () => {
         const backupKey = `business_info_${userId}_${data.business_name}`;
         localStorage.setItem(backupKey, JSON.stringify(data));
         
-        return { data, error: checkError, localSaved: true };
+        return { success: false, data, error: checkError, localSaved: true };
       }
       
       // Prepare data for insert/update
@@ -240,10 +240,10 @@ export const useDatabase = () => {
         const backupKey = `business_info_${userId}_${data.business_name}`;
         localStorage.setItem(backupKey, JSON.stringify(data));
         
-        return { data, error: result.error, localSaved: true };
+        return { success: false, data, error: result.error, localSaved: true };
       }
       
-      return { data, error: null };
+      return { success: true, data, error: null };
     } catch (error) {
       console.error("Exception saving business info:", error);
       setLastError(error);
@@ -254,7 +254,7 @@ export const useDatabase = () => {
         localStorage.setItem(backupKey, JSON.stringify(data));
       }
       
-      return { data, error, localSaved: true };
+      return { success: false, data, error, localSaved: true };
     } finally {
       setLoading(false);
     }
@@ -268,7 +268,7 @@ export const useDatabase = () => {
       const userId = session?.user?.id;
       
       if (!userId) {
-        return { error: "User not authenticated" };
+        return { success: false, error: "User not authenticated" };
       }
       
       // Prepare assets with user ID
@@ -296,7 +296,7 @@ export const useDatabase = () => {
         localStorage.setItem(backupKey, JSON.stringify(formattedAssets));
         
         // Return success with local flag
-        return { data: formattedAssets, error: null, localSaved: true };
+        return { success: true, data: formattedAssets, error: null, localSaved: true };
       }
 
       // Update the session
@@ -319,7 +319,7 @@ export const useDatabase = () => {
           // Save locally anyway
           const backupKey = `assets_${userId}`;
           localStorage.setItem(backupKey, JSON.stringify(formattedAssets));
-          return { data: formattedAssets, error: deleteError, localSaved: true };
+          return { success: false, data: formattedAssets, error: deleteError, localSaved: true };
         }
         
         // Insert all assets
@@ -332,10 +332,10 @@ export const useDatabase = () => {
           // Save locally anyway
           const backupKey = `assets_${userId}`;
           localStorage.setItem(backupKey, JSON.stringify(formattedAssets));
-          return { data: formattedAssets, error: insertError, localSaved: true };
+          return { success: false, data: formattedAssets, error: insertError, localSaved: true };
         }
         
-        return { data: formattedAssets, error: null };
+        return { success: true, data: formattedAssets, error: null };
       } catch (dbError) {
         console.error("Database error saving assets:", dbError);
         
@@ -343,7 +343,7 @@ export const useDatabase = () => {
         const backupKey = `assets_${userId}`;
         localStorage.setItem(backupKey, JSON.stringify(formattedAssets));
         
-        return { data: formattedAssets, error: dbError, localSaved: true };
+        return { success: false, data: formattedAssets, error: dbError, localSaved: true };
       }
     } catch (error) {
       console.error("Exception saving assets:", error);
@@ -355,7 +355,7 @@ export const useDatabase = () => {
         localStorage.setItem(backupKey, JSON.stringify(assets));
       }
       
-      return { data: assets, error, localSaved: true };
+      return { success: false, data: assets, error, localSaved: true };
     } finally {
       setLoading(false);
     }
@@ -369,7 +369,7 @@ export const useDatabase = () => {
       const userId = session?.user?.id;
       
       if (!userId) {
-        return { error: "User not authenticated" };
+        return { success: false, error: "User not authenticated" };
       }
       
       // Prepare liabilities with user ID
@@ -399,7 +399,7 @@ export const useDatabase = () => {
         localStorage.setItem(backupKey, JSON.stringify(formattedLiabilities));
         
         // Return success with local flag
-        return { data: formattedLiabilities, error: null, localSaved: true };
+        return { success: true, data: formattedLiabilities, error: null, localSaved: true };
       }
 
       // Update the session
@@ -422,7 +422,7 @@ export const useDatabase = () => {
           // Save locally anyway
           const backupKey = `liabilities_${userId}`;
           localStorage.setItem(backupKey, JSON.stringify(formattedLiabilities));
-          return { data: formattedLiabilities, error: deleteError, localSaved: true };
+          return { success: false, data: formattedLiabilities, error: deleteError, localSaved: true };
         }
         
         // Insert all liabilities
@@ -435,10 +435,10 @@ export const useDatabase = () => {
           // Save locally anyway
           const backupKey = `liabilities_${userId}`;
           localStorage.setItem(backupKey, JSON.stringify(formattedLiabilities));
-          return { data: formattedLiabilities, error: insertError, localSaved: true };
+          return { success: false, data: formattedLiabilities, error: insertError, localSaved: true };
         }
         
-        return { data: formattedLiabilities, error: null };
+        return { success: true, data: formattedLiabilities, error: null };
       } catch (dbError) {
         console.error("Database error saving liabilities:", dbError);
         
@@ -446,7 +446,7 @@ export const useDatabase = () => {
         const backupKey = `liabilities_${userId}`;
         localStorage.setItem(backupKey, JSON.stringify(formattedLiabilities));
         
-        return { data: formattedLiabilities, error: dbError, localSaved: true };
+        return { success: false, data: formattedLiabilities, error: dbError, localSaved: true };
       }
     } catch (error) {
       console.error("Exception saving liabilities:", error);
@@ -458,7 +458,7 @@ export const useDatabase = () => {
         localStorage.setItem(backupKey, JSON.stringify(liabilities));
       }
       
-      return { data: liabilities, error, localSaved: true };
+      return { success: false, data: liabilities, error, localSaved: true };
     } finally {
       setLoading(false);
     }
@@ -472,7 +472,7 @@ export const useDatabase = () => {
       const userId = session?.user?.id;
       
       if (!userId) {
-        return { error: "User not authenticated" };
+        return { success: false, error: "User not authenticated" };
       }
       
       // Prepare income with user ID
@@ -496,7 +496,7 @@ export const useDatabase = () => {
         localStorage.setItem(backupKey, JSON.stringify(formattedIncome));
         
         // Return success with local flag
-        return { data: formattedIncome, error: null, localSaved: true };
+        return { success: true, data: formattedIncome, error: null, localSaved: true };
       }
 
       // Update the session
@@ -519,7 +519,7 @@ export const useDatabase = () => {
           // Save locally anyway
           const backupKey = `income_${userId}`;
           localStorage.setItem(backupKey, JSON.stringify(formattedIncome));
-          return { data: formattedIncome, error: deleteError, localSaved: true };
+          return { success: false, data: formattedIncome, error: deleteError, localSaved: true };
         }
         
         // Insert all income
@@ -532,10 +532,10 @@ export const useDatabase = () => {
           // Save locally anyway
           const backupKey = `income_${userId}`;
           localStorage.setItem(backupKey, JSON.stringify(formattedIncome));
-          return { data: formattedIncome, error: insertError, localSaved: true };
+          return { success: false, data: formattedIncome, error: insertError, localSaved: true };
         }
         
-        return { data: formattedIncome, error: null };
+        return { success: true, data: formattedIncome, error: null };
       } catch (dbError) {
         console.error("Database error saving income:", dbError);
         
@@ -543,7 +543,7 @@ export const useDatabase = () => {
         const backupKey = `income_${userId}`;
         localStorage.setItem(backupKey, JSON.stringify(formattedIncome));
         
-        return { data: formattedIncome, error: dbError, localSaved: true };
+        return { success: false, data: formattedIncome, error: dbError, localSaved: true };
       }
     } catch (error) {
       console.error("Exception saving income:", error);
@@ -555,7 +555,7 @@ export const useDatabase = () => {
         localStorage.setItem(backupKey, JSON.stringify(incomeItems));
       }
       
-      return { data: incomeItems, error, localSaved: true };
+      return { success: false, data: incomeItems, error, localSaved: true };
     } finally {
       setLoading(false);
     }
@@ -569,7 +569,7 @@ export const useDatabase = () => {
       const userId = session?.user?.id;
       
       if (!userId) {
-        return { error: "User not authenticated" };
+        return { success: false, error: "User not authenticated" };
       }
       
       // Prepare expenses with user ID
@@ -593,7 +593,7 @@ export const useDatabase = () => {
         localStorage.setItem(backupKey, JSON.stringify(formattedExpenses));
         
         // Return success with local flag
-        return { data: formattedExpenses, error: null, localSaved: true };
+        return { success: true, data: formattedExpenses, error: null, localSaved: true };
       }
 
       // Update the session
@@ -616,7 +616,7 @@ export const useDatabase = () => {
           // Save locally anyway
           const backupKey = `expenses_${userId}`;
           localStorage.setItem(backupKey, JSON.stringify(formattedExpenses));
-          return { data: formattedExpenses, error: deleteError, localSaved: true };
+          return { success: false, data: formattedExpenses, error: deleteError, localSaved: true };
         }
         
         // Insert all expenses
@@ -629,10 +629,10 @@ export const useDatabase = () => {
           // Save locally anyway
           const backupKey = `expenses_${userId}`;
           localStorage.setItem(backupKey, JSON.stringify(formattedExpenses));
-          return { data: formattedExpenses, error: insertError, localSaved: true };
+          return { success: false, data: formattedExpenses, error: insertError, localSaved: true };
         }
         
-        return { data: formattedExpenses, error: null };
+        return { success: true, data: formattedExpenses, error: null };
       } catch (dbError) {
         console.error("Database error saving expenses:", dbError);
         
@@ -640,7 +640,7 @@ export const useDatabase = () => {
         const backupKey = `expenses_${userId}`;
         localStorage.setItem(backupKey, JSON.stringify(formattedExpenses));
         
-        return { data: formattedExpenses, error: dbError, localSaved: true };
+        return { success: false, data: formattedExpenses, error: dbError, localSaved: true };
       }
     } catch (error) {
       console.error("Exception saving expenses:", error);
@@ -652,7 +652,7 @@ export const useDatabase = () => {
         localStorage.setItem(backupKey, JSON.stringify(expenseItems));
       }
       
-      return { data: expenseItems, error, localSaved: true };
+      return { success: false, data: expenseItems, error, localSaved: true };
     } finally {
       setLoading(false);
     }
@@ -666,7 +666,7 @@ export const useDatabase = () => {
       const userId = session?.user?.id;
       
       if (!userId) {
-        return { error: "User not authenticated" };
+        return { success: false, error: "User not authenticated" };
       }
       
       // Check for local data first
@@ -676,9 +676,9 @@ export const useDatabase = () => {
       if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
         if (localData) {
           console.log("Using locally stored personal info data");
-          return { data: JSON.parse(localData), error: null, localData: true };
+          return { success: true, data: JSON.parse(localData), error: null, localData: true };
         }
-        return { data: null, error: "Database connection unavailable", localData: false };
+        return { success: false, error: "Database connection unavailable", localData: false };
       }
       
       // Update the session
@@ -702,13 +702,13 @@ export const useDatabase = () => {
         // Try local data as fallback
         if (localData) {
           console.log("Using locally stored personal info as fallback");
-          return { data: JSON.parse(localData), error, localData: true };
+          return { success: true, data: JSON.parse(localData), error, localData: true };
         }
         
-        return { data: null, error };
+        return { success: false, error };
       }
       
-      return { data, error: null };
+      return { success: true, data, error: null };
     } catch (error) {
       console.error("Exception fetching personal info:", error);
       setLastError(error);
@@ -717,10 +717,10 @@ export const useDatabase = () => {
       const localData = localStorage.getItem(`personal_info_${session?.user?.id}`);
       if (localData) {
         console.log("Using locally stored personal info as fallback after exception");
-        return { data: JSON.parse(localData), error, localData: true };
+        return { success: true, data: JSON.parse(localData), error, localData: true };
       }
       
-      return { data: null, error };
+      return { success: false, error };
     } finally {
       setLoading(false);
     }
@@ -734,7 +734,7 @@ export const useDatabase = () => {
       const userId = session?.user?.id;
       
       if (!userId) {
-        return { error: "User not authenticated" };
+        return { success: false, error: "User not authenticated" };
       }
       
       // Check for local data first
@@ -745,13 +745,13 @@ export const useDatabase = () => {
         if (localData) {
           console.log("Using locally stored business info data");
           try {
-            return { data: JSON.parse(localData), error: null, localData: true };
+            return { success: true, data: JSON.parse(localData), error: null, localData: true };
           } catch (e) {
             console.error("Error parsing local business data:", e);
-            return { data: [], error: null, localData: false };
+            return { success: false, data: [], error: null, localData: false };
           }
         }
-        return { data: [], error: "Database connection unavailable", localData: false };
+        return { success: false, error: "Database connection unavailable", localData: false };
       }
       
       // Update the session
@@ -775,17 +775,17 @@ export const useDatabase = () => {
         if (localData) {
           console.log("Using locally stored business info as fallback");
           try {
-            return { data: JSON.parse(localData), error, localData: true };
+            return { success: true, data: JSON.parse(localData), error, localData: true };
           } catch (e) {
             console.error("Error parsing local business data:", e);
-            return { data: [], error, localData: false };
+            return { success: false, data: [], error, localData: false };
           }
         }
         
-        return { data: [], error };
+        return { success: false, error };
       }
       
-      return { data, error: null };
+      return { success: true, data, error: null };
     } catch (error) {
       console.error("Exception fetching business info:", error);
       setLastError(error);
@@ -795,14 +795,14 @@ export const useDatabase = () => {
       if (localData) {
         console.log("Using locally stored business info as fallback after exception");
         try {
-          return { data: JSON.parse(localData), error, localData: true };
+          return { success: true, data: JSON.parse(localData), error, localData: true };
         } catch (e) {
           console.error("Error parsing local business data:", e);
-          return { data: [], error, localData: false };
+          return { success: false, data: [], error, localData: false };
         }
       }
       
-      return { data: [], error };
+      return { success: false, error };
     } finally {
       setLoading(false);
     }
@@ -816,7 +816,7 @@ export const useDatabase = () => {
       const userId = session?.user?.id;
       
       if (!userId) {
-        return { error: "User not authenticated" };
+        return { success: false, error: "User not authenticated" };
       }
       
       // Check for local data first
@@ -826,9 +826,9 @@ export const useDatabase = () => {
       if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
         if (localData) {
           console.log("Using locally stored assets data");
-          return { data: JSON.parse(localData), error: null, localData: true };
+          return { success: true, data: JSON.parse(localData), error: null, localData: true };
         }
-        return { data: [], error: "Database connection unavailable", localData: false };
+        return { success: false, error: "Database connection unavailable", localData: false };
       }
       
       // Update the session
@@ -853,10 +853,10 @@ export const useDatabase = () => {
         // Try local data as fallback
         if (localData) {
           console.log("Using locally stored assets as fallback");
-          return { data: JSON.parse(localData), error, localData: true };
+          return { success: true, data: JSON.parse(localData), error, localData: true };
         }
         
-        return { data: [], error };
+        return { success: false, error };
       }
       
       // Transform data back for the form
@@ -870,7 +870,7 @@ export const useDatabase = () => {
         saved: true
       }));
       
-      return { data: formattedData, error: null };
+      return { success: true, data: formattedData, error: null };
     } catch (error) {
       console.error("Exception fetching assets:", error);
       setLastError(error);
@@ -879,10 +879,10 @@ export const useDatabase = () => {
       const localData = localStorage.getItem(`assets_${session?.user?.id}`);
       if (localData) {
         console.log("Using locally stored assets as fallback after exception");
-        return { data: JSON.parse(localData), error, localData: true };
+        return { success: true, data: JSON.parse(localData), error, localData: true };
       }
       
-      return { data: [], error };
+      return { success: false, error };
     } finally {
       setLoading(false);
     }
@@ -896,7 +896,7 @@ export const useDatabase = () => {
       const userId = session?.user?.id;
       
       if (!userId) {
-        return { error: "User not authenticated" };
+        return { success: false, error: "User not authenticated" };
       }
       
       // Check for local data first
@@ -906,9 +906,9 @@ export const useDatabase = () => {
       if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
         if (localData) {
           console.log("Using locally stored liabilities data");
-          return { data: JSON.parse(localData), error: null, localData: true };
+          return { success: true, data: JSON.parse(localData), error: null, localData: true };
         }
-        return { data: [], error: "Database connection unavailable", localData: false };
+        return { success: false, error: "Database connection unavailable", localData: false };
       }
       
       // Update the session
@@ -931,10 +931,10 @@ export const useDatabase = () => {
         // Try local data as fallback
         if (localData) {
           console.log("Using locally stored liabilities as fallback");
-          return { data: JSON.parse(localData), error, localData: true };
+          return { success: true, data: JSON.parse(localData), error, localData: true };
         }
         
-        return { data: [], error };
+        return { success: false, error };
       }
       
       // Transform data back for the form
@@ -949,7 +949,7 @@ export const useDatabase = () => {
         saved: true
       }));
       
-      return { data: formattedData, error: null };
+      return { success: true, data: formattedData, error: null };
     } catch (error) {
       console.error("Exception fetching liabilities:", error);
       setLastError(error);
@@ -958,10 +958,10 @@ export const useDatabase = () => {
       const localData = localStorage.getItem(`liabilities_${session?.user?.id}`);
       if (localData) {
         console.log("Using locally stored liabilities as fallback after exception");
-        return { data: JSON.parse(localData), error, localData: true };
+        return { success: true, data: JSON.parse(localData), error, localData: true };
       }
       
-      return { data: [], error };
+      return { success: false, error };
     } finally {
       setLoading(false);
     }
@@ -975,7 +975,7 @@ export const useDatabase = () => {
       const userId = session?.user?.id;
       
       if (!userId) {
-        return { error: "User not authenticated" };
+        return { success: false, error: "User not authenticated" };
       }
       
       // Check for local data first
@@ -985,9 +985,9 @@ export const useDatabase = () => {
       if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
         if (localData) {
           console.log("Using locally stored income data");
-          return { data: JSON.parse(localData), error: null, localData: true };
+          return { success: true, data: JSON.parse(localData), error: null, localData: true };
         }
-        return { data: [], error: "Database connection unavailable", localData: false };
+        return { success: false, error: "Database connection unavailable", localData: false };
       }
       
       // Update the session
@@ -1010,10 +1010,10 @@ export const useDatabase = () => {
         // Try local data as fallback
         if (localData) {
           console.log("Using locally stored income as fallback");
-          return { data: JSON.parse(localData), error, localData: true };
+          return { success: true, data: JSON.parse(localData), error, localData: true };
         }
         
-        return { data: [], error };
+        return { success: false, error };
       }
       
       // Transform data back for the form
@@ -1026,7 +1026,7 @@ export const useDatabase = () => {
         saved: true
       }));
       
-      return { data: formattedData, error: null };
+      return { success: true, data: formattedData, error: null };
     } catch (error) {
       console.error("Exception fetching income:", error);
       setLastError(error);
@@ -1035,10 +1035,10 @@ export const useDatabase = () => {
       const localData = localStorage.getItem(`income_${session?.user?.id}`);
       if (localData) {
         console.log("Using locally stored income as fallback after exception");
-        return { data: JSON.parse(localData), error, localData: true };
+        return { success: true, data: JSON.parse(localData), error, localData: true };
       }
       
-      return { data: [], error };
+      return { success: false, error };
     } finally {
       setLoading(false);
     }
@@ -1052,7 +1052,7 @@ export const useDatabase = () => {
       const userId = session?.user?.id;
       
       if (!userId) {
-        return { error: "User not authenticated" };
+        return { success: false, error: "User not authenticated" };
       }
       
       // Check for local data first
@@ -1062,9 +1062,9 @@ export const useDatabase = () => {
       if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
         if (localData) {
           console.log("Using locally stored expenses data");
-          return { data: JSON.parse(localData), error: null, localData: true };
+          return { success: true, data: JSON.parse(localData), error: null, localData: true };
         }
-        return { data: [], error: "Database connection unavailable", localData: false };
+        return { success: false, error: "Database connection unavailable", localData: false };
       }
       
       // Update the session
@@ -1087,10 +1087,10 @@ export const useDatabase = () => {
         // Try local data as fallback
         if (localData) {
           console.log("Using locally stored expenses as fallback");
-          return { data: JSON.parse(localData), error, localData: true };
+          return { success: true, data: JSON.parse(localData), error, localData: true };
         }
         
-        return { data: [], error };
+        return { success: false, error };
       }
       
       // Transform data back for the form
@@ -1103,7 +1103,7 @@ export const useDatabase = () => {
         saved: true
       }));
       
-      return { data: formattedData, error: null };
+      return { success: true, data: formattedData, error: null };
     } catch (error) {
       console.error("Exception fetching expenses:", error);
       setLastError(error);
@@ -1112,10 +1112,10 @@ export const useDatabase = () => {
       const localData = localStorage.getItem(`expenses_${session?.user?.id}`);
       if (localData) {
         console.log("Using locally stored expenses as fallback after exception");
-        return { data: JSON.parse(localData), error, localData: true };
+        return { success: true, data: JSON.parse(localData), error, localData: true };
       }
       
-      return { data: [], error };
+      return { success: false, error };
     } finally {
       setLoading(false);
     }
