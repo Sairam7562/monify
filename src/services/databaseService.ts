@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { User } from '@/services/userService';
 import { toast } from "sonner";
@@ -65,7 +64,7 @@ export async function getFinancialSummary(userId: string) {
     async () => {
       return await supabase
         .from('expenses')
-        .select('amount, frequency')
+        .select('amount, frequency, category')
         .eq('user_id', userId as any);
     },
     "Error fetching expenses"
@@ -98,6 +97,33 @@ export async function getFinancialSummary(userId: string) {
     return sum + amount; // monthly is default
   }, 0);
   
+  // Calculate housing expenses (assuming housing category is used in expenses)
+  const housingExpenses = ((expensesResult.data || []) as any[]).reduce((sum, item) => {
+    if (item.category?.toLowerCase() === 'housing') {
+      const amount = parseFloat(item.amount) || 0;
+      const frequency = item.frequency;
+      
+      // Convert to monthly values
+      if (frequency === 'weekly') return sum + (amount * 4.33);
+      if (frequency === 'bi-weekly') return sum + (amount * 2.17);
+      if (frequency === 'annually') return sum + (amount / 12);
+      return sum + amount; // monthly is default
+    }
+    return sum;
+  }, 0);
+  
+  // Calculate emergency fund ratio (assuming 3 months of expenses are saved as cash)
+  // This is a placeholder calculation - in a real app, you'd have a way to track emergency funds
+  const cashAssets = totalAssets * 0.1; // Assuming 10% of assets are in cash
+  const emergencyFundRatio = monthlyExpenses > 0 ? cashAssets / monthlyExpenses : 0;
+  
+  // Calculate housing cost ratio
+  const housingCostRatio = monthlyIncome > 0 ? housingExpenses / monthlyIncome : 0;
+  
+  // Calculate percentage changes (placeholder for now - in a real app, you'd compare to previous period)
+  const netWorthChange = totalAssets > 0 ? 5.2 : 0; // Placeholder 5.2% change
+  const cashFlowChange = monthlyIncome > 0 ? 3.8 : 0; // Placeholder 3.8% change
+  
   return {
     totalAssets,
     totalLiabilities,
@@ -105,9 +131,14 @@ export async function getFinancialSummary(userId: string) {
     monthlyIncome,
     monthlyExpenses,
     monthlyCashFlow: monthlyIncome - monthlyExpenses,
-    // Calculate financial ratios
+    // Financial ratios
     debtToAssetRatio: totalAssets > 0 ? totalLiabilities / totalAssets : null,
     savingsRate: monthlyIncome > 0 ? (monthlyIncome - monthlyExpenses) / monthlyIncome : null,
+    emergencyFundRatio,
+    housingCostRatio,
+    // Percentage changes
+    netWorthChange,
+    cashFlowChange
   };
 }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,6 +7,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import ProfileImageUploader from './ProfileImageUploader';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+import { generateFinancialStatementData } from '@/services/databaseService';
 
 interface FinancialItem {
   id: string;
@@ -81,6 +83,7 @@ const defaultData: PersonalFinancialStatementData = {
 };
 
 const PersonalFinancialStatementForm = () => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState<PersonalFinancialStatementData>(defaultData);
   const [includeSpouse, setIncludeSpouse] = useState(false);
   const [spouseData, setSpouseData] = useState({
@@ -89,6 +92,61 @@ const PersonalFinancialStatementForm = () => {
     phone: '',
     includeInReport: false
   });
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const loadFinancialData = async () => {
+      if (!user) return;
+      
+      try {
+        setIsLoading(true);
+        const statementData = await generateFinancialStatementData(user.id);
+        
+        if (statementData) {
+          const formattedData = {
+            profileImage: statementData.profileImage,
+            fullName: statementData.fullName,
+            email: statementData.email,
+            phone: statementData.phone,
+            address: statementData.address,
+            statementDate: new Date().toISOString().slice(0, 10),
+            assets: statementData.assets,
+            liabilities: statementData.liabilities,
+            incomes: statementData.incomes,
+            expenses: statementData.expenses
+          };
+          
+          setFormData(prevData => ({
+            ...prevData,
+            ...formattedData
+          }));
+        }
+      } catch (error) {
+        console.error("Error loading financial statement data:", error);
+        toast.error("Could not load your financial data");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadFinancialData();
+  }, [user]);
+
+  if (isLoading) {
+    return (
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>Personal Financial Statement</CardTitle>
+        </CardHeader>
+        <CardContent className="flex justify-center items-center h-64">
+          <div className="text-center">
+            <div className="mb-4">Loading your financial data...</div>
+            <Spinner size="lg" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const handleProfileImageChange = (imageUrl: string | null) => {
     setFormData(prev => ({ ...prev, profileImage: imageUrl }));
