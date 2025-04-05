@@ -101,4 +101,3 @@ export function calculateCategoryExpenses(
       return sum + convertToMonthly(amount, frequency);
     }, 0);
 }
-

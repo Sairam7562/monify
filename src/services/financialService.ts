@@ -9,14 +9,55 @@ import {
   safeParseFloat
 } from "@/utils/financialUtils";
 
-// Define types for better type safety
+// Define more specific types for better type safety
+type BaseItem = {
+  id: string;
+  [key: string]: any;
+};
+
+// Define types for database tables
+type AssetItem = BaseItem & {
+  name: string;
+  value: number | string;
+  type: string;
+};
+
+type LiabilityItem = BaseItem & {
+  name: string;
+  amount: number | string;
+  type: string;
+};
+
+type IncomeItem = BaseItem & {
+  source: string; // Note: using source instead of name
+  amount: number | string;
+  frequency: string;
+  type: string;
+};
+
+type ExpenseItem = BaseItem & {
+  name: string;
+  amount: number | string;
+  frequency: string;
+  category: string;
+};
+
+type BusinessInfoItem = BaseItem & {
+  business_name: string; // Note: using business_name instead of name
+  business_type: string;
+};
+
+// Generic financial item type that accommodates all table structures
 type FinancialItem = {
   id: string;
-  name: string;
+  name?: string;    // Optional since some items use source or business_name instead
+  source?: string;  // For income items
+  business_name?: string; // For business items
   amount?: number | string;
   value?: number | string;
   frequency?: string;
   category?: string;
+  type?: string;
   [key: string]: any;
 };
 
@@ -37,12 +78,12 @@ type FinancialSummary = {
 
 // Get all assets for a user
 export async function getAssets(userId: string) {
-  return await safeQuery<FinancialItem[]>(
+  return await safeQuery<AssetItem[]>(
     async () => {
       return await supabase
         .from('assets')
         .select('*')
-        .eq('user_id', userId as any);
+        .eq('user_id', userId);
     },
     "Error fetching assets"
   );
@@ -50,12 +91,12 @@ export async function getAssets(userId: string) {
 
 // Get all liabilities for a user
 export async function getLiabilities(userId: string) {
-  return await safeQuery<FinancialItem[]>(
+  return await safeQuery<LiabilityItem[]>(
     async () => {
       return await supabase
         .from('liabilities')
         .select('*')
-        .eq('user_id', userId as any);
+        .eq('user_id', userId);
     },
     "Error fetching liabilities"
   );
@@ -63,12 +104,12 @@ export async function getLiabilities(userId: string) {
 
 // Get all income sources for a user
 export async function getIncome(userId: string) {
-  return await safeQuery<FinancialItem[]>(
+  return await safeQuery<IncomeItem[]>(
     async () => {
       return await supabase
         .from('income')
         .select('*')
-        .eq('user_id', userId as any);
+        .eq('user_id', userId);
     },
     "Error fetching income"
   );
@@ -76,12 +117,12 @@ export async function getIncome(userId: string) {
 
 // Get all expenses for a user
 export async function getExpenses(userId: string) {
-  return await safeQuery<FinancialItem[]>(
+  return await safeQuery<ExpenseItem[]>(
     async () => {
       return await supabase
         .from('expenses')
         .select('*')
-        .eq('user_id', userId as any);
+        .eq('user_id', userId);
     },
     "Error fetching expenses"
   );
@@ -94,7 +135,7 @@ export async function getPersonalInfo(userId: string) {
       return await supabase
         .from('personal_info')
         .select('*')
-        .eq('user_id', userId as any)
+        .eq('user_id', userId)
         .maybeSingle();
     },
     "Error fetching personal info"
@@ -103,12 +144,12 @@ export async function getPersonalInfo(userId: string) {
 
 // Get business info for statements
 export async function getBusinessInfo(userId: string) {
-  return await safeQuery<FinancialItem[]>(
+  return await safeQuery<BusinessInfoItem[]>(
     async () => {
       return await supabase
         .from('business_info')
         .select('*')
-        .eq('user_id', userId as any);
+        .eq('user_id', userId);
     },
     "Error fetching business info"
   );
@@ -224,25 +265,25 @@ export async function generateFinancialStatementData(userId: string): Promise<Fi
       country: 'United States', // Default
       includeInReport: true
     },
-    assets: ((assetsResult.data || []) as FinancialItem[]).map((asset) => ({
+    assets: ((assetsResult.data || []) as AssetItem[]).map((asset) => ({
       id: asset.id,
       name: asset.name,
       value: String(asset.value || '0'),
       includeInReport: true
     })),
-    liabilities: ((liabilitiesResult.data || []) as FinancialItem[]).map((liability) => ({
+    liabilities: ((liabilitiesResult.data || []) as LiabilityItem[]).map((liability) => ({
       id: liability.id,
       name: liability.name,
       value: String(liability.amount || '0'),
       includeInReport: true
     })),
-    incomes: ((incomeResult.data || []) as FinancialItem[]).map((income) => ({
+    incomes: ((incomeResult.data || []) as IncomeItem[]).map((income) => ({
       id: income.id,
-      name: income.source,
+      name: income.source, // Note: mapping source to name
       value: String(income.amount || '0'),
       includeInReport: true
     })),
-    expenses: ((expensesResult.data || []) as FinancialItem[]).map((expense) => ({
+    expenses: ((expensesResult.data || []) as ExpenseItem[]).map((expense) => ({
       id: expense.id,
       name: expense.name,
       value: String(expense.amount || '0'),
