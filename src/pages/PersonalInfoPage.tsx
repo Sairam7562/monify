@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import PersonalInfoForm from '@/components/finance/PersonalInfoForm';
@@ -45,8 +44,10 @@ const PersonalInfoPage = () => {
   };
 
   useEffect(() => {
-    // Run a comprehensive database check on initial load
-    const runDiagnostics = async () => {
+    const initialize = async () => {
+      // Check schema error from session storage first
+      const schemaError = sessionStorage.getItem('db_schema_error') === 'true';
+      
       try {
         console.log("Running database diagnostics...");
         // Check connection directly
@@ -61,69 +62,51 @@ const PersonalInfoPage = () => {
         if (!connResult.connected) {
           console.warn("Database connection diagnostics failed:", connResult);
         }
-      } catch (err) {
-        console.error("Error running diagnostics:", err);
-        setDiagnosticInfo(`Error running diagnostics: ${err}`);
-      }
-    };
-    
-    runDiagnostics();
-  }, [user]);
-
-  useEffect(() => {
-    // Check if there's a known schema error from session storage
-    const schemaError = sessionStorage.getItem('db_schema_error') === 'true';
-    if (schemaError) {
-      console.log("Found schema error in session storage");
-      setHasDatabaseError(true);
-      setIsLoading(false);
-      return;
-    }
-
-    // Only attempt database check once to avoid infinite loading
-    const checkDatabase = async () => {
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-        console.log("Checking database status by fetching personal info...");
-        const { error, localData } = await fetchPersonalInfo();
         
-        if (localData) {
-          console.log("Data was loaded from local storage");
-        }
-        
-        // Check for the specific schema error
-        if (error && typeof error === 'string' && (
-          error.includes('schema must be one of the following') || 
-          error.includes('PGRST106')
-        )) {
-          console.log('Database schema not yet available:', error);
+        // If there's a known schema error, don't attempt further checks
+        if (schemaError) {
+          console.log("Found schema error in session storage");
           setHasDatabaseError(true);
+          setIsLoading(false);
+          return;
+        }
+
+        // Only attempt database check if user exists and no schema error
+        if (user && !schemaError) {
+          setIsLoading(true);
+          console.log("Checking database status by fetching personal info...");
+          const { error, localData } = await fetchPersonalInfo();
           
-          // Store in session storage so we don't keep checking
-          sessionStorage.setItem('db_schema_error', 'true');
-        } else if (error) {
-          console.error('Database error:', error);
-          setHasDatabaseError(true);
+          if (localData) {
+            console.log("Data was loaded from local storage");
+          }
+          
+          // Check for the specific schema error
+          if (error && typeof error === 'string' && (
+            error.includes('schema must be one of the following') || 
+            error.includes('PGRST106')
+          )) {
+            console.log('Database schema not yet available:', error);
+            setHasDatabaseError(true);
+            
+            // Store in session storage so we don't keep checking
+            sessionStorage.setItem('db_schema_error', 'true');
+          } else if (error) {
+            console.error('Database error:', error);
+            setHasDatabaseError(true);
+          }
         }
       } catch (err) {
-        console.error('Error checking database:', err);
+        console.error('Error during initialization:', err);
         setHasDatabaseError(true);
       } finally {
-        // Always set loading to false immediately to ensure form renders
+        // Always set loading to false to ensure form renders
         setIsLoading(false);
       }
     };
 
-    // Only check database on first load or when manually retrying
-    if (attemptCount === 0) {
-      checkDatabase();
-      setAttemptCount(prev => prev + 1);
-    }
+    // Run initialization
+    initialize();
   }, [user, fetchPersonalInfo, attemptCount]);
 
   const handleManualRetry = async () => {
