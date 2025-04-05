@@ -51,3 +51,54 @@ export function safeParseFloat(value: string | number | null | undefined): numbe
   const parsedValue = typeof value === 'string' ? parseFloat(value) : value;
   return isNaN(parsedValue) ? 0 : parsedValue;
 }
+
+/**
+ * Calculate total from an array of financial items
+ * @param items Array of items with amount/value property
+ * @param valueKey The key to use for getting the value ('amount' or 'value')
+ * @returns The sum of all values
+ */
+export function calculateTotal(
+  items: Array<any> | null | undefined, 
+  valueKey: 'amount' | 'value' = 'amount'
+): number {
+  if (!items || !Array.isArray(items)) return 0;
+  return items.reduce((sum, item) => sum + safeParseFloat(item[valueKey]), 0);
+}
+
+/**
+ * Calculate monthly total from financial items considering frequency
+ * @param items Array of items with amount and frequency properties
+ * @returns The monthly equivalent sum
+ */
+export function calculateMonthlyTotal(items: Array<any> | null | undefined): number {
+  if (!items || !Array.isArray(items)) return 0;
+  
+  return items.reduce((sum, item) => {
+    const amount = safeParseFloat(item.amount);
+    const frequency = item.frequency || 'monthly';
+    return sum + convertToMonthly(amount, frequency);
+  }, 0);
+}
+
+/**
+ * Calculate categorical expenses (e.g., housing)
+ * @param expenses Array of expense items
+ * @param category The category to filter by
+ * @returns The monthly equivalent sum for the category
+ */
+export function calculateCategoryExpenses(
+  expenses: Array<any> | null | undefined, 
+  category: string
+): number {
+  if (!expenses || !Array.isArray(expenses)) return 0;
+  
+  return expenses
+    .filter(item => item.category?.toLowerCase() === category.toLowerCase())
+    .reduce((sum, item) => {
+      const amount = safeParseFloat(item.amount);
+      const frequency = item.frequency || 'monthly';
+      return sum + convertToMonthly(amount, frequency);
+    }, 0);
+}
+

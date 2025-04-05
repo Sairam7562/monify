@@ -1,10 +1,43 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { safeQuery } from "@/services/databaseService";
+import { 
+  convertToMonthly, 
+  calculateTotal, 
+  calculateMonthlyTotal,
+  calculateCategoryExpenses,
+  safeParseFloat
+} from "@/utils/financialUtils";
+
+// Define types for better type safety
+type FinancialItem = {
+  id: string;
+  name: string;
+  amount?: number | string;
+  value?: number | string;
+  frequency?: string;
+  category?: string;
+  [key: string]: any;
+};
+
+type FinancialSummary = {
+  totalAssets: number;
+  totalLiabilities: number;
+  netWorth: number;
+  monthlyIncome: number;
+  monthlyExpenses: number;
+  monthlyCashFlow: number;
+  debtToAssetRatio: number | null;
+  savingsRate: number | null;
+  emergencyFundRatio: number;
+  housingCostRatio: number;
+  netWorthChange: number;
+  cashFlowChange: number;
+};
 
 // Get all assets for a user
 export async function getAssets(userId: string) {
-  return await safeQuery<any[]>(
+  return await safeQuery<FinancialItem[]>(
     async () => {
       return await supabase
         .from('assets')
@@ -17,7 +50,7 @@ export async function getAssets(userId: string) {
 
 // Get all liabilities for a user
 export async function getLiabilities(userId: string) {
-  return await safeQuery<any[]>(
+  return await safeQuery<FinancialItem[]>(
     async () => {
       return await supabase
         .from('liabilities')
@@ -30,7 +63,7 @@ export async function getLiabilities(userId: string) {
 
 // Get all income sources for a user
 export async function getIncome(userId: string) {
-  return await safeQuery<any[]>(
+  return await safeQuery<FinancialItem[]>(
     async () => {
       return await supabase
         .from('income')
@@ -43,7 +76,7 @@ export async function getIncome(userId: string) {
 
 // Get all expenses for a user
 export async function getExpenses(userId: string) {
-  return await safeQuery<any[]>(
+  return await safeQuery<FinancialItem[]>(
     async () => {
       return await supabase
         .from('expenses')
@@ -70,7 +103,7 @@ export async function getPersonalInfo(userId: string) {
 
 // Get business info for statements
 export async function getBusinessInfo(userId: string) {
-  return await safeQuery<any[]>(
+  return await safeQuery<FinancialItem[]>(
     async () => {
       return await supabase
         .from('business_info')
@@ -82,62 +115,29 @@ export async function getBusinessInfo(userId: string) {
 }
 
 // Getting total assets and liabilities for the dashboard
-export async function getFinancialSummary(userId: string) {
+export async function getFinancialSummary(userId: string): Promise<FinancialSummary> {
   const assetsResult = await getAssets(userId);
   const liabilitiesResult = await getLiabilities(userId);
   const incomeResult = await getIncome(userId);
   const expensesResult = await getExpenses(userId);
   
-  // Calculate totals with appropriate type assertions
-  const totalAssets = ((assetsResult.data || []) as any[]).reduce((sum, item) => sum + (parseFloat(item.value) || 0), 0);
-  const totalLiabilities = ((liabilitiesResult.data || []) as any[]).reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+  // Use utility functions for consistent calculations
+  const totalAssets = calculateTotal(assetsResult.data, 'value');
+  const totalLiabilities = calculateTotal(liabilitiesResult.data, 'amount');
+  const monthlyIncome = calculateMonthlyTotal(incomeResult.data);
+  const monthlyExpenses = calculateMonthlyTotal(expensesResult.data);
   
-  // Convert all income and expenses to monthly values for proper comparison
-  const monthlyIncome = ((incomeResult.data || []) as any[]).reduce((sum, item) => {
-    const amount = parseFloat(item.amount) || 0;
-    const frequency = item.frequency;
-    
-    // Convert to monthly values
-    if (frequency === 'weekly') return sum + (amount * 4.33);
-    if (frequency === 'bi-weekly') return sum + (amount * 2.17);
-    if (frequency === 'annually') return sum + (amount / 12);
-    return sum + amount; // monthly is default
-  }, 0);
+  // Calculate housing expenses using utility function
+  const housingExpenses = calculateCategoryExpenses(expensesResult.data, 'housing');
   
-  const monthlyExpenses = ((expensesResult.data || []) as any[]).reduce((sum, item) => {
-    const amount = parseFloat(item.amount) || 0;
-    const frequency = item.frequency;
-    
-    // Convert to monthly values
-    if (frequency === 'weekly') return sum + (amount * 4.33);
-    if (frequency === 'bi-weekly') return sum + (amount * 2.17);
-    if (frequency === 'annually') return sum + (amount / 12);
-    return sum + amount; // monthly is default
-  }, 0);
-  
-  // Calculate housing expenses (assuming housing category is used in expenses)
-  const housingExpenses = ((expensesResult.data || []) as any[]).reduce((sum, item) => {
-    if (item.category?.toLowerCase() === 'housing') {
-      const amount = parseFloat(item.amount) || 0;
-      const frequency = item.frequency;
-      
-      // Convert to monthly values
-      if (frequency === 'weekly') return sum + (amount * 4.33);
-      if (frequency === 'bi-weekly') return sum + (amount * 2.17);
-      if (frequency === 'annually') return sum + (amount / 12);
-      return sum + amount; // monthly is default
-    }
-    return sum;
-  }, 0);
-  
-  // Calculate emergency fund ratio (assuming 3 months of expenses are saved as cash)
-  const cashAssets = totalAssets * 0.1; // Assuming 10% of assets are in cash
+  // Calculate emergency fund ratio (assuming 10% of assets are in cash)
+  const cashAssets = totalAssets * 0.1; // Assumption: 10% of assets are in cash
   const emergencyFundRatio = monthlyExpenses > 0 ? cashAssets / monthlyExpenses : 0;
   
   // Calculate housing cost ratio
   const housingCostRatio = monthlyIncome > 0 ? housingExpenses / monthlyIncome : 0;
   
-  // Calculate percentage changes (placeholder for now)
+  // Calculate percentage changes (placeholder values for now)
   const netWorthChange = totalAssets > 0 ? 5.2 : 0; // Placeholder 5.2% change
   const cashFlowChange = monthlyIncome > 0 ? 3.8 : 0; // Placeholder 3.8% change
   
@@ -159,8 +159,49 @@ export async function getFinancialSummary(userId: string) {
   };
 }
 
+// Define more specific type for financial statement data
+type FinancialStatementData = {
+  profileImage: string | null;
+  fullName: string;
+  email: string;
+  phone: string;
+  address: {
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+    includeInReport: boolean;
+  };
+  assets: Array<{
+    id: string;
+    name: string;
+    value: string;
+    includeInReport: boolean;
+  }>;
+  liabilities: Array<{
+    id: string;
+    name: string;
+    value: string;
+    includeInReport: boolean;
+  }>;
+  incomes: Array<{
+    id: string;
+    name: string;
+    value: string;
+    includeInReport: boolean;
+  }>;
+  expenses: Array<{
+    id: string;
+    name: string;
+    value: string;
+    includeInReport: boolean;
+  }>;
+  statementDate: string;
+};
+
 // Generate full financial statement data
-export async function generateFinancialStatementData(userId: string) {
+export async function generateFinancialStatementData(userId: string): Promise<FinancialStatementData> {
   const personalInfoResult = await getPersonalInfo(userId);
   const assetsResult = await getAssets(userId);
   const liabilitiesResult = await getLiabilities(userId);
@@ -183,28 +224,28 @@ export async function generateFinancialStatementData(userId: string) {
       country: 'United States', // Default
       includeInReport: true
     },
-    assets: ((assetsResult.data || []) as any[]).map((asset: any) => ({
+    assets: ((assetsResult.data || []) as FinancialItem[]).map((asset) => ({
       id: asset.id,
       name: asset.name,
-      value: asset.value.toString(),
+      value: String(asset.value || '0'),
       includeInReport: true
     })),
-    liabilities: ((liabilitiesResult.data || []) as any[]).map((liability: any) => ({
+    liabilities: ((liabilitiesResult.data || []) as FinancialItem[]).map((liability) => ({
       id: liability.id,
       name: liability.name,
-      value: liability.amount.toString(),
+      value: String(liability.amount || '0'),
       includeInReport: true
     })),
-    incomes: ((incomeResult.data || []) as any[]).map((income: any) => ({
+    incomes: ((incomeResult.data || []) as FinancialItem[]).map((income) => ({
       id: income.id,
       name: income.source,
-      value: income.amount.toString(),
+      value: String(income.amount || '0'),
       includeInReport: true
     })),
-    expenses: ((expensesResult.data || []) as any[]).map((expense: any) => ({
+    expenses: ((expensesResult.data || []) as FinancialItem[]).map((expense) => ({
       id: expense.id,
       name: expense.name,
-      value: expense.amount.toString(),
+      value: String(expense.amount || '0'),
       includeInReport: true
     })),
     statementDate: new Date().toISOString().slice(0, 10)

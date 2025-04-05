@@ -2,6 +2,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowUp, ArrowDown, DollarSign } from 'lucide-react';
+import { formatCurrency } from '@/utils/financialUtils';
 
 interface IncomeExpenseCardProps {
   totalIncome: number;
@@ -23,17 +24,17 @@ const IncomeExpenseCard = ({ totalIncome, totalExpenses, percentChange }: Income
       <CardContent>
         <div className="text-2xl font-bold">
           <span className={isPositive ? 'text-navido-green-600' : 'text-red-500'}>
-            ${Math.abs(netIncome).toLocaleString()}
+            {formatCurrency(Math.abs(netIncome))}
           </span>
           <span className="text-xs text-muted-foreground ml-1">
             {isPositive ? 'surplus' : 'deficit'}
           </span>
         </div>
         <p className="text-xs text-muted-foreground">
-          Total Income: <span className="font-medium text-navido-green-600">${totalIncome.toLocaleString()}</span>
+          Total Income: <span className="font-medium text-navido-green-600">{formatCurrency(totalIncome)}</span>
         </p>
         <p className="text-xs text-muted-foreground">
-          Total Expenses: <span className="font-medium text-red-500">${totalExpenses.toLocaleString()}</span>
+          Total Expenses: <span className="font-medium text-red-500">{formatCurrency(totalExpenses)}</span>
         </p>
         <div className="flex items-center pt-2 text-sm">
           {changeIsPositive ? (

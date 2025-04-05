@@ -29,5 +29,6 @@ export async function safeQuery<T>(
   }
 }
 
-// Forward exports from financialService
+// Forward exports from financialService but NOT importing from here
+// to avoid circular dependencies
 export * from '@/services/financialService';
