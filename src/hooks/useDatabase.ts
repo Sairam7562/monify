@@ -977,4 +977,194 @@ export const useDatabase = () => {
         saved: true
       }));
       
-      return { success: true, data:
+      return { success: true, data: formattedData, error: null };
+    } catch (error) {
+      console.error("Exception fetching liabilities:", error);
+      setLastError(error);
+      
+      // Try local data as fallback
+      const localData = localStorage.getItem(`liabilities_${session?.user?.id}`);
+      if (localData) {
+        console.log("Using locally stored liabilities as fallback after exception");
+        return { success: true, data: JSON.parse(localData), error, localData: true };
+      }
+      
+      return { success: false, error };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchIncome = async () => {
+    setLoading(true);
+    setLastError(null);
+    
+    try {
+      const userId = session?.user?.id;
+      
+      if (!userId) {
+        return { success: false, error: "User not authenticated" };
+      }
+      
+      // Check for local data first
+      const localData = localStorage.getItem(`income_${userId}`);
+      
+      // Handle offline mode or persistent connection issues
+      if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
+        if (localData) {
+          console.log("Using locally stored income data");
+          return { success: true, data: JSON.parse(localData), error: null, localData: true };
+        }
+        return { success: false, error: "Database connection unavailable", localData: false };
+      }
+      
+      // Update the session
+      if (session) {
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        });
+      }
+      
+      // Query income
+      const { data, error } = await supabase
+        .from('income')
+        .select('*')
+        .eq('user_id', userId as any);
+      
+      if (error) {
+        console.error("Error fetching income:", error);
+        
+        // Try local data as fallback
+        if (localData) {
+          console.log("Using locally stored income as fallback");
+          return { success: true, data: JSON.parse(localData), error, localData: true };
+        }
+        
+        return { success: false, error };
+      }
+      
+      // Transform data back for the form
+      const formattedData = data.map((income: any) => ({
+        id: income.id,
+        source: income.source,
+        type: income.type,
+        amount: income.amount.toString(),
+        frequency: income.frequency,
+        saved: true
+      }));
+      
+      return { success: true, data: formattedData, error: null };
+    } catch (error) {
+      console.error("Exception fetching income:", error);
+      setLastError(error);
+      
+      // Try local data as fallback
+      const localData = localStorage.getItem(`income_${session?.user?.id}`);
+      if (localData) {
+        console.log("Using locally stored income as fallback after exception");
+        return { success: true, data: JSON.parse(localData), error, localData: true };
+      }
+      
+      return { success: false, error };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchExpenses = async () => {
+    setLoading(true);
+    setLastError(null);
+    
+    try {
+      const userId = session?.user?.id;
+      
+      if (!userId) {
+        return { success: false, error: "User not authenticated" };
+      }
+      
+      // Check for local data first
+      const localData = localStorage.getItem(`expenses_${userId}`);
+      
+      // Handle offline mode or persistent connection issues
+      if (hasSchemaIssue() || !(await checkDatabaseStatus())) {
+        if (localData) {
+          console.log("Using locally stored expenses data");
+          return { success: true, data: JSON.parse(localData), error: null, localData: true };
+        }
+        return { success: false, error: "Database connection unavailable", localData: false };
+      }
+      
+      // Update the session
+      if (session) {
+        await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token
+        });
+      }
+      
+      // Query expenses
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', userId as any);
+      
+      if (error) {
+        console.error("Error fetching expenses:", error);
+        
+        // Try local data as fallback
+        if (localData) {
+          console.log("Using locally stored expenses as fallback");
+          return { success: true, data: JSON.parse(localData), error, localData: true };
+        }
+        
+        return { success: false, error };
+      }
+      
+      // Transform data back for the form
+      const formattedData = data.map((expense: any) => ({
+        id: expense.id,
+        name: expense.name,
+        category: expense.category,
+        amount: expense.amount.toString(),
+        frequency: expense.frequency,
+        saved: true
+      }));
+      
+      return { success: true, data: formattedData, error: null };
+    } catch (error) {
+      console.error("Exception fetching expenses:", error);
+      setLastError(error);
+      
+      // Try local data as fallback
+      const localData = localStorage.getItem(`expenses_${session?.user?.id}`);
+      if (localData) {
+        console.log("Using locally stored expenses as fallback after exception");
+        return { success: true, data: JSON.parse(localData), error, localData: true };
+      }
+      
+      return { success: false, error };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    loading,
+    lastError,
+    checkDatabaseStatus,
+    hasSchemaIssue,
+    savePersonalInfo,
+    saveBusinessInfo,
+    saveAssets,
+    saveLiabilities,
+    saveIncome,
+    saveExpenses,
+    fetchPersonalInfo,
+    fetchBusinessInfo,
+    fetchAssets,
+    fetchLiabilities,
+    fetchIncome,
+    fetchExpenses
+  };
+};
