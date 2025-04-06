@@ -25,6 +25,13 @@ const PersonalInfoPage = () => {
   const [activeTab, setActiveTab] = useState("personal");
   const [reconnectAttempting, setReconnectAttempting] = useState(false);
 
+  // Store the current user ID in localStorage for offline access
+  useEffect(() => {
+    if (user?.id) {
+      localStorage.setItem('currentUserId', user.id);
+    }
+  }, [user]);
+
   const checkLocalStorage = () => {
     if (!user) return "No user found";
     
@@ -108,7 +115,7 @@ const PersonalInfoPage = () => {
           const { error, localData } = await fetchPersonalInfo();
           
           if (localData) {
-            console.log("Data was loaded from local storage");
+            console.log("Data was loaded from local storage", localData);
           }
           
           if (error && typeof error === 'object' && (
@@ -128,11 +135,19 @@ const PersonalInfoPage = () => {
         console.error('Error during initialization:', err);
         setHasDatabaseError(true);
       } finally {
+        // Always set loading to false to prevent UI from being stuck
         setIsLoading(false);
       }
     };
 
     initialize();
+    
+    // Add a 5 second timeout to force loading state to end
+    const timeout = setTimeout(() => {
+      setIsLoading(false);
+    }, 5000);
+    
+    return () => clearTimeout(timeout);
   }, [user, fetchPersonalInfo, attemptCount]);
 
   const handleManualRetry = async () => {
@@ -171,6 +186,7 @@ const PersonalInfoPage = () => {
       setHasDatabaseError(true);
       setDiagnosticInfo(`Error: ${err}`);
     } finally {
+      // Ensure we always exit loading and reconnect states
       setIsLoading(false);
       setReconnectAttempting(false);
     }

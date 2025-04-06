@@ -14,8 +14,26 @@ export async function safeQuery<T>(
   queryFn: () => Promise<PostgrestSingleResponse<T>>,
   errorMessage: string,
   fallbackData?: T
-): Promise<{ data: T | null; error: any; success: boolean }> {
+): Promise<{ data: T | null; error: any; success: boolean; localData?: T | null }> {
   try {
+    // Try to find data in localStorage first if this is a common query that might be cached
+    const localStorageKey = errorMessage.includes('personal info') 
+      ? `personal_info_${localStorage.getItem('currentUserId') || 'unknown'}`
+      : null;
+    
+    let localData = null;
+    if (localStorageKey) {
+      try {
+        const storedData = localStorage.getItem(localStorageKey);
+        if (storedData) {
+          console.info('Using locally stored personal info data');
+          localData = JSON.parse(storedData);
+        }
+      } catch (err) {
+        console.warn('Error parsing local data:', err);
+      }
+    }
+    
     const result = await queryFn();
     
     if (result.error) {
@@ -30,10 +48,24 @@ export async function safeQuery<T>(
         sessionStorage.setItem('db_auth_error', 'true');
       }
       
+      // Return local data if available as a fallback
+      if (localData) {
+        return { data: localData, error: result.error, success: false, localData };
+      }
+      
       return { data: fallbackData || null, error: result.error, success: false };
     }
     
-    return { data: result.data as T, error: null, success: true };
+    // If we have data and a local storage key, update the local cache
+    if (localStorageKey && result.data) {
+      try {
+        localStorage.setItem(localStorageKey, JSON.stringify(result.data));
+      } catch (err) {
+        console.warn('Error saving data to localStorage:', err);
+      }
+    }
+    
+    return { data: result.data as T, error: null, success: true, localData };
   } catch (error) {
     console.error(`${errorMessage}:`, error);
     

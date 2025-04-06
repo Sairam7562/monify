@@ -21,6 +21,7 @@ import { CalendarIcon } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useDatabase } from '@/hooks/useDatabase';
 import ProfileImageUploader from './ProfileImageUploader';
+import { toast } from 'sonner';
 
 // Define schema for personal information
 const personalInfoSchema = z.object({
@@ -46,6 +47,7 @@ const PersonalInfoForm = ({ onSave }: PersonalInfoFormProps) => {
   const { user } = useAuth();
   const { savePersonalInfo, fetchPersonalInfo, loading } = useDatabase();
   const [isSaving, setIsSaving] = useState(false);
+  const [formInitialized, setFormInitialized] = useState(false);
 
   const form = useForm<z.infer<typeof personalInfoSchema>>({
     resolver: zodResolver(personalInfoSchema),
@@ -69,7 +71,7 @@ const PersonalInfoForm = ({ onSave }: PersonalInfoFormProps) => {
     const loadPersonalInfo = async () => {
       if (!user) return;
       try {
-        setIsSaving(true);
+        console.log("Loading personal info data...");
         const { data } = await fetchPersonalInfo();
         if (data) {
           console.log("Personal info data loaded:", data);
@@ -88,9 +90,15 @@ const PersonalInfoForm = ({ onSave }: PersonalInfoFormProps) => {
             profileImage: data.profileImage || null,
           });
         }
+        // Ensure form is now interactive regardless of result
+        setFormInitialized(true);
       } catch (err) {
         console.error("Error loading personal info:", err);
+        // Ensure form is interactive even after error
+        setFormInitialized(true);
+        toast.error("Failed to load your information. You can still enter your details.");
       } finally {
+        // Clear any saving state to ensure form isn't locked
         setIsSaving(false);
       }
     };
@@ -103,13 +111,17 @@ const PersonalInfoForm = ({ onSave }: PersonalInfoFormProps) => {
     
     try {
       setIsSaving(true);
+      console.log("Saving personal info:", values);
       await savePersonalInfo(values);
+      toast.success("Personal information saved successfully");
       
       // Call onSave callback if provided
       if (onSave) onSave();
     } catch (err) {
       console.error("Error saving personal info:", err);
+      toast.error("Failed to save your information. Please try again.");
     } finally {
+      // Always ensure saving state is reset
       setIsSaving(false);
     }
   };
@@ -120,6 +132,15 @@ const PersonalInfoForm = ({ onSave }: PersonalInfoFormProps) => {
       shouldValidate: true,
     });
   };
+
+  // If form is not initialized and also loading, show a message
+  if (!formInitialized && loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <p className="text-muted-foreground">Loading your information...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -139,7 +160,7 @@ const PersonalInfoForm = ({ onSave }: PersonalInfoFormProps) => {
                   <FormItem>
                     <FormLabel>First Name*</FormLabel>
                     <FormControl>
-                      <Input placeholder="First Name" {...field} />
+                      <Input placeholder="First Name" {...field} disabled={isSaving} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -152,7 +173,7 @@ const PersonalInfoForm = ({ onSave }: PersonalInfoFormProps) => {
                   <FormItem>
                     <FormLabel>Last Name*</FormLabel>
                     <FormControl>
-                      <Input placeholder="Last Name" {...field} />
+                      <Input placeholder="Last Name" {...field} disabled={isSaving} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -168,7 +189,7 @@ const PersonalInfoForm = ({ onSave }: PersonalInfoFormProps) => {
                   <FormItem>
                     <FormLabel>Email*</FormLabel>
                     <FormControl>
-                      <Input placeholder="Email" type="email" {...field} />
+                      <Input placeholder="Email" type="email" {...field} disabled={isSaving} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -181,7 +202,7 @@ const PersonalInfoForm = ({ onSave }: PersonalInfoFormProps) => {
                   <FormItem>
                     <FormLabel>Phone</FormLabel>
                     <FormControl>
-                      <Input placeholder="Phone" {...field} />
+                      <Input placeholder="Phone" {...field} disabled={isSaving} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -197,7 +218,7 @@ const PersonalInfoForm = ({ onSave }: PersonalInfoFormProps) => {
                   <FormItem>
                     <FormLabel>Occupation</FormLabel>
                     <FormControl>
-                      <Input placeholder="Occupation" {...field} />
+                      <Input placeholder="Occupation" {...field} disabled={isSaving} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -210,7 +231,7 @@ const PersonalInfoForm = ({ onSave }: PersonalInfoFormProps) => {
                   <FormItem>
                     <FormLabel>Annual Income</FormLabel>
                     <FormControl>
-                      <Input placeholder="Annual Income" {...field} />
+                      <Input placeholder="Annual Income" {...field} disabled={isSaving} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -227,7 +248,7 @@ const PersonalInfoForm = ({ onSave }: PersonalInfoFormProps) => {
                 <FormItem>
                   <FormLabel>Street Address</FormLabel>
                   <FormControl>
-                    <Input placeholder="Address" {...field} />
+                    <Input placeholder="Address" {...field} disabled={isSaving} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -242,7 +263,7 @@ const PersonalInfoForm = ({ onSave }: PersonalInfoFormProps) => {
                   <FormItem>
                     <FormLabel>City</FormLabel>
                     <FormControl>
-                      <Input placeholder="City" {...field} />
+                      <Input placeholder="City" {...field} disabled={isSaving} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -255,7 +276,7 @@ const PersonalInfoForm = ({ onSave }: PersonalInfoFormProps) => {
                   <FormItem>
                     <FormLabel>State</FormLabel>
                     <FormControl>
-                      <Input placeholder="State" {...field} />
+                      <Input placeholder="State" {...field} disabled={isSaving} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -268,7 +289,7 @@ const PersonalInfoForm = ({ onSave }: PersonalInfoFormProps) => {
                   <FormItem>
                     <FormLabel>Zip Code</FormLabel>
                     <FormControl>
-                      <Input placeholder="Zip Code" {...field} />
+                      <Input placeholder="Zip Code" {...field} disabled={isSaving} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -291,6 +312,7 @@ const PersonalInfoForm = ({ onSave }: PersonalInfoFormProps) => {
                             "w-full pl-3 text-left font-normal",
                             !field.value && "text-muted-foreground"
                           )}
+                          disabled={isSaving}
                         >
                           {field.value ? (
                             format(field.value, "PP")
@@ -320,8 +342,8 @@ const PersonalInfoForm = ({ onSave }: PersonalInfoFormProps) => {
           </div>
           
           <div className="flex justify-end">
-            <Button type="submit" disabled={loading || isSaving}>
-              {loading || isSaving ? "Saving..." : "Save Personal Information"}
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? "Saving..." : "Save Personal Information"}
             </Button>
           </div>
         </form>
