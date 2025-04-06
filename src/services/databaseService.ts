@@ -1,32 +1,57 @@
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, clearAllCaches } from "@/integrations/supabase/client";
 import { User } from '@/services/userService';
 import { toast } from "sonner";
 import { PostgrestSingleResponse } from "@supabase/supabase-js";
 
 /**
  * A service to handle common database operations with proper error handling
- * and type safety
+ * and type safety. Includes optimized caching mechanisms.
  */
+
+// Cache expiration time (15 minutes in milliseconds)
+const CACHE_EXPIRY_TIME = 15 * 60 * 1000;
 
 // Improved generic type for the safeQuery function with better flexibility for different return types
 export async function safeQuery<T>(
   queryFn: () => Promise<PostgrestSingleResponse<T>>,
   errorMessage: string,
-  fallbackData?: T
+  fallbackData?: T,
+  cacheKey?: string // Optional cache key for storing data
 ): Promise<{ data: T | null; error: any; success: boolean; localData?: T | null }> {
   try {
     // Try to find data in localStorage first if this is a common query that might be cached
-    const localStorageKey = errorMessage.includes('personal info') 
-      ? `personal_info_${localStorage.getItem('currentUserId') || 'unknown'}`
-      : null;
+    let localStorageKey = null;
+    const userId = localStorage.getItem('currentUserId');
+    
+    if (cacheKey && userId) {
+      localStorageKey = `${cacheKey}_${userId}`;
+    } else if (errorMessage.includes('personal info') && userId) {
+      localStorageKey = `personal_info_${userId}`;
+    }
     
     let localData = null;
+    let cacheTimestamp = 0;
+    
     if (localStorageKey) {
       try {
         const storedData = localStorage.getItem(localStorageKey);
-        if (storedData) {
-          console.info('Using locally stored personal info data');
+        const cacheMetaString = localStorage.getItem(`${localStorageKey}_meta`);
+        
+        if (storedData && cacheMetaString) {
+          const cacheMeta = JSON.parse(cacheMetaString);
+          cacheTimestamp = cacheMeta.timestamp || 0;
+          
+          // Check if cache is still valid
+          const now = Date.now();
+          if (now - cacheTimestamp < CACHE_EXPIRY_TIME) {
+            console.info(`Using cached data from ${localStorageKey}, age: ${(now - cacheTimestamp) / 1000}s`);
+            localData = JSON.parse(storedData);
+          } else {
+            console.info(`Cache expired for ${localStorageKey}, fetching fresh data`);
+          }
+        } else if (storedData) {
+          console.info('Using locally stored data without timestamp');
           localData = JSON.parse(storedData);
         }
       } catch (err) {
@@ -34,6 +59,12 @@ export async function safeQuery<T>(
       }
     }
     
+    // If we have fresh enough local data, return it immediately without network request
+    if (localData && cacheTimestamp && (Date.now() - cacheTimestamp < CACHE_EXPIRY_TIME)) {
+      return { data: localData, error: null, success: true, localData };
+    }
+    
+    // No valid cache, proceed with the database query
     const result = await queryFn();
     
     if (result.error) {
@@ -60,6 +91,14 @@ export async function safeQuery<T>(
     if (localStorageKey && result.data) {
       try {
         localStorage.setItem(localStorageKey, JSON.stringify(result.data));
+        
+        // Store cache metadata with timestamp
+        const metadata = {
+          timestamp: Date.now(),
+          source: 'database'
+        };
+        localStorage.setItem(`${localStorageKey}_meta`, JSON.stringify(metadata));
+        
       } catch (err) {
         console.warn('Error saving data to localStorage:', err);
       }
@@ -111,7 +150,7 @@ export async function retryQuery<T>(
 // Check database connectivity with minimal impact
 export async function checkDatabaseHealth(): Promise<boolean> {
   try {
-    // Try a simple health check query instead of using ping RPC
+    // Try a simple health check query with minimal column selection
     const { error } = await supabase
       .from('profiles')
       .select('id')
@@ -122,6 +161,95 @@ export async function checkDatabaseHealth(): Promise<boolean> {
     console.error("Database health check failed:", err);
     return false;
   }
+}
+
+// Clear cached data for the current user
+export function clearUserCache(userId?: string): void {
+  const currentUserId = userId || localStorage.getItem('currentUserId');
+  if (!currentUserId) return;
+  
+  console.log(`Clearing cache for user: ${currentUserId}`);
+  
+  // List of cache keys to clear for this user
+  const cachePatterns = [
+    `personal_info_${currentUserId}`,
+    `business_info_${currentUserId}`,
+    `assets_${currentUserId}`,
+    `liabilities_${currentUserId}`,
+    `income_${currentUserId}`,
+    `expenses_${currentUserId}`
+  ];
+  
+  // Find and remove all matching keys from localStorage
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    
+    // Check if any pattern matches this key
+    if (cachePatterns.some(pattern => key.startsWith(pattern))) {
+      localStorage.removeItem(key);
+      // Also remove any associated metadata
+      localStorage.removeItem(`${key}_meta`);
+      console.log(`Cleared cache: ${key}`);
+    }
+  }
+}
+
+// Clear all caches and database error flags
+export function purgeAllCaches(): void {
+  clearAllCaches(); // This is imported from client.ts
+  
+  // Also clear any error indicators
+  sessionStorage.removeItem('db_schema_error');
+  sessionStorage.removeItem('db_auth_error');
+  sessionStorage.removeItem('db_network_error');
+  
+  // Show feedback to the user
+  toast.info("All app caches have been cleared");
+}
+
+// Cache health check - returns stats about the cache
+export function getCacheStats(): { size: number, entries: number, oldestEntry: number } {
+  let totalSize = 0;
+  let entries = 0;
+  let oldestTimestamp = Date.now();
+  
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    
+    // Only count app data
+    if (key.includes('_info_') || key.includes('assets_') || 
+        key.includes('liabilities_') || key.includes('income_') || 
+        key.includes('expenses_')) {
+      
+      const item = localStorage.getItem(key);
+      if (item) {
+        totalSize += item.length;
+        entries++;
+        
+        // Check for metadata to find oldest entry
+        const metaKey = `${key}_meta`;
+        const metaData = localStorage.getItem(metaKey);
+        if (metaData) {
+          try {
+            const meta = JSON.parse(metaData);
+            if (meta.timestamp && meta.timestamp < oldestTimestamp) {
+              oldestTimestamp = meta.timestamp;
+            }
+          } catch (e) {
+            // Ignore parse errors
+          }
+        }
+      }
+    }
+  }
+  
+  return {
+    size: Math.round(totalSize / 1024), // size in KB
+    entries,
+    oldestEntry: Date.now() - oldestTimestamp // age in ms
+  };
 }
 
 // Forward exports from financialService but NOT importing from here

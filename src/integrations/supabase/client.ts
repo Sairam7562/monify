@@ -14,6 +14,9 @@ let isRefreshing = false;
 let connectionRetries = 0;
 const MAX_CONNECTION_RETRIES = 5;
 
+// Cache timeout (in milliseconds) - 15 minutes
+const CACHE_TIMEOUT = 15 * 60 * 1000;
+
 export const supabase = createClient<Database>(
   SUPABASE_URL, 
   SUPABASE_PUBLISHABLE_KEY,
@@ -27,14 +30,67 @@ export const supabase = createClient<Database>(
     },
     global: {
       headers: {
-        'Accept-Profile': 'public', // Using 'public' schema for API calls
+        'Accept-Profile': 'api', // Using 'api' schema for API calls instead of 'public'
       },
     },
+    // Add DB schema option
+    db: {
+      schema: 'api'
+    },
+    // Add caching options
+    realtime: {
+      timeout: 10000 // Reduce timeout for faster connection handling
+    }
   }
 );
 
+// Function to clear all local storage cache
+export const clearAllCaches = () => {
+  const userId = localStorage.getItem('currentUserId');
+  if (!userId) return;
+  
+  console.log('Clearing all application caches...');
+  
+  // Clear all app-specific cached data
+  const keysToRemove: string[] = [];
+  
+  // Collect keys to remove
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    
+    // Only remove app data caches, not auth sessions
+    if (
+      key.startsWith(`personal_info_${userId}`) ||
+      key.startsWith(`business_info_${userId}`) ||
+      key.startsWith(`assets_${userId}`) ||
+      key.startsWith(`liabilities_${userId}`) ||
+      key.startsWith(`income_${userId}`) ||
+      key.startsWith(`expenses_${userId}`) ||
+      key === 'db_schema_error' ||
+      key === 'db_auth_error' ||
+      key === 'db_network_error'
+    ) {
+      keysToRemove.push(key);
+    }
+  }
+  
+  // Remove collected keys
+  keysToRemove.forEach(key => {
+    localStorage.removeItem(key);
+    console.log(`Removed cache: ${key}`);
+  });
+  
+  // Clear session storage items
+  sessionStorage.removeItem('db_schema_error');
+  sessionStorage.removeItem('db_auth_error');
+  sessionStorage.removeItem('db_network_error');
+  
+  console.log('Cache clearing complete');
+};
+
 // Add comprehensive error handling for database schema issues
-const checkConnection = async () => {
+export const checkConnection = async () => {
   try {
     console.log('Checking Supabase database connection...');
     
@@ -135,6 +191,9 @@ supabase.auth.onAuthStateChange((event, session) => {
     
     // Reset connection retries on successful authentication
     connectionRetries = 0;
+    
+    // Clear all caches when user signs in to ensure fresh data
+    clearAllCaches();
     
     // Check connection again after sign in
     // Use setTimeout to avoid potential recursive loop

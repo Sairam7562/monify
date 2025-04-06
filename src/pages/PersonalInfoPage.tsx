@@ -5,14 +5,15 @@ import PersonalInfoForm from '@/components/finance/PersonalInfoForm';
 import BusinessInfoForm from '@/components/finance/BusinessInfoForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { InfoIcon, AlertCircle, RefreshCw, DatabaseIcon, CheckCircle, WifiOff } from 'lucide-react';
+import { InfoIcon, AlertCircle, RefreshCw, DatabaseIcon, CheckCircle, WifiOff, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Spinner } from '@/components/ui/spinner';
 import { useDatabase } from '@/hooks/useDatabase';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { checkConnection, supabase } from '@/integrations/supabase/client';
+import { checkConnection } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { purgeAllCaches, getCacheStats } from '@/services/databaseService';
 
 const PersonalInfoPage = () => {
   const { user } = useAuth();
@@ -24,13 +25,31 @@ const PersonalInfoPage = () => {
   const [diagnosticInfo, setDiagnosticInfo] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("personal");
   const [reconnectAttempting, setReconnectAttempting] = useState(false);
+  const [cacheStats, setCacheStats] = useState<{ size: number, entries: number, oldestEntry: number } | null>(null);
 
   // Store the current user ID in localStorage for offline access
   useEffect(() => {
     if (user?.id) {
       localStorage.setItem('currentUserId', user.id);
     }
+    
+    // Check cache stats on initial load
+    if (user) {
+      setCacheStats(getCacheStats());
+    }
   }, [user]);
+
+  // Add a timeout to prevent infinite loading state
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (isLoading) {
+        setIsLoading(false);
+        console.log("Loading timeout triggered - forcing UI to continue");
+      }
+    }, 5000);
+    
+    return () => clearTimeout(timeout);
+  }, [isLoading]);
 
   const checkLocalStorage = () => {
     if (!user) return "No user found";
@@ -38,11 +57,22 @@ const PersonalInfoPage = () => {
     const userId = user.id?.toString();
     const key = `personal_info_${userId}`;
     const data = localStorage.getItem(key);
+    const meta = localStorage.getItem(`${key}_meta`);
     
     if (data) {
       try {
         const parsed = JSON.parse(data);
-        return `Found local data: First Name: ${parsed.firstName || 'N/A'}, Last Name: ${parsed.lastName || 'N/A'}`;
+        let metaInfo = "No timestamp";
+        
+        if (meta) {
+          const metaData = JSON.parse(meta);
+          if (metaData.timestamp) {
+            const age = Math.round((Date.now() - metaData.timestamp) / 1000 / 60);
+            metaInfo = `Age: ${age} minutes`;
+          }
+        }
+        
+        return `Found local data: First Name: ${parsed.firstName || 'N/A'}, Last Name: ${parsed.lastName || 'N/A'}, ${metaInfo}`;
       } catch (e) {
         return `Found corrupted data: ${data.substring(0, 50)}...`;
       }
@@ -55,6 +85,8 @@ const PersonalInfoPage = () => {
     if (!user) return;
     
     try {
+      setDiagnosticInfo("Running diagnostics...");
+      
       const hasSchemaError = sessionStorage.getItem('db_schema_error') === 'true';
       const hasAuthError = sessionStorage.getItem('db_auth_error') === 'true';
       const hasNetworkError = sessionStorage.getItem('db_network_error') === 'true';
@@ -77,6 +109,11 @@ const PersonalInfoPage = () => {
         }
       }
       
+      // Get cache statistics
+      const stats = getCacheStats();
+      setCacheStats(stats);
+      
+      diagnosticText += `Cache Stats: ${stats.entries} entries, ${stats.size}KB, oldest entry: ${Math.round(stats.oldestEntry / 1000 / 60)} minutes ago\n`;
       diagnosticText += `Local Storage: ${checkLocalStorage()}\n`;
       
       setDiagnosticInfo(diagnosticText);
@@ -141,14 +178,14 @@ const PersonalInfoPage = () => {
     };
 
     initialize();
-    
-    // Add a 5 second timeout to force loading state to end
-    const timeout = setTimeout(() => {
-      setIsLoading(false);
-    }, 5000);
-    
-    return () => clearTimeout(timeout);
   }, [user, fetchPersonalInfo, attemptCount]);
+
+  const handleClearCaches = () => {
+    purgeAllCaches();
+    setCacheStats(getCacheStats());
+    toast.success("All caches cleared successfully");
+    runConnectionDiagnostics();
+  };
 
   const handleManualRetry = async () => {
     sessionStorage.removeItem('db_schema_error');
@@ -233,6 +270,11 @@ const PersonalInfoPage = () => {
             <AlertTitle className="text-green-700">Database Connection Active</AlertTitle>
             <AlertDescription className="text-green-600">
               Your data will be saved to the database.
+              {cacheStats && (
+                <div className="mt-1 text-sm">
+                  Local cache: {cacheStats.entries} entries ({cacheStats.size} KB)
+                </div>
+              )}
             </AlertDescription>
           </Alert>
         )}
@@ -270,6 +312,15 @@ const PersonalInfoPage = () => {
                 >
                   <DatabaseIcon className="h-4 w-4 mr-2" />
                   Run Diagnostics
+                </Button>
+                <Button 
+                  onClick={handleClearCaches} 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex items-center"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Clear Caches
                 </Button>
                 {navigator.onLine === false && (
                   <Button 
