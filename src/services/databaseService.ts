@@ -79,10 +79,11 @@ export async function retryQuery<T>(
 // Check database connectivity with minimal impact
 export async function checkDatabaseHealth(): Promise<boolean> {
   try {
-    // Fix the TypeScript error by using an empty object instead of 'ping'
-    // This will call a generic ping function without arguments
+    // Try a simple health check query instead of using ping RPC
     const { error } = await supabase
-      .rpc('ping' as any);
+      .from('profiles')
+      .select('id')
+      .limit(1);
     
     return !error;
   } catch (err) {
