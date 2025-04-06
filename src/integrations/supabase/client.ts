@@ -30,12 +30,12 @@ export const supabase = createClient<Database>(
     },
     global: {
       headers: {
-        'Accept-Profile': 'api', // Using 'api' schema for API calls instead of 'public'
+        'Accept-Profile': 'public', // Changed from 'api' to 'public'
       },
     },
     // Add DB schema option
     db: {
-      schema: 'api'
+      schema: 'public' // Changed from 'api' to 'public'
     },
     // Add caching options
     realtime: {
@@ -208,6 +208,3 @@ supabase.auth.onAuthStateChange((event, session) => {
 // Get the current domain for email settings
 const currentDomain = window.location.origin;
 console.log("Current application domain:", currentDomain);
-
-// Export the checkConnection function to use in other parts of the app
-export { checkConnection };

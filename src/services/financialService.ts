@@ -8,6 +8,7 @@ import {
   calculateCategoryExpenses,
   safeParseFloat
 } from "@/utils/financialUtils";
+import { PostgrestSingleResponse } from '@supabase/supabase-js';
 
 // Define more specific types for better type safety
 type BaseItem = {
@@ -80,10 +81,11 @@ type FinancialSummary = {
 export async function getAssets(userId: string) {
   return await safeQuery<AssetItem[]>(
     async () => {
+      // Use type assertion to help TypeScript understand the return type
       return await supabase
         .from('assets')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId) as PostgrestSingleResponse<AssetItem[]>;
     },
     "Error fetching assets"
   );
@@ -96,7 +98,7 @@ export async function getLiabilities(userId: string) {
       return await supabase
         .from('liabilities')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId) as PostgrestSingleResponse<LiabilityItem[]>;
     },
     "Error fetching liabilities"
   );
@@ -109,7 +111,7 @@ export async function getIncome(userId: string) {
       return await supabase
         .from('income')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId) as PostgrestSingleResponse<IncomeItem[]>;
     },
     "Error fetching income"
   );
@@ -122,7 +124,7 @@ export async function getExpenses(userId: string) {
       return await supabase
         .from('expenses')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId) as PostgrestSingleResponse<ExpenseItem[]>;
     },
     "Error fetching expenses"
   );
@@ -136,7 +138,7 @@ export async function getPersonalInfo(userId: string) {
         .from('personal_info')
         .select('*')
         .eq('user_id', userId)
-        .maybeSingle();
+        .maybeSingle() as PostgrestSingleResponse<any>;
     },
     "Error fetching personal info"
   );
@@ -149,7 +151,7 @@ export async function getBusinessInfo(userId: string) {
       return await supabase
         .from('business_info')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId) as PostgrestSingleResponse<BusinessInfoItem[]>;
     },
     "Error fetching business info"
   );
