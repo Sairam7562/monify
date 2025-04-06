@@ -50,7 +50,7 @@ type BusinessInfoItem = BaseItem & {
 // Generic financial item type that accommodates all table structures
 type FinancialItem = {
   id: string;
-  name?: string;    // Optional since some items use source or business_name instead
+  name?: string;    // Made optional to fix TypeScript errors
   source?: string;  // For income items
   business_name?: string; // For business items
   amount?: number | string;
