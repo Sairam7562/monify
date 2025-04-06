@@ -12,12 +12,22 @@ interface RouteGuardProps {
 }
 
 const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: RouteGuardProps) => {
-  const { user, loading } = useAuth();
+  const { user, loading, session } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isChecking, setIsChecking] = useState(true);
   const redirectAttempts = useRef(0);
   const lastRedirectTime = useRef(0);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    // Clear any existing timeout when component unmounts or when dependencies change
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -27,8 +37,10 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
       console.log("Route guard checking auth:", { 
         requireAuth, 
         requireAdmin, 
-        userExists: !!user, 
-        userRole: user?.role 
+        userExists: !!user,
+        sessionExists: !!session,
+        userRole: user?.role,
+        currentPath: location.pathname
       });
 
       // Check if the current route is the verification route
@@ -51,6 +63,18 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
         return;
       }
       
+      // Public routes - always allow access regardless of auth state
+      if (!requireAuth) {
+        setIsChecking(false);
+        return;
+      }
+
+      // For login/register pages, if user is already logged in, redirect to dashboard
+      if ((location.pathname === '/login' || location.pathname === '/register') && user) {
+        navigate('/dashboard');
+        return;
+      }
+      
       // Prevent redirect loops
       const now = Date.now();
       if (now - lastRedirectTime.current < 2000) { // Less than 2 seconds since last redirect
@@ -70,16 +94,26 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
       // If page requires authentication and user is not logged in, redirect to login
       if (requireAuth && !user) {
         lastRedirectTime.current = now;
+        console.log("User not authenticated, redirecting to login");
         toast.error("Please log in to access this page");
-        navigate('/login', { state: { from: location.pathname } });
+        
+        // Add a small delay before redirecting to avoid potential race conditions
+        timeoutRef.current = setTimeout(() => {
+          navigate('/login', { state: { from: location.pathname } });
+        }, 100);
         return;
       }
       
       // If page requires admin and user is not an admin, redirect to dashboard
-      if (requireAdmin && user?.role !== 'admin' && user?.role !== 'Admin') {
+      if (requireAdmin && user?.role?.toLowerCase() !== 'admin') {
         lastRedirectTime.current = now;
+        console.log("User not admin, redirecting to dashboard");
         toast.error("You don't have permission to access this page");
-        navigate('/dashboard');
+        
+        // Add a small delay before redirecting to avoid potential race conditions
+        timeoutRef.current = setTimeout(() => {
+          navigate('/dashboard');
+        }, 100);
         return;
       }
       
@@ -87,7 +121,7 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
     };
 
     checkAuth();
-  }, [user, loading, requireAuth, requireAdmin, navigate, location]);
+  }, [user, loading, requireAuth, requireAdmin, navigate, location, session]);
 
   // Show loading spinner while checking authentication
   if (loading || isChecking) {
@@ -100,7 +134,7 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
   }
 
   // If page doesn't require auth or user is logged in correctly, render the children
-  if (!requireAuth || (user && (!requireAdmin || (requireAdmin && (user.role === 'admin' || user.role === 'Admin'))))) {
+  if (!requireAuth || (user && (!requireAdmin || (requireAdmin && user.role?.toLowerCase() === 'admin')))) {
     return <>{children}</>;
   }
 

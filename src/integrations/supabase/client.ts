@@ -24,18 +24,18 @@ export const supabase = createClient<Database>(
     auth: {
       autoRefreshToken: true,
       persistSession: true,
-      detectSessionInUrl: false, // Changed to false to prevent URL token detection loops
+      detectSessionInUrl: false, // Set to false to prevent URL token detection loops
       flowType: 'pkce',
       storage: localStorage,
     },
     global: {
       headers: {
-        'Accept-Profile': 'public', // Changed from 'api' to 'public'
+        'Accept-Profile': 'public',
       },
     },
     // Add DB schema option
     db: {
-      schema: 'public' // Changed from 'api' to 'public'
+      schema: 'public'
     },
     // Add caching options
     realtime: {

@@ -26,13 +26,24 @@ const AuthForm = () => {
   const location = useLocation();
   const isRegisterPage = location.pathname === '/register';
   const from = location.state?.from || '/dashboard';
+  const [loginAttempts, setLoginAttempts] = useState(0);
 
   // If user is already logged in, redirect them
   useEffect(() => {
     if (user && !isLoading) {
+      console.log("User already logged in, redirecting to dashboard");
       navigate('/dashboard');
     }
   }, [user, navigate, isLoading]);
+
+  useEffect(() => {
+    // Clear any previous error messages when switching between login/register
+    setErrorMessage(null);
+    // Reset form fields when switching between login/register
+    setEmail('');
+    setPassword('');
+    setName('');
+  }, [location.pathname]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -77,13 +88,27 @@ const AuthForm = () => {
           return;
         }
 
+        // Increment login attempts
+        setLoginAttempts(prev => prev + 1);
+        
+        console.log(`Login attempt ${loginAttempts + 1} for ${email}`);
         const user = await loginWithEmail(email, password);
         if (user) {
           toast({
             title: "Login Successful",
             description: "You have successfully logged in.",
           });
-          navigate(from);
+          
+          // Add a small delay before navigation to ensure auth state is updated
+          setTimeout(() => {
+            navigate(from);
+          }, 500);
+        } else {
+          // If login failed, increment attempts counter
+          if (loginAttempts >= 3) {
+            console.log("Too many failed login attempts. Suggesting password reset.");
+            setErrorMessage("Too many failed login attempts. You may need to reset your password.");
+          }
         }
       }
     } catch (error) {
@@ -98,6 +123,7 @@ const AuthForm = () => {
     setIsLoading(true);
     setErrorMessage(null);
     try {
+      console.log(`Attempting login with ${provider}`);
       await loginWithSocial(provider);
       // Redirect will be handled by the auth state change listener
     } catch (error) {

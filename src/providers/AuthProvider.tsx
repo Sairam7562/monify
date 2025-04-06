@@ -1,3 +1,4 @@
+
 import { ReactNode, useEffect, useState, useRef } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +28,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true);
   const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
   const initializingAuth = useRef(true);
+  const authInitialized = useRef(false);
   
   // Prevent excessive toast notifications
   const toastTimestamps = useRef<Record<string, number>>({});
@@ -45,6 +47,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   useEffect(() => {
+    if (authInitialized.current) return;
+    authInitialized.current = true;
+    
     console.log("Setting up auth state listener");
     
     // Check for hash params from email verification
@@ -58,51 +63,52 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       subscriptionRef.current.unsubscribe();
     }
     
-    // First set up the listener before checking for an existing session
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, newSession) => {
-        console.log("Auth state change event:", event);
-        
-        if (initializingAuth.current) {
-          // Skip toast notifications during initial auth setup
-          console.log("Initializing auth, skipping notifications");
-          setSession(newSession);
-          setSupabaseUser(newSession?.user ?? null);
-          setUser(newSession?.user ? supabaseUserToUser(newSession.user) : null);
-          initializingAuth.current = false;
-          return;
-        }
-        
-        setSession(newSession);
-        setSupabaseUser(newSession?.user ?? null);
-        setUser(newSession?.user ? supabaseUserToUser(newSession.user) : null);
-        
-        // Use a type assertion to treat the event as our extended AuthChangeEvent type
-        const authEvent = event as AuthChangeEvent;
-        
-        // Only show notifications for major events (not TOKEN_REFRESHED)
-        if (authEvent === 'SIGNED_IN') {
-          showThrottledToast('signed-in', 'success', "Signed in successfully!");
-        } else if (authEvent === 'SIGNED_OUT') {
-          showThrottledToast('signed-out', 'success', "Signed out successfully");
-        } else if (authEvent === 'USER_UPDATED') {
-          showThrottledToast('user-updated', 'success', "User profile updated");
-        } else if (authEvent === 'PASSWORD_RECOVERY') {
-          showThrottledToast('password-recovery', 'info', "Password recovery initiated");
-        } else if (authEvent === 'USER_DELETED') {
-          showThrottledToast('user-deleted', 'info', "Account deleted");
-        }
-      }
-    );
-    
-    subscriptionRef.current = subscription;
-
-    // Then check for existing session
+    // First get the current session before setting up the listener
+    // This ensures we have the most up-to-date session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
       console.log("Retrieved session:", currentSession ? "Session exists" : "No session");
       setSession(currentSession);
       setSupabaseUser(currentSession?.user ?? null);
       setUser(currentSession?.user ? supabaseUserToUser(currentSession.user) : null);
+      
+      // Set up the listener after we have the current session
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        (event, newSession) => {
+          console.log("Auth state change event:", event);
+          
+          if (initializingAuth.current) {
+            // Skip toast notifications during initial auth setup
+            console.log("Initializing auth, skipping notifications");
+            setSession(newSession);
+            setSupabaseUser(newSession?.user ?? null);
+            setUser(newSession?.user ? supabaseUserToUser(newSession.user) : null);
+            initializingAuth.current = false;
+            return;
+          }
+          
+          setSession(newSession);
+          setSupabaseUser(newSession?.user ?? null);
+          setUser(newSession?.user ? supabaseUserToUser(newSession.user) : null);
+          
+          // Use a type assertion to treat the event as our extended AuthChangeEvent type
+          const authEvent = event as AuthChangeEvent;
+          
+          // Only show notifications for major events (not TOKEN_REFRESHED)
+          if (authEvent === 'SIGNED_IN') {
+            showThrottledToast('signed-in', 'success', "Signed in successfully!");
+          } else if (authEvent === 'SIGNED_OUT') {
+            showThrottledToast('signed-out', 'success', "Signed out successfully");
+          } else if (authEvent === 'USER_UPDATED') {
+            showThrottledToast('user-updated', 'success', "User profile updated");
+          } else if (authEvent === 'PASSWORD_RECOVERY') {
+            showThrottledToast('password-recovery', 'info', "Password recovery initiated");
+          } else if (authEvent === 'USER_DELETED') {
+            showThrottledToast('user-deleted', 'info', "Account deleted");
+          }
+        }
+      );
+      
+      subscriptionRef.current = subscription;
       setLoading(false);
       initializingAuth.current = false;
     });
