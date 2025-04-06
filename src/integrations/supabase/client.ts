@@ -30,8 +30,6 @@ export const supabase = createClient<Database>(
         'Accept-Profile': 'public', // Using 'public' schema for API calls
       },
     },
-    // Fix for TypeScript error by removing the schema option in the db config
-    // The schema is already set in the global headers above
   }
 );
 
