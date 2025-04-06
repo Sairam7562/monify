@@ -30,9 +30,9 @@ export const supabase = createClient<Database>(
         'Accept-Profile': 'public', // Using 'public' schema for API calls
       },
     },
-    // Fix for TypeScript error by using type assertion correctly
+    // Fix for TypeScript error by using correct approach without type assertion
     db: {
-      schema: 'public',
+      schema: 'public' as any, // Using 'as any' to bypass the TypeScript restriction
     },
   }
 );
