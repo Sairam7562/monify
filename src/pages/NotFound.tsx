@@ -24,6 +24,17 @@ const NotFound = () => {
     }
   };
 
+  // Extract the previous meaningful page from the referrer or history
+  const getPreviousPageName = () => {
+    const pathSegments = location.pathname.split('/');
+    if (pathSegments.length >= 2 && pathSegments[1]) {
+      return pathSegments[1].replace(/-/g, ' ');
+    }
+    return null;
+  };
+
+  const previousPage = getPreviousPageName();
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
       <div className="text-center max-w-md bg-white p-8 rounded-lg shadow-md">
@@ -54,6 +65,16 @@ const NotFound = () => {
             <ArrowLeft className="mr-2 h-4 w-4" />
             Go Back
           </Button>
+
+          {previousPage && previousPage.includes('asset') && (
+            <Button 
+              variant="outline"
+              className="w-full"
+              onClick={() => navigate('/assets-liabilities')}
+            >
+              Go to Assets & Liabilities
+            </Button>
+          )}
 
           {location.pathname.includes('admin') && (
             <Button 

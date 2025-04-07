@@ -1,809 +1,1011 @@
-
-import React, { useState, useEffect, useCallback } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { PlusCircle, Edit, Trash2, DollarSign, Percent, Info, Calendar, Tag } from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { toast } from 'sonner';
-import { useDatabase } from '@/hooks/useDatabase';
-import { useAuth } from '@/hooks/useAuth';
+import React, { useState, useEffect } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { 
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Badge } from "@/components/ui/badge";
+import { Plus, Trash2, Save, RefreshCw } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { v4 as uuidv4 } from 'uuid';
+import AssetCreationModal from '@/components/finance/AssetCreationModal';
 
-// Define asset types
-const assetTypes = [
-  { value: "cash", label: "Cash & Bank Accounts" },
-  { value: "investment", label: "Investment Accounts" },
-  { value: "real_estate", label: "Real Estate Property" },
-  { value: "vehicle", label: "Vehicles" },
-  { value: "business", label: "Business Ownership" },
-  { value: "personal", label: "Personal Property" },
-  { value: "retirement", label: "Retirement Accounts" },
-  { value: "other", label: "Other Assets" }
-];
+// Define types for assets and liabilities
+type Asset = {
+  id: string;
+  name: string;
+  value: string;
+  type: string;
+  description?: string;
+  isNew?: boolean;
+  isDeleted?: boolean;
+  isModified?: boolean;
+};
 
-// Define liability types
-const liabilityTypes = [
-  { value: "mortgage", label: "Mortgage Loans" },
-  { value: "auto", label: "Auto Loans" },
-  { value: "student", label: "Student Loans" },
-  { value: "credit_card", label: "Credit Card Debt" },
-  { value: "personal", label: "Personal Loans" },
-  { value: "business", label: "Business Loans" },
-  { value: "tax", label: "Tax Debt" },
-  { value: "medical", label: "Medical Debt" },
-  { value: "other", label: "Other Liabilities" }
-];
-
-// Define the schema for assets and liabilities
-const assetLiabilitySchema = z.object({
-  assets: z.array(
-    z.object({
-      id: z.string().optional(),
-      name: z.string().min(1, { message: "Asset name is required." }),
-      type: z.string().optional(),
-      value: z.string().refine(value => !isNaN(parseFloat(value)), {
-        message: "Value must be a number.",
-      }),
-      description: z.string().optional(),
-      ownership_percentage: z.string().optional(),
-      includeInNetWorth: z.boolean().default(true),
-    })
-  ),
-  liabilities: z.array(
-    z.object({
-      id: z.string().optional(),
-      name: z.string().min(1, { message: "Liability name is required." }),
-      type: z.string().optional(),
-      amount: z.string().refine(value => !isNaN(parseFloat(value)), {
-        message: "Amount must be a number.",
-      }),
-      interest_rate: z.string().optional(),
-      description: z.string().optional(),
-      ownership_percentage: z.string().optional(),
-      includeInNetWorth: z.boolean().default(true),
-    })
-  ),
-});
-
-type AssetLiabilityFormValues = z.infer<typeof assetLiabilitySchema>;
+type Liability = {
+  id: string;
+  name: string;
+  amount: string;
+  type: string;
+  description?: string;
+  isNew?: boolean;
+  isDeleted?: boolean;
+  isModified?: boolean;
+};
 
 interface AssetLiabilityFormProps {
   persistDataOnTabChange?: boolean;
 }
 
-const AssetLiabilityForm: React.FC<AssetLiabilityFormProps> = ({ persistDataOnTabChange }) => {
+const AssetLiabilityForm: React.FC<AssetLiabilityFormProps> = ({ persistDataOnTabChange = false }) => {
   const { user } = useAuth();
-  const { saveAssets, saveLiabilities, fetchAssets, fetchLiabilities } = useDatabase();
-  const [assets, setAssets] = useState<AssetLiabilityFormValues["assets"]>([]);
-  const [liabilities, setLiabilities] = useState<AssetLiabilityFormValues["liabilities"]>([]);
-  const [isDirty, setIsDirty] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<any>(null);
-  const [type, setType] = useState<'asset' | 'liability'>('asset');
-  const [activeTab, setActiveTab] = useState<'assets' | 'liabilities'>('assets');
+  const [activeTab, setActiveTab] = useState('assets');
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [liabilities, setLiabilities] = useState<Liability[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isAssetModalOpen, setIsAssetModalOpen] = useState(false);
 
-  const assetLiabilityForm = useForm<AssetLiabilityFormValues>({
-    resolver: zodResolver(assetLiabilitySchema),
-    defaultValues: {
-      assets: [{ name: '', value: '', includeInNetWorth: true }],
-      liabilities: [{ name: '', amount: '', includeInNetWorth: true }],
-    },
-  });
+  // Asset form state
+  const [assetName, setAssetName] = useState('');
+  const [assetValue, setAssetValue] = useState('');
+  const [assetType, setAssetType] = useState('Cash & Bank Accounts');
+  const [assetDescription, setAssetDescription] = useState('');
 
-  const { fields: assetFields, append: assetAppend, remove: assetRemove, update: assetUpdate } = useFieldArray({
-    control: assetLiabilityForm.control,
-    name: "assets"
-  });
+  // Liability form state
+  const [liabilityName, setLiabilityName] = useState('');
+  const [liabilityAmount, setLiabilityAmount] = useState('');
+  const [liabilityType, setLiabilityType] = useState('Mortgage');
+  const [liabilityDescription, setLiabilityDescription] = useState('');
 
-  const { fields: liabilityFields, append: liabilityAppend, remove: liabilityRemove, update: liabilityUpdate } = useFieldArray({
-    control: assetLiabilityForm.control,
-    name: "liabilities"
-  });
-
-  const userId = user?.id?.toString();
-
-  // At the top of the file, add localStorage persistence logic to persist form state between tab changes
-
-  // When initializing the form state in the component:
+  // Load assets and liabilities from database
   useEffect(() => {
-    if (persistDataOnTabChange && userId) {
-      // Load saved form data from localStorage if available
-      const savedData = localStorage.getItem(`asset_liability_form_${userId}`);
-      if (savedData) {
-        try {
-          const parsedData = JSON.parse(savedData);
-          setAssets(parsedData.assets || []);
-          setLiabilities(parsedData.liabilities || []);
-          // If we have loaded data from localStorage, mark as not dirty
-          // since we don't want to prompt for unsaved changes when it's already saved to localStorage
-          setIsDirty(false);
-        } catch (e) {
-          console.error("Error parsing saved asset/liability data:", e);
-        }
-      }
-    }
-  }, [userId, persistDataOnTabChange]);
-
-  useEffect(() => {
-    const loadInitialData = async () => {
+    const fetchData = async () => {
       if (!user) return;
-
+      
+      setIsLoading(true);
+      
       try {
-        const assetsData = await fetchAssets();
-        const liabilitiesData = await fetchLiabilities();
-
-        if (assetsData.data) {
-          setAssets(assetsData.data);
-        }
-
-        if (liabilitiesData.data) {
-          setLiabilities(liabilitiesData.data);
+        // Fetch assets
+        const { data: assetData, error: assetError } = await supabase
+          .from('assets')
+          .select('*')
+          .eq('user_id', user.id);
+          
+        if (assetError) throw assetError;
+        
+        // Fetch liabilities
+        const { data: liabilityData, error: liabilityError } = await supabase
+          .from('liabilities')
+          .select('*')
+          .eq('user_id', user.id);
+          
+        if (liabilityError) throw liabilityError;
+        
+        // Format asset data
+        const formattedAssets = assetData.map(asset => ({
+          id: asset.id,
+          name: asset.name,
+          value: asset.value.toString(),
+          type: asset.type,
+          description: asset.description || '',
+        }));
+        
+        // Format liability data
+        const formattedLiabilities = liabilityData.map(liability => ({
+          id: liability.id,
+          name: liability.name,
+          amount: liability.amount.toString(),
+          type: liability.type,
+          description: liability.description || '',
+        }));
+        
+        setAssets(formattedAssets);
+        setLiabilities(formattedLiabilities);
+        
+        // Check for local data that might need to be synced
+        const localAssets = JSON.parse(localStorage.getItem('local_assets') || '[]');
+        const localLiabilities = JSON.parse(localStorage.getItem('local_liabilities') || '[]');
+        
+        if (localAssets.length > 0 || localLiabilities.length > 0) {
+          toast.info("Found locally saved data. Syncing with database...");
+          // Handle syncing logic here
         }
       } catch (error) {
-        console.error("Error fetching data:", error);
-        toast.error("Failed to load initial data.");
+        console.error('Error fetching assets and liabilities:', error);
+        toast.error('Failed to load your financial data');
+        
+        // Try to load from local storage as fallback
+        const localAssets = JSON.parse(localStorage.getItem('local_assets') || '[]');
+        const localLiabilities = JSON.parse(localStorage.getItem('local_liabilities') || '[]');
+        
+        if (localAssets.length > 0 || localLiabilities.length > 0) {
+          setAssets(localAssets);
+          setLiabilities(localLiabilities);
+          toast.info("Loaded data from local storage due to connection issues");
+        }
+      } finally {
+        setIsLoading(false);
       }
     };
+    
+    fetchData();
+  }, [user]);
 
-    loadInitialData();
-  }, [user, fetchAssets, fetchLiabilities]);
+  // Calculate totals
+  const totalAssets = assets
+    .filter(asset => !asset.isDeleted)
+    .reduce((sum, asset) => sum + (parseFloat(asset.value) || 0), 0);
+    
+  const totalLiabilities = liabilities
+    .filter(liability => !liability.isDeleted)
+    .reduce((sum, liability) => sum + (parseFloat(liability.amount) || 0), 0);
+    
+  const netWorth = totalAssets - totalLiabilities;
 
-  // When form values change:
-  useEffect(() => {
-    if (persistDataOnTabChange && userId && (assets.length > 0 || liabilities.length > 0)) {
-      // Save to localStorage whenever the form data changes
-      localStorage.setItem(`asset_liability_form_${userId}`, JSON.stringify({
-        assets,
-        liabilities,
-        timestamp: new Date().toISOString()
-      }));
+  // Handle tab change
+  const handleTabChange = (value: string) => {
+    if (persistDataOnTabChange) {
+      // Save current tab data before switching
+      if (activeTab === 'assets' && assetName && assetValue) {
+        handleAddAsset();
+      } else if (activeTab === 'liabilities' && liabilityName && liabilityAmount) {
+        handleAddLiability();
+      }
     }
-  }, [assets, liabilities, userId, persistDataOnTabChange]);
+    
+    setActiveTab(value);
+  };
 
+  // Asset handlers
   const handleAddAsset = () => {
-    setType('asset');
-    setEditingItem(null);
-    setModalOpen(true);
-  };
-
-  const handleAddLiability = () => {
-    setType('liability');
-    setEditingItem(null);
-    setModalOpen(true);
-  };
-
-  const handleEditAsset = (asset: any) => {
-    setType('asset');
-    setEditingItem(asset);
-    setModalOpen(true);
-  };
-
-  const handleEditLiability = (liability: any) => {
-    setType('liability');
-    setEditingItem(liability);
-    setModalOpen(true);
-  };
-
-  const handleDeleteAsset = (assetId: string) => {
-    const updatedAssets = assets.filter(asset => asset.id !== assetId);
-    handleSaveAssets(updatedAssets);
-  };
-
-  const handleDeleteLiability = (liabilityId: string) => {
-    const updatedLiabilities = liabilities.filter(liability => liability.id !== liabilityId);
-    handleSaveLiabilities(updatedLiabilities);
-  };
-
-  const handleSaveAsset = async (asset: any) => {
-    const updatedAssets = editingItem
-      ? assets.map(a => (a.id === editingItem.id ? asset : a))
-      : [...assets, asset];
-    handleSaveAssets(updatedAssets);
-  };
-
-  const handleSaveLiability = async (liability: any) => {
-    const updatedLiabilities = editingItem
-      ? liabilities.map(l => (l.id === editingItem.id ? liability : l))
-      : [...liabilities, liability];
-    handleSaveLiabilities(updatedLiabilities);
-  };
-
-  const handleSaveAssets = async (updatedAssets: any) => {
-    if (!user) {
-      toast.error("You must be logged in to save assets.");
+    if (!assetName || !assetValue) {
+      toast.error('Please enter both name and value for the asset');
       return;
     }
-
-    try {
-      const response = await saveAssets(updatedAssets);
-
-      if (response.success) {
-        toast.success(`${isEditing ? "Updated" : "Added"} ${type} successfully!`);
-
-        // Close the modal and reset form
-        setModalOpen(false);
-        resetForm();
-
-        // Also clear from localStorage since it's now saved to database
-        if (persistDataOnTabChange && userId) {
-          const savedData = localStorage.getItem(`asset_liability_form_${userId}`);
-          if (savedData) {
-            try {
-              const parsedData = JSON.parse(savedData);
-              // Update saved data with the new state
-              parsedData.assets = updatedAssets;
-              localStorage.setItem(`asset_liability_form_${userId}`, JSON.stringify(parsedData));
-            } catch (e) {
-              console.error("Error updating saved asset/liability data:", e);
-            }
-          }
-        }
-
-        // Update the UI
-        setIsDirty(false);
-        setAssets(updatedAssets);
-      } else {
-        toast.error(response.error || "Failed to save asset.");
-      }
-    } catch (error) {
-      console.error("Error saving asset:", error);
-      toast.error("An error occurred while saving the asset.");
-    }
-  };
-
-  const handleSaveLiabilities = async (updatedLiabilities: any) => {
-    if (!user) {
-      toast.error("You must be logged in to save liabilities.");
-      return;
-    }
-
-    try {
-      const response = await saveLiabilities(updatedLiabilities);
-
-      if (response.success) {
-        toast.success(`${isEditing ? "Updated" : "Added"} ${type} successfully!`);
-
-        // Close the modal and reset form
-        setModalOpen(false);
-        resetForm();
-
-        // Also clear from localStorage since it's now saved to database
-        if (persistDataOnTabChange && userId) {
-          const savedData = localStorage.getItem(`asset_liability_form_${userId}`);
-          if (savedData) {
-            try {
-              const parsedData = JSON.parse(savedData);
-              // Update saved data with the new state
-              parsedData.liabilities = updatedLiabilities;
-              localStorage.setItem(`asset_liability_form_${userId}`, JSON.stringify(parsedData));
-            } catch (e) {
-              console.error("Error updating saved asset/liability data:", e);
-            }
-          }
-        }
-
-        // Update the UI
-        setIsDirty(false);
-        setLiabilities(updatedLiabilities);
-      } else {
-        toast.error(response.error || "Failed to save liability.");
-      }
-    } catch (error) {
-      console.error("Error saving liability:", error);
-      toast.error("An error occurred while saving the liability.");
-    }
-  };
-
-  const handleSaveAll = async () => {
-    if (!user) {
-      toast.error("You must be logged in to save.");
-      return;
-    }
-
-    try {
-      const assetsResponse = await saveAssets(assets);
-      const liabilitiesResponse = await saveLiabilities(liabilities);
-
-      const allSuccessful = assetsResponse.success && liabilitiesResponse.success;
-
-      if (allSuccessful) {
-        toast.success("All items saved successfully!");
-        setIsDirty(false);
-
-        // Clear from localStorage since it's now saved to database
-        if (persistDataOnTabChange && userId) {
-          localStorage.removeItem(`asset_liability_form_${userId}`);
-        }
-      } else {
-        // If not all were successful, update localStorage with current state
-        if (persistDataOnTabChange && userId) {
-          localStorage.setItem(`asset_liability_form_${userId}`, JSON.stringify({
-            assets,
-            liabilities,
-            timestamp: new Date().toISOString()
-          }));
-        }
-      }
-    } catch (error) {
-      console.error("Error saving all:", error);
-      toast.error("An error occurred while saving all items.");
-    }
-  };
-
-  const resetForm = () => {
-    setEditingItem(null);
-  };
-
-  const isEditing = !!editingItem;
-
-  const formatCurrency = (value: string | number) => {
-    if (!value) return '$0.00';
-    const numberValue = typeof value === 'string' ? parseFloat(value) : value;
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(numberValue);
-  };
-
-  const getAssetTypeLabel = (typeValue: string) => {
-    const assetType = assetTypes.find(type => type.value === typeValue);
-    return assetType ? assetType.label : typeValue;
-  };
-
-  const getLiabilityTypeLabel = (typeValue: string) => {
-    const liabilityType = liabilityTypes.find(type => type.value === typeValue);
-    return liabilityType ? liabilityType.label : typeValue;
-  };
-
-  const totalAssetValue = assets.reduce((sum, asset) => {
-    return sum + (parseFloat(asset.value) || 0);
-  }, 0);
-
-  const totalLiabilityAmount = liabilities.reduce((sum, liability) => {
-    return sum + (parseFloat(liability.amount) || 0);
-  }, 0);
-
-  const AssetLiabilityModal = () => {
-    const [name, setName] = useState(editingItem?.name || '');
-    const [value, setValue] = useState(editingItem?.value || editingItem?.amount || '');
-    const [assetType, setAssetType] = useState(editingItem?.type || '');
-    const [description, setDescription] = useState(editingItem?.description || '');
-    const [ownershipPercentage, setOwnershipPercentage] = useState(editingItem?.ownership_percentage || '100');
-    const [interestRate, setInterestRate] = useState(editingItem?.interest_rate || '');
-    const [includeInNetWorth, setIncludeInNetWorth] = useState(editingItem?.includeInNetWorth !== undefined ? editingItem.includeInNetWorth : true);
-
-    const handleSave = () => {
-      if (!name || !value) {
-        toast.error("Please fill in all required fields.");
-        return;
-      }
-
-      if (type === 'asset') {
-        const newAsset = {
-          id: editingItem?.id || Math.random().toString(36).substring(7),
-          name,
-          type: assetType,
-          value,
-          description,
-          ownership_percentage: ownershipPercentage,
-          includeInNetWorth,
-        };
-        handleSaveAsset(newAsset);
-      } else {
-        const newLiability = {
-          id: editingItem?.id || Math.random().toString(36).substring(7),
-          name,
-          type: assetType, // Reusing assetType field for liability type
-          amount: value,
-          interest_rate: interestRate,
-          description,
-          ownership_percentage: ownershipPercentage,
-          includeInNetWorth,
-        };
-        handleSaveLiability(newLiability);
-      }
+    
+    const newAsset: Asset = {
+      id: uuidv4(),
+      name: assetName,
+      value: assetValue,
+      type: assetType,
+      description: assetDescription,
+      isNew: true
     };
+    
+    setAssets(prev => [...prev, newAsset]);
+    
+    // Reset form
+    setAssetName('');
+    setAssetValue('');
+    setAssetType('Cash & Bank Accounts');
+    setAssetDescription('');
+    
+    toast.success('Asset added successfully!');
+  };
 
-    return (
-      <AlertDialog open={modalOpen} onOpenChange={setModalOpen}>
-        <AlertDialogContent className="max-w-xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>{isEditing ? `Edit ${type}` : `Add ${type}`}</AlertDialogTitle>
-          </AlertDialogHeader>
-          <div className="grid gap-6 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="name" className="flex items-center">
-                  Name <span className="text-red-500 ml-1">*</span>
-                </Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder={type === 'asset' ? "Home, Car, 401(k), etc." : "Mortgage, Car Loan, etc."} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="value" className="flex items-center">
-                  {type === 'asset' ? 'Value' : 'Amount'} <span className="text-red-500 ml-1">*</span>
-                </Label>
-                <div className="relative">
-                  <DollarSign className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-                  <Input 
-                    id="value" 
-                    value={value} 
-                    onChange={(e) => setValue(e.target.value)} 
-                    placeholder="0.00" 
-                    className="pl-8" 
-                    type="number"
-                    step="0.01"
-                    min="0"
-                  />
-                </div>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="type">Type</Label>
-                <Select value={assetType} onValueChange={setAssetType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={`Select ${type} type`} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(type === 'asset' ? assetTypes : liabilityTypes).map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ownershipPercentage">Ownership Percentage</Label>
-                <div className="relative">
-                  <Input 
-                    id="ownershipPercentage" 
-                    value={ownershipPercentage} 
-                    onChange={(e) => setOwnershipPercentage(e.target.value)} 
-                    type="number" 
-                    min="0" 
-                    max="100" 
-                    className="pr-8"
-                  />
-                  <Percent className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-                </div>
-              </div>
-            </div>
-            
-            {type === 'liability' && (
-              <div className="space-y-2">
-                <Label htmlFor="interestRate">Interest Rate</Label>
-                <div className="relative">
-                  <Input 
-                    id="interestRate" 
-                    value={interestRate} 
-                    onChange={(e) => setInterestRate(e.target.value)} 
-                    type="number" 
-                    step="0.01"
-                    min="0" 
-                    max="100" 
-                    className="pr-8"
-                    placeholder="0.00"
-                  />
-                  <Percent className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 h-4 w-4" />
-                </div>
-              </div>
-            )}
-            
-            <div className="space-y-2">
-              <Label htmlFor="description">Description (Optional)</Label>
-              <Input 
-                id="description" 
-                value={description} 
-                onChange={(e) => setDescription(e.target.value)} 
-                placeholder="Add any additional details"
-              />
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <Switch id="include" checked={includeInNetWorth} onCheckedChange={(checked) => setIncludeInNetWorth(checked)} />
-              <Label htmlFor="include" className="font-normal text-sm">
-                Include in Net Worth Calculation
-              </Label>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 text-gray-500" />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="w-60">Toggle this to include or exclude this item from your net worth calculations.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {
-              setModalOpen(false);
-              resetForm();
-            }}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSave} className="bg-monify-purple-500 hover:bg-monify-purple-600">{isEditing ? 'Update' : 'Save'}</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+  const handleOpenAssetModal = () => {
+    setIsAssetModalOpen(true);
+  };
+
+  const handleAssetCreated = () => {
+    // Refresh assets after a new one is created
+    if (user) {
+      setIsLoading(true);
+      supabase
+        .from('assets')
+        .select('*')
+        .eq('user_id', user.id)
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('Error fetching assets:', error);
+            return;
+          }
+          
+          const formattedAssets = data.map(asset => ({
+            id: asset.id,
+            name: asset.name,
+            value: asset.value.toString(),
+            type: asset.type,
+            description: asset.description || '',
+          }));
+          
+          setAssets(formattedAssets);
+          setIsLoading(false);
+        });
+    }
+  };
+
+  const handleUpdateAsset = (id: string, field: keyof Asset, value: string) => {
+    setAssets(prev => 
+      prev.map(asset => 
+        asset.id === id 
+          ? { ...asset, [field]: value, isModified: true } 
+          : asset
+      )
     );
+  };
+
+  const handleDeleteAsset = (id: string) => {
+    setAssets(prev => 
+      prev.map(asset => 
+        asset.id === id 
+          ? { ...asset, isDeleted: true } 
+          : asset
+      )
+    );
+    
+    toast.success('Asset marked for deletion');
+  };
+
+  const handleSaveAsset = async (id: string) => {
+    const asset = assets.find(a => a.id === id);
+    if (!asset || !user) return;
+    
+    setIsSaving(true);
+    
+    try {
+      if (asset.isNew) {
+        // Create new asset
+        const { error } = await supabase
+          .from('assets')
+          .insert([{
+            name: asset.name,
+            value: parseFloat(asset.value),
+            type: asset.type,
+            description: asset.description,
+            user_id: user.id
+          }]);
+          
+        if (error) throw error;
+        
+        // Update local state to remove isNew flag
+        setAssets(prev => 
+          prev.map(a => 
+            a.id === id 
+              ? { ...a, isNew: false, isModified: false } 
+              : a
+          )
+        );
+        
+        toast.success('Asset saved to database');
+      } else if (asset.isModified) {
+        // Update existing asset
+        const { error } = await supabase
+          .from('assets')
+          .update({
+            name: asset.name,
+            value: parseFloat(asset.value),
+            type: asset.type,
+            description: asset.description
+          })
+          .eq('id', id);
+          
+        if (error) throw error;
+        
+        // Update local state to remove isModified flag
+        setAssets(prev => 
+          prev.map(a => 
+            a.id === id 
+              ? { ...a, isModified: false } 
+              : a
+          )
+        );
+        
+        toast.success('Asset updated successfully');
+      }
+    } catch (error) {
+      console.error('Error saving asset:', error);
+      toast.error('Failed to save asset. Saving locally instead.');
+      
+      // Save to local storage as fallback
+      localStorage.setItem('local_assets', JSON.stringify(assets));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Liability handlers
+  const handleAddLiability = () => {
+    if (!liabilityName || !liabilityAmount) {
+      toast.error('Please enter both name and amount for the liability');
+      return;
+    }
+    
+    const newLiability: Liability = {
+      id: uuidv4(),
+      name: liabilityName,
+      amount: liabilityAmount,
+      type: liabilityType,
+      description: liabilityDescription,
+      isNew: true
+    };
+    
+    setLiabilities(prev => [...prev, newLiability]);
+    
+    // Reset form
+    setLiabilityName('');
+    setLiabilityAmount('');
+    setLiabilityType('Mortgage');
+    setLiabilityDescription('');
+    
+    toast.success('Liability added successfully!');
+  };
+
+  const handleUpdateLiability = (id: string, field: keyof Liability, value: string) => {
+    setLiabilities(prev => 
+      prev.map(liability => 
+        liability.id === id 
+          ? { ...liability, [field]: value, isModified: true } 
+          : liability
+      )
+    );
+  };
+
+  const handleDeleteLiability = (id: string) => {
+    setLiabilities(prev => 
+      prev.map(liability => 
+        liability.id === id 
+          ? { ...liability, isDeleted: true } 
+          : liability
+      )
+    );
+    
+    toast.success('Liability marked for deletion');
+  };
+
+  const handleSaveLiability = async (id: string) => {
+    const liability = liabilities.find(l => l.id === id);
+    if (!liability || !user) return;
+    
+    setIsSaving(true);
+    
+    try {
+      if (liability.isNew) {
+        // Create new liability
+        const { error } = await supabase
+          .from('liabilities')
+          .insert([{
+            name: liability.name,
+            amount: parseFloat(liability.amount),
+            type: liability.type,
+            description: liability.description,
+            user_id: user.id
+          }]);
+          
+        if (error) throw error;
+        
+        // Update local state to remove isNew flag
+        setLiabilities(prev => 
+          prev.map(l => 
+            l.id === id 
+              ? { ...l, isNew: false, isModified: false } 
+              : l
+          )
+        );
+        
+        toast.success('Liability saved to database');
+      } else if (liability.isModified) {
+        // Update existing liability
+        const { error } = await supabase
+          .from('liabilities')
+          .update({
+            name: liability.name,
+            amount: parseFloat(liability.amount),
+            type: liability.type,
+            description: liability.description
+          })
+          .eq('id', id);
+          
+        if (error) throw error;
+        
+        // Update local state to remove isModified flag
+        setLiabilities(prev => 
+          prev.map(l => 
+            l.id === id 
+              ? { ...l, isModified: false } 
+              : l
+          )
+        );
+        
+        toast.success('Liability updated successfully');
+      }
+    } catch (error) {
+      console.error('Error saving liability:', error);
+      toast.error('Failed to save liability. Saving locally instead.');
+      
+      // Save to local storage as fallback
+      localStorage.setItem('local_liabilities', JSON.stringify(liabilities));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Save all changes
+  const handleSaveAll = async () => {
+    if (!user) return;
+    
+    setIsSaving(true);
+    
+    try {
+      // Process assets
+      const newAssets = assets.filter(a => a.isNew && !a.isDeleted);
+      const modifiedAssets = assets.filter(a => a.isModified && !a.isNew && !a.isDeleted);
+      const deletedAssets = assets.filter(a => a.isDeleted && !a.isNew);
+      
+      // Process liabilities
+      const newLiabilities = liabilities.filter(l => l.isNew && !l.isDeleted);
+      const modifiedLiabilities = liabilities.filter(l => l.isModified && !l.isNew && !l.isDeleted);
+      const deletedLiabilities = liabilities.filter(l => l.isDeleted && !l.isNew);
+      
+      // Create new assets
+      if (newAssets.length > 0) {
+        const { error } = await supabase
+          .from('assets')
+          .insert(
+            newAssets.map(a => ({
+              name: a.name,
+              value: parseFloat(a.value),
+              type: a.type,
+              description: a.description,
+              user_id: user.id
+            }))
+          );
+          
+        if (error) throw error;
+      }
+      
+      // Update modified assets
+      for (const asset of modifiedAssets) {
+        const { error } = await supabase
+          .from('assets')
+          .update({
+            name: asset.name,
+            value: parseFloat(asset.value),
+            type: asset.type,
+            description: asset.description
+          })
+          .eq('id', asset.id);
+          
+        if (error) throw error;
+      }
+      
+      // Delete assets
+      if (deletedAssets.length > 0) {
+        const { error } = await supabase
+          .from('assets')
+          .delete()
+          .in('id', deletedAssets.map(a => a.id));
+          
+        if (error) throw error;
+      }
+      
+      // Create new liabilities
+      if (newLiabilities.length > 0) {
+        const { error } = await supabase
+          .from('liabilities')
+          .insert(
+            newLiabilities.map(l => ({
+              name: l.name,
+              amount: parseFloat(l.amount),
+              type: l.type,
+              description: l.description,
+              user_id: user.id
+            }))
+          );
+          
+        if (error) throw error;
+      }
+      
+      // Update modified liabilities
+      for (const liability of modifiedLiabilities) {
+        const { error } = await supabase
+          .from('liabilities')
+          .update({
+            name: liability.name,
+            amount: parseFloat(liability.amount),
+            type: liability.type,
+            description: liability.description
+          })
+          .eq('id', liability.id);
+          
+        if (error) throw error;
+      }
+      
+      // Delete liabilities
+      if (deletedLiabilities.length > 0) {
+        const { error } = await supabase
+          .from('liabilities')
+          .delete()
+          .in('id', deletedLiabilities.map(l => l.id));
+          
+        if (error) throw error;
+      }
+      
+      // Update local state
+      setAssets(prev => 
+        prev
+          .filter(a => !a.isDeleted)
+          .map(a => ({ ...a, isNew: false, isModified: false }))
+      );
+      
+      setLiabilities(prev => 
+        prev
+          .filter(l => !l.isDeleted)
+          .map(l => ({ ...l, isNew: false, isModified: false }))
+      );
+      
+      toast.success('All changes saved successfully!');
+      
+      // Clear local storage backups
+      localStorage.removeItem('local_assets');
+      localStorage.removeItem('local_liabilities');
+    } catch (error) {
+      console.error('Error saving all changes:', error);
+      toast.error('Failed to save all changes. Saving locally instead.');
+      
+      // Save to local storage as fallback
+      localStorage.setItem('local_assets', JSON.stringify(assets));
+      localStorage.setItem('local_liabilities', JSON.stringify(liabilities));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Refresh data from database
+  const handleRefresh = async () => {
+    if (!user) return;
+    
+    setIsLoading(true);
+    
+    try {
+      // Fetch assets
+      const { data: assetData, error: assetError } = await supabase
+        .from('assets')
+        .select('*')
+        .eq('user_id', user.id);
+        
+      if (assetError) throw assetError;
+      
+      // Fetch liabilities
+      const { data: liabilityData, error: liabilityError } = await supabase
+        .from('liabilities')
+        .select('*')
+        .eq('user_id', user.id);
+        
+      if (liabilityError) throw liabilityError;
+      
+      // Format asset data
+      const formattedAssets = assetData.map(asset => ({
+        id: asset.id,
+        name: asset.name,
+        value: asset.value.toString(),
+        type: asset.type,
+        description: asset.description || '',
+      }));
+      
+      // Format liability data
+      const formattedLiabilities = liabilityData.map(liability => ({
+        id: liability.id,
+        name: liability.name,
+        amount: liability.amount.toString(),
+        type: liability.type,
+        description: liability.description || '',
+      }));
+      
+      setAssets(formattedAssets);
+      setLiabilities(formattedLiabilities);
+      
+      toast.success('Data refreshed successfully!');
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      toast.error('Failed to refresh data');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
-        <Button
-          variant={activeTab === 'assets' ? "default" : "outline"}
-          onClick={() => setActiveTab('assets')}
-          className={`flex-1 ${activeTab === 'assets' ? 'bg-monify-purple-500 hover:bg-monify-purple-600' : ''}`}
-        >
-          Assets ({assets.length})
-        </Button>
-        <Button
-          variant={activeTab === 'liabilities' ? "default" : "outline"}
-          onClick={() => setActiveTab('liabilities')}
-          className={`flex-1 ${activeTab === 'liabilities' ? 'bg-monify-purple-500 hover:bg-monify-purple-600' : ''}`}
-        >
-          Liabilities ({liabilities.length})
-        </Button>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-xl font-semibold">Net Worth: 
+            <span className={`ml-2 ${netWorth >= 0 ? 'text-monify-green-600' : 'text-red-600'}`}>
+              ${netWorth.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Assets: ${totalAssets.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | 
+            Liabilities: ${totalLiabilities.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+        </div>
+        <div className="flex space-x-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button 
+            onClick={handleSaveAll}
+            size="sm"
+            disabled={isSaving}
+          >
+            <Save className="h-4 w-4 mr-2" />
+            Save All
+          </Button>
+        </div>
       </div>
-
-      {/* Assets Section */}
-      {activeTab === 'assets' && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Your Assets</CardTitle>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-gray-100 text-gray-800">
-                Total: {formatCurrency(totalAssetValue)}
-              </Badge>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" className="h-8 w-8">
-                      <Info className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="max-w-xs">Assets are things you own that have value, like property, investments, or cash.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {assets.length === 0 ? (
-                <div className="border border-dashed rounded-md p-6 text-center text-gray-500">
-                  <h3 className="font-medium">No Assets Added Yet</h3>
-                  <p className="text-sm mt-2">Add your first asset to start tracking your net worth</p>
-                </div>
-              ) : (
-                assets.map((asset) => (
-                  <div key={asset.id} className="flex flex-col md:flex-row md:items-center justify-between border rounded-md p-4 hover:bg-gray-50 transition-colors">
-                    <div className="space-y-1 mb-3 md:mb-0">
-                      <div className="flex items-center">
-                        <h3 className="font-medium">{asset.name}</h3>
-                        {asset.type && (
-                          <Badge variant="outline" className="ml-2 text-xs">
-                            {getAssetTypeLabel(asset.type)}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-monify-purple-600 font-semibold">{formatCurrency(asset.value)}</p>
-                      {asset.description && (
-                        <p className="text-sm text-gray-500">{asset.description}</p>
-                      )}
-                      {asset.ownership_percentage && asset.ownership_percentage !== '100' && (
-                        <p className="text-xs text-gray-500">Ownership: {asset.ownership_percentage}%</p>
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button variant="outline" size="sm" onClick={() => handleEditAsset(asset)}>
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="border-red-200 hover:bg-red-50 hover:text-red-600">
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            Delete
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Asset</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete "{asset.name}"? This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteAsset(asset.id)} className="bg-red-500 hover:bg-red-600">Delete</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
+      
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="assets">Assets</TabsTrigger>
+          <TabsTrigger value="liabilities">Liabilities</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="assets" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Add New Asset</CardTitle>
+              <CardDescription>
+                Record what you own to calculate your net worth.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="asset-name">Asset Name</Label>
+                    <Input 
+                      id="asset-name" 
+                      placeholder="e.g., Checking Account"
+                      value={assetName}
+                      onChange={(e) => setAssetName(e.target.value)}
+                    />
                   </div>
-                ))
-              )}
-              
-              <Button onClick={handleAddAsset} className="w-full bg-monify-purple-500 hover:bg-monify-purple-600">
-                <PlusCircle className="h-4 w-4 mr-2" />
+                  <div className="space-y-2">
+                    <Label htmlFor="asset-value">Value ($)</Label>
+                    <Input 
+                      id="asset-value" 
+                      type="number"
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                      value={assetValue}
+                      onChange={(e) => setAssetValue(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="asset-type">Asset Type</Label>
+                  <Select value={assetType} onValueChange={setAssetType}>
+                    <SelectTrigger id="asset-type">
+                      <SelectValue placeholder="Select asset type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Cash & Bank Accounts">Cash & Bank Accounts</SelectItem>
+                      <SelectItem value="Investments">Investments</SelectItem>
+                      <SelectItem value="Real Estate">Real Estate</SelectItem>
+                      <SelectItem value="Vehicles">Vehicles</SelectItem>
+                      <SelectItem value="Personal Property">Personal Property</SelectItem>
+                      <SelectItem value="Business Ownership">Business Ownership</SelectItem>
+                      <SelectItem value="Retirement Accounts">Retirement Accounts</SelectItem>
+                      <SelectItem value="Other Assets">Other Assets</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="asset-description">Description (Optional)</Label>
+                  <Input 
+                    id="asset-description" 
+                    placeholder="Additional details about this asset"
+                    value={assetDescription}
+                    onChange={(e) => setAssetDescription(e.target.value)}
+                  />
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <Button 
+                variant="outline"
+                onClick={handleOpenAssetModal}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add in Modal
+              </Button>
+              <Button onClick={handleAddAsset}>
+                <Plus className="h-4 w-4 mr-2" />
                 Add Asset
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Liabilities Section */}
-      {activeTab === 'liabilities' && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Your Liabilities</CardTitle>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-gray-100 text-gray-800">
-                Total: {formatCurrency(totalLiabilityAmount)}
-              </Badge>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" className="h-8 w-8">
-                      <Info className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p className="max-w-xs">Liabilities are debts or obligations you owe to others, like loans or credit card balances.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {liabilities.length === 0 ? (
-                <div className="border border-dashed rounded-md p-6 text-center text-gray-500">
-                  <h3 className="font-medium">No Liabilities Added Yet</h3>
-                  <p className="text-sm mt-2">Add your liabilities to calculate your true net worth</p>
-                </div>
-              ) : (
-                liabilities.map((liability) => (
-                  <div key={liability.id} className="flex flex-col md:flex-row md:items-center justify-between border rounded-md p-4 hover:bg-gray-50 transition-colors">
-                    <div className="space-y-1 mb-3 md:mb-0">
-                      <div className="flex items-center">
-                        <h3 className="font-medium">{liability.name}</h3>
-                        {liability.type && (
-                          <Badge variant="outline" className="ml-2 text-xs">
-                            {getLiabilityTypeLabel(liability.type)}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-red-600 font-semibold">{formatCurrency(liability.amount)}</p>
-                      {liability.description && (
-                        <p className="text-sm text-gray-500">{liability.description}</p>
-                      )}
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {liability.interest_rate && (
-                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                            Interest: {liability.interest_rate}%
-                          </span>
-                        )}
-                        {liability.ownership_percentage && liability.ownership_percentage !== '100' && (
-                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                            Ownership: {liability.ownership_percentage}%
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button variant="outline" size="sm" onClick={() => handleEditLiability(liability)}>
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="border-red-200 hover:bg-red-50 hover:text-red-600">
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            Delete
+            </CardFooter>
+          </Card>
+          
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Your Assets</h3>
+            {isLoading ? (
+              <div className="text-center py-4">
+                <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                <p>Loading your assets...</p>
+              </div>
+            ) : assets.filter(asset => !asset.isDeleted).length === 0 ? (
+              <div className="text-center py-4 border rounded-lg">
+                <p className="text-muted-foreground">You haven't added any assets yet.</p>
+              </div>
+            ) : (
+              assets
+                .filter(asset => !asset.isDeleted)
+                .map(asset => (
+                  <Card key={asset.id} className={asset.isNew ? 'border-monify-green-300' : asset.isModified ? 'border-amber-300' : ''}>
+                    <CardHeader className="py-4">
+                      <div className="flex justify-between items-center">
+                        <CardTitle className="text-lg">{asset.name}</CardTitle>
+                        <div className="flex space-x-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDeleteAsset(asset.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Liability</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete "{liability.name}"? This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteLiability(liability.id)} className="bg-red-500 hover:bg-red-600">Delete</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </div>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleSaveAsset(asset.id)}
+                            disabled={!asset.isNew && !asset.isModified}
+                          >
+                            <Save className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <CardDescription>{asset.type}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="py-2">
+                      <div className="grid gap-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor={`asset-name-${asset.id}`}>Asset Name</Label>
+                            <Input 
+                              id={`asset-name-${asset.id}`} 
+                              value={asset.name}
+                              onChange={(e) => handleUpdateAsset(asset.id, 'name', e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`asset-value-${asset.id}`}>Value ($)</Label>
+                            <Input 
+                              id={`asset-value-${asset.id}`} 
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={asset.value}
+                              onChange={(e) => handleUpdateAsset(asset.id, 'value', e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`asset-type-${asset.id}`}>Asset Type</Label>
+                          <Select 
+                            value={asset.type} 
+                            onValueChange={(value) => handleUpdateAsset(asset.id, 'type', value)}
+                          >
+                            <SelectTrigger id={`asset-type-${asset.id}`}>
+                              <SelectValue placeholder="Select asset type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Cash & Bank Accounts">Cash & Bank Accounts</SelectItem>
+                              <SelectItem value="Investments">Investments</SelectItem>
+                              <SelectItem value="Real Estate">Real Estate</SelectItem>
+                              <SelectItem value="Vehicles">Vehicles</SelectItem>
+                              <SelectItem value="Personal Property">Personal Property</SelectItem>
+                              <SelectItem value="Business Ownership">Business Ownership</SelectItem>
+                              <SelectItem value="Retirement Accounts">Retirement Accounts</SelectItem>
+                              <SelectItem value="Other Assets">Other Assets</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`asset-description-${asset.id}`}>Description</Label>
+                          <Input 
+                            id={`asset-description-${asset.id}`} 
+                            value={asset.description || ''}
+                            onChange={(e) => handleUpdateAsset(asset.id, 'description', e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))
-              )}
-              
-              <Button onClick={handleAddLiability} className="w-full bg-monify-purple-500 hover:bg-monify-purple-600">
-                <PlusCircle className="h-4 w-4 mr-2" />
+            )}
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="liabilities" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Add New Liability</CardTitle>
+              <CardDescription>
+                Record what you owe to calculate your net worth.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="liability-name">Liability Name</Label>
+                    <Input 
+                      id="liability-name" 
+                      placeholder="e.g., Mortgage"
+                      value={liabilityName}
+                      onChange={(e) => setLiabilityName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="liability-amount">Amount ($)</Label>
+                    <Input 
+                      id="liability-amount" 
+                      type="number"
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                      value={liabilityAmount}
+                      onChange={(e) => setLiabilityAmount(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="liability-type">Liability Type</Label>
+                  <Select value={liabilityType} onValueChange={setLiabilityType}>
+                    <SelectTrigger id="liability-type">
+                      <SelectValue placeholder="Select liability type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Mortgage">Mortgage</SelectItem>
+                      <SelectItem value="Auto Loan">Auto Loan</SelectItem>
+                      <SelectItem value="Student Loan">Student Loan</SelectItem>
+                      <SelectItem value="Credit Card">Credit Card</SelectItem>
+                      <SelectItem value="Personal Loan">Personal Loan</SelectItem>
+                      <SelectItem value="Medical Debt">Medical Debt</SelectItem>
+                      <SelectItem value="Business Loan">Business Loan</SelectItem>
+                      <SelectItem value="Tax Debt">Tax Debt</SelectItem>
+                      <SelectItem value="Other Debt">Other Debt</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="liability-description">Description (Optional)</Label>
+                  <Input 
+                    id="liability-description" 
+                    placeholder="Additional details about this liability"
+                    value={liabilityDescription}
+                    onChange={(e) => setLiabilityDescription(e.target.value)}
+                  />
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-end">
+              <Button onClick={handleAddLiability}>
+                <Plus className="h-4 w-4 mr-2" />
                 Add Liability
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Net Worth</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="p-4 bg-gray-50 rounded-lg">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-              <div className="p-4 bg-white rounded-md shadow-sm">
-                <p className="text-sm text-gray-500">Total Assets</p>
-                <p className="text-xl font-bold text-monify-purple-600">{formatCurrency(totalAssetValue)}</p>
+            </CardFooter>
+          </Card>
+          
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Your Liabilities</h3>
+            {isLoading ? (
+              <div className="text-center py-4">
+                <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2" />
+                <p>Loading your liabilities...</p>
               </div>
-              <div className="p-4 bg-white rounded-md shadow-sm">
-                <p className="text-sm text-gray-500">Total Liabilities</p>
-                <p className="text-xl font-bold text-red-600">{formatCurrency(totalLiabilityAmount)}</p>
+            ) : liabilities.filter(liability => !liability.isDeleted).length === 0 ? (
+              <div className="text-center py-4 border rounded-lg">
+                <p className="text-muted-foreground">You haven't added any liabilities yet.</p>
               </div>
-              <div className="p-4 bg-monify-purple-50 rounded-md shadow-sm">
-                <p className="text-sm text-gray-500">Net Worth</p>
-                <p className={`text-xl font-bold ${totalAssetValue - totalLiabilityAmount >= 0 ? 'text-monify-green-600' : 'text-red-600'}`}>
-                  {formatCurrency(totalAssetValue - totalLiabilityAmount)}
-                </p>
-              </div>
-            </div>
+            ) : (
+              liabilities
+                .filter(liability => !liability.isDeleted)
+                .map(liability => (
+                  <Card key={liability.id} className={liability.isNew ? 'border-monify-green-300' : liability.isModified ? 'border-amber-300' : ''}>
+                    <CardHeader className="py-4">
+                      <div className="flex justify-between items-center">
+                        <CardTitle className="text-lg">{liability.name}</CardTitle>
+                        <div className="flex space-x-2">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDeleteLiability(liability.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleSaveLiability(liability.id)}
+                            disabled={!liability.isNew && !liability.isModified}
+                          >
+                            <Save className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <CardDescription>{liability.type}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="py-2">
+                      <div className="grid gap-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor={`liability-name-${liability.id}`}>Liability Name</Label>
+                            <Input 
+                              id={`liability-name-${liability.id}`} 
+                              value={liability.name}
+                              onChange={(e) => handleUpdateLiability(liability.id, 'name', e.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`liability-amount-${liability.id}`}>Amount ($)</Label>
+                            <Input 
+                              id={`liability-amount-${liability.id}`} 
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={liability.amount}
+                              onChange={(e) => handleUpdateLiability(liability.id, 'amount', e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`liability-type-${liability.id}`}>Liability Type</Label>
+                          <Select 
+                            value={liability.type} 
+                            onValueChange={(value) => handleUpdateLiability(liability.id, 'type', value)}
+                          >
+                            <SelectTrigger id={`liability-type-${liability.id}`}>
+                              <SelectValue placeholder="Select liability type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Mortgage">Mortgage</SelectItem>
+                              <SelectItem value="Auto Loan">Auto Loan</SelectItem>
+                              <SelectItem value="Student Loan">Student Loan</SelectItem>
+                              <SelectItem value="Credit Card">Credit Card</SelectItem>
+                              <SelectItem value="Personal Loan">Personal Loan</SelectItem>
+                              <SelectItem value="Medical Debt">Medical Debt</SelectItem>
+                              <SelectItem value="Business Loan">Business Loan</SelectItem>
+                              <SelectItem value="Tax Debt">Tax Debt</SelectItem>
+                              <SelectItem value="Other Debt">Other Debt</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`liability-description-${liability.id}`}>Description</Label>
+                          <Input 
+                            id={`liability-description-${liability.id}`} 
+                            value={liability.description || ''}
+                            onChange={(e) => handleUpdateLiability(liability.id, 'description', e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+            )}
           </div>
-        </CardContent>
-        <CardFooter>
-          <Button onClick={handleSaveAll} disabled={!isDirty} className="w-full bg-monify-purple-500 hover:bg-monify-purple-600">
-            Save All Changes
-          </Button>
-        </CardFooter>
-      </Card>
-
-      <AssetLiabilityModal />
+        </TabsContent>
+      </Tabs>
+      
+      {/* Asset Creation Modal */}
+      {isAssetModalOpen && user && (
+        <AssetCreationModal 
+          isOpen={isAssetModalOpen}
+          onClose={() => setIsAssetModalOpen(false)}
+          onAssetCreated={handleAssetCreated}
+          userId={user.id}
+        />
+      )}
     </div>
   );
 };

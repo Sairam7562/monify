@@ -18,19 +18,15 @@ const AssetsLiabilitiesPage = () => {
   const checkDb = async () => {
     setIsChecking(true);
     try {
-      // First try direct connection check
       const connectionResult = await checkConnection();
       const isConnected = connectionResult.connected;
       
-      // Then check database status through the hook
       const hookStatus = await checkDatabaseStatus();
       
-      // Use a combination of both results
       const connectionStatus = isConnected && hookStatus;
       setDbConnected(connectionStatus);
       
       if (connectionStatus) {
-        // Clear any previous schema error
         sessionStorage.removeItem('db_schema_error');
         localStorage.setItem('db_connection_status', 'connected');
         console.log('Database connection successful!');
@@ -58,7 +54,6 @@ const AssetsLiabilitiesPage = () => {
     toast.info("Checking database connection...");
     
     try {
-      // Update session using the auth API
       const { data } = await supabase.auth.getSession();
       if (data.session) {
         await supabase.auth.setSession({
@@ -89,13 +84,12 @@ const AssetsLiabilitiesPage = () => {
   useEffect(() => {
     checkDb();
     
-    // Setup interval to periodically check connection status
     const intervalId = setInterval(() => {
       const lastConnectionStatus = localStorage.getItem('db_connection_status');
       if (lastConnectionStatus === 'disconnected') {
         checkDb();
       }
-    }, 30000); // Check every 30 seconds if previously disconnected
+    }, 30000);
     
     return () => clearInterval(intervalId);
   }, []);
