@@ -30,12 +30,12 @@ export const supabase = createClient<Database>(
     },
     global: {
       headers: {
-        'Accept-Profile': 'api', // Changed from 'public' to 'api' to match server requirements
+        'Accept-Profile': 'public', // Use 'public' to match TypeScript definitions
       },
     },
-    // Add DB schema option
+    // Add DB schema option - using 'public' to match TypeScript types
     db: {
-      schema: 'api' // Changed from 'public' to 'api' to match server requirements
+      schema: 'public' as 'public' // Explicitly typed as 'public' to satisfy TypeScript
     },
     // Add caching options
     realtime: {
