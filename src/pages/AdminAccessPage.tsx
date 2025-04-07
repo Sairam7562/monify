@@ -34,6 +34,7 @@ const AdminAccessPage = () => {
     // Check if the code is valid
     setTimeout(() => {
       if (VALID_ADMIN_CODES.includes(adminCode.trim().toUpperCase())) {
+        console.log('Admin code accepted:', adminCode);
         // Store the admin override in localStorage
         localStorage.setItem('adminCodeOverride', 'true');
         toast.success('Admin access granted!');
@@ -41,6 +42,7 @@ const AdminAccessPage = () => {
         // Redirect to admin page
         navigate('/admin');
       } else {
+        console.log('Invalid admin code attempted:', adminCode);
         toast.error('Invalid admin code');
       }
       setIsSubmitting(false);

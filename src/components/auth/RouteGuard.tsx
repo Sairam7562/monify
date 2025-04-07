@@ -47,6 +47,12 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
         adminOverride: isAdminOverride
       });
 
+      // For special routes
+      if (location.pathname === '/admin-access') {
+        setIsChecking(false);
+        return;
+      }
+
       // For demo purposes - always allow access to admin section with valid admin code
       if (requireAdmin && isAdminOverride) {
         console.log("Admin override is active - allowing access");
@@ -115,15 +121,15 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
         return;
       }
       
-      // If page requires admin and user is not an admin, redirect to dashboard
-      if (requireAdmin && user?.role?.toLowerCase() !== 'admin') {
+      // If page requires admin and user is not an admin, redirect to admin-access
+      if (requireAdmin && user?.role?.toLowerCase() !== 'admin' && !isAdminOverride) {
         lastRedirectTime.current = now;
-        console.log("User not admin, redirecting to dashboard");
-        toast.error("You don't have permission to access this page");
+        console.log("User not admin, redirecting to admin access page");
+        toast.error("Admin access required. Please enter your admin code.");
         
         // Add a small delay before redirecting to avoid potential race conditions
         timeoutRef.current = setTimeout(() => {
-          navigate('/dashboard');
+          navigate('/admin-access');
         }, 100);
         return;
       }
@@ -154,7 +160,12 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
     return <>{children}</>;
   }
 
-  // If we reach here without redirecting, show 404 or unauthorized page
+  // If we reach here without redirecting, check if we should go to admin-access instead of 404
+  if (requireAdmin) {
+    return <Navigate to="/admin-access" />;
+  }
+
+  // If all else fails, go to 404
   return <Navigate to="/404" />;
 };
 

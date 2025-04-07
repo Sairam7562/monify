@@ -45,6 +45,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
+              {/* Public routes */}
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<LoginPage />} />
@@ -52,6 +53,7 @@ const App = () => (
               <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route path="/admin-check" element={<AdminRedirect />} />
               <Route path="/admin-access" element={<AdminAccessPage />} />
+              <Route path="/404" element={<NotFound />} />
               
               {/* Protected routes */}
               <Route path="/dashboard" element={
@@ -100,6 +102,7 @@ const App = () => (
                 </RouteGuard>
               } />
               
+              {/* Catch-all route - must be last */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
