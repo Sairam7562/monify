@@ -74,9 +74,24 @@ export async function safeQuery<T>(
       if (result.error.code === 'PGRST106' || result.error.message?.includes('schema')) {
         console.error('Database schema issue detected:', result.error.message);
         sessionStorage.setItem('db_schema_error', 'true');
+        
+        // Return local data if available as a fallback
+        if (localData) {
+          console.info("Database query failed but returning cached data as fallback");
+          return { data: localData, error: result.error, success: false, localData };
+        }
       } else if (result.error.code?.includes('auth')) {
         console.error('Authentication issue detected:', result.error.message);
         sessionStorage.setItem('db_auth_error', 'true');
+      } else if (result.error.message?.includes('Failed to fetch')) {
+        console.error('Network issue detected:', result.error.message);
+        sessionStorage.setItem('db_network_error', 'true');
+        
+        // Use cached data if available during network issues
+        if (localData) {
+          console.info("Network error, using cached data");
+          return { data: localData, error: result.error, success: false, localData };
+        }
       }
       
       // Return local data if available as a fallback
@@ -112,6 +127,12 @@ export async function safeQuery<T>(
     if (error instanceof TypeError && error.message.includes('fetch')) {
       console.error('Network connectivity issue detected');
       sessionStorage.setItem('db_network_error', 'true');
+      
+      // If we have locally cached data, use it during network outages
+      if (localData) {
+        console.info("Network error caught, using cached data");
+        return { data: localData, error, success: false, localData };
+      }
     }
     
     return { data: fallbackData || null, error, success: false };
@@ -156,7 +177,18 @@ export async function checkDatabaseHealth(): Promise<boolean> {
       .select('id')
       .limit(1);
     
-    return !error;
+    if (error) {
+      // Log schema errors for debugging
+      if (error.code === 'PGRST106' || error.message?.includes('schema')) {
+        console.error('Schema issue in health check:', error.message);
+        sessionStorage.setItem('db_schema_error', 'true');
+      }
+      return false;
+    }
+    
+    // Clear schema error flag if health check passes
+    sessionStorage.removeItem('db_schema_error');
+    return true;
   } catch (err) {
     console.error("Database health check failed:", err);
     return false;

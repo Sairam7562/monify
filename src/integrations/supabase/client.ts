@@ -30,12 +30,12 @@ export const supabase = createClient<Database>(
     },
     global: {
       headers: {
-        'Accept-Profile': 'public',
+        'Accept-Profile': 'api', // Changed from 'public' to 'api' to match schema error
       },
     },
     // Add DB schema option
     db: {
-      schema: 'public'
+      schema: 'api' // Changed from 'public' to 'api' to match schema error
     },
     // Add caching options
     realtime: {
@@ -109,6 +109,10 @@ export const checkConnection = async () => {
         // Store a flag in session storage indicating schema issue
         sessionStorage.setItem('db_schema_error', 'true');
         
+        // Log more details to help with debugging
+        console.info('Schema-related error detected');
+        console.info('Attempting to update client configuration to use API schema');
+        
         // No need to attempt token refresh on schema issues
         return { connected: false, reason: 'schema_error', error };
       } else if (connectionRetries <= MAX_CONNECTION_RETRIES) {
@@ -120,8 +124,9 @@ export const checkConnection = async () => {
           await supabase.auth.refreshSession();
         }
         
-        // Wait before retry
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Wait before retry with exponential backoff
+        const delay = Math.min(1000 * Math.pow(2, connectionRetries - 1), 10000);
+        await new Promise(resolve => setTimeout(resolve, delay));
         return checkConnection(); // Recursive retry
       } else {
         return { connected: false, reason: 'connection_error', error };
@@ -157,9 +162,16 @@ let authChangeCount = 0;
 const MAX_AUTH_CHANGES = 10;
 const AUTH_CHANGE_TIMEOUT = 5000; // 5 seconds
 let lastAuthChange = 0;
+let authChangeHistory = [];
 
 supabase.auth.onAuthStateChange((event, session) => {
   const now = Date.now();
+  
+  // Add event to history for debugging
+  authChangeHistory.push({ event, timestamp: now });
+  if (authChangeHistory.length > 20) {
+    authChangeHistory.shift(); // Keep only last 20 events
+  }
   
   // Check if we're in a potential auth loop
   if (now - lastAuthChange < 1000) { // If changes are happening faster than once per second
@@ -171,6 +183,7 @@ supabase.auth.onAuthStateChange((event, session) => {
       // Skip processing this auth change to break the loop
       setTimeout(() => {
         authChangeCount = 0; // Reset counter after timeout
+        console.log("Auth change rate limit reset");
       }, AUTH_CHANGE_TIMEOUT);
       return;
     }
@@ -193,7 +206,9 @@ supabase.auth.onAuthStateChange((event, session) => {
     connectionRetries = 0;
     
     // Clear all caches when user signs in to ensure fresh data
-    clearAllCaches();
+    if (event === 'SIGNED_IN') {
+      clearAllCaches();
+    }
     
     // Check connection again after sign in
     // Use setTimeout to avoid potential recursive loop
@@ -201,9 +216,22 @@ supabase.auth.onAuthStateChange((event, session) => {
       checkConnection().then(result => {
         console.log('Post-auth database check result:', result);
       });
-    }, 0);
+    }, 500);
   }
 });
+
+// Function to diagnose authentication issues
+export const diagnoseAuthIssues = () => {
+  return {
+    authChangeCount,
+    lastAuthChange,
+    authChangeHistory,
+    connectionRetries,
+    hasSchemaError: sessionStorage.getItem('db_schema_error') === 'true',
+    hasAuthError: sessionStorage.getItem('db_auth_error') === 'true',
+    hasNetworkError: sessionStorage.getItem('db_network_error') === 'true',
+  };
+};
 
 // Get the current domain for email settings
 const currentDomain = window.location.origin;
