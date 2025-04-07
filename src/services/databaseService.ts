@@ -30,7 +30,7 @@ export async function safeQuery<T>(
       localStorageKey = `personal_info_${userId}`;
     }
     
-    let storedLocalData = null;
+    let cachedLocalData = null;
     let cacheTimestamp = 0;
     
     if (localStorageKey) {
@@ -46,13 +46,13 @@ export async function safeQuery<T>(
           const now = Date.now();
           if (now - cacheTimestamp < CACHE_EXPIRY_TIME) {
             console.info(`Using cached data from ${localStorageKey}, age: ${(now - cacheTimestamp) / 1000}s`);
-            storedLocalData = JSON.parse(storedData);
+            cachedLocalData = JSON.parse(storedData);
           } else {
             console.info(`Cache expired for ${localStorageKey}, fetching fresh data`);
           }
         } else if (storedData) {
           console.info('Using locally stored data without timestamp');
-          storedLocalData = JSON.parse(storedData);
+          cachedLocalData = JSON.parse(storedData);
         }
       } catch (err) {
         console.warn('Error parsing local data:', err);
@@ -60,8 +60,8 @@ export async function safeQuery<T>(
     }
     
     // If we have fresh enough local data, return it immediately without network request
-    if (storedLocalData && cacheTimestamp && (Date.now() - cacheTimestamp < CACHE_EXPIRY_TIME)) {
-      return { data: storedLocalData, error: null, success: true, localData: storedLocalData };
+    if (cachedLocalData && cacheTimestamp && (Date.now() - cacheTimestamp < CACHE_EXPIRY_TIME)) {
+      return { data: cachedLocalData, error: null, success: true, localData: cachedLocalData };
     }
     
     // No valid cache, proceed with the database query
@@ -76,9 +76,9 @@ export async function safeQuery<T>(
         sessionStorage.setItem('db_schema_error', 'true');
         
         // Return local data if available as a fallback
-        if (storedLocalData) {
+        if (cachedLocalData) {
           console.info("Database query failed but returning cached data as fallback");
-          return { data: storedLocalData, error: result.error, success: false, localData: storedLocalData };
+          return { data: cachedLocalData, error: result.error, success: false, localData: cachedLocalData };
         }
       } else if (result.error.code?.includes('auth')) {
         console.error('Authentication issue detected:', result.error.message);
@@ -88,15 +88,15 @@ export async function safeQuery<T>(
         sessionStorage.setItem('db_network_error', 'true');
         
         // Use cached data if available during network issues
-        if (storedLocalData) {
+        if (cachedLocalData) {
           console.info("Network error, using cached data");
-          return { data: storedLocalData, error: result.error, success: false, localData: storedLocalData };
+          return { data: cachedLocalData, error: result.error, success: false, localData: cachedLocalData };
         }
       }
       
       // Return local data if available as a fallback
-      if (storedLocalData) {
-        return { data: storedLocalData, error: result.error, success: false, localData: storedLocalData };
+      if (cachedLocalData) {
+        return { data: cachedLocalData, error: result.error, success: false, localData: cachedLocalData };
       }
       
       return { data: fallbackData || null, error: result.error, success: false };
@@ -119,7 +119,7 @@ export async function safeQuery<T>(
       }
     }
     
-    return { data: result.data as T, error: null, success: true, localData: storedLocalData };
+    return { data: result.data as T, error: null, success: true, localData: cachedLocalData };
   } catch (error) {
     console.error(`${errorMessage}:`, error);
     
@@ -129,9 +129,9 @@ export async function safeQuery<T>(
       sessionStorage.setItem('db_network_error', 'true');
       
       // If we have locally cached data, use it during network outages
-      if (storedLocalData) {
+      if (cachedLocalData) {
         console.info("Network error caught, using cached data");
-        return { data: storedLocalData, error, success: false, localData: storedLocalData };
+        return { data: cachedLocalData, error, success: false, localData: cachedLocalData };
       }
     }
     
