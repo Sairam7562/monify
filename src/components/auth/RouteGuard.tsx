@@ -20,6 +20,9 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
   const lastRedirectTime = useRef(0);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Override admin check for demonstration purposes - comment this out in production
+  const isAdminOverride = localStorage.getItem('adminCodeOverride') === 'true';
+
   useEffect(() => {
     // Clear any existing timeout when component unmounts or when dependencies change
     return () => {
@@ -40,8 +43,16 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
         userExists: !!user,
         sessionExists: !!session,
         userRole: user?.role,
-        currentPath: location.pathname
+        currentPath: location.pathname,
+        adminOverride: isAdminOverride
       });
+
+      // For demo purposes - always allow access to admin section with valid admin code
+      if (requireAdmin && isAdminOverride) {
+        console.log("Admin override is active - allowing access");
+        setIsChecking(false);
+        return;
+      }
 
       // Check if the current route is the verification route
       if (location.pathname === '/verify-email') {
@@ -121,7 +132,7 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
     };
 
     checkAuth();
-  }, [user, loading, requireAuth, requireAdmin, navigate, location, session]);
+  }, [user, loading, requireAuth, requireAdmin, navigate, location, session, isAdminOverride]);
 
   // Show loading spinner while checking authentication
   if (loading || isChecking) {
@@ -131,6 +142,11 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
         <span className="ml-2">Verifying access...</span>
       </div>
     );
+  }
+
+  // For demo purposes - allow access with admin override
+  if (requireAdmin && isAdminOverride) {
+    return <>{children}</>;
   }
 
   // If page doesn't require auth or user is logged in correctly, render the children

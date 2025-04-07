@@ -8,6 +8,7 @@ import AdminSecurity from '@/components/admin/AdminSecurity';
 import AdminBackups from '@/components/admin/AdminBackups';
 import AdminBranding from '@/components/admin/AdminBranding';
 import AdminAnalytics from '@/components/admin/AdminAnalytics';
+import AdminCodes from '@/components/admin/AdminCodes';
 import { Shield, Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -45,13 +46,14 @@ const MasterAdminPage = () => {
             onValueChange={setActiveTab}
             className="w-full"
           >
-            <TabsList className="grid grid-cols-6 mb-6">
+            <TabsList className="grid grid-cols-7 mb-6">
               <TabsTrigger value="users">Users</TabsTrigger>
               <TabsTrigger value="features">Features</TabsTrigger>
               <TabsTrigger value="security">Security</TabsTrigger>
               <TabsTrigger value="backups">Backups</TabsTrigger>
               <TabsTrigger value="branding">Branding</TabsTrigger>
               <TabsTrigger value="analytics">Analytics</TabsTrigger>
+              <TabsTrigger value="codes">Admin Codes</TabsTrigger>
             </TabsList>
             
             <TabsContent value="users" className="space-y-4">
@@ -76,6 +78,10 @@ const MasterAdminPage = () => {
             
             <TabsContent value="analytics" className="space-y-4">
               <AdminAnalytics />
+            </TabsContent>
+            
+            <TabsContent value="codes" className="space-y-4">
+              <AdminCodes />
             </TabsContent>
           </Tabs>
         </div>

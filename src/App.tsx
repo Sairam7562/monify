@@ -18,6 +18,7 @@ import FinancialStatementsPage from "./pages/FinancialStatementsPage";
 import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 import MasterAdminPage from "./pages/MasterAdminPage";
+import AdminAccessPage from "./pages/AdminAccessPage";
 import RouteGuard from "./components/auth/RouteGuard";
 import AdminRedirect from "./components/auth/AdminRedirect";
 import Index from "./pages/Index";
@@ -50,6 +51,7 @@ const App = () => (
               <Route path="/index" element={<Index />} />
               <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route path="/admin-check" element={<AdminRedirect />} />
+              <Route path="/admin-access" element={<AdminAccessPage />} />
               
               {/* Protected routes */}
               <Route path="/dashboard" element={
