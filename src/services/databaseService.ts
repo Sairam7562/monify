@@ -1,4 +1,3 @@
-
 import { supabase, clearAllCaches } from "@/integrations/supabase/client";
 import { User } from '@/services/userService';
 import { toast } from "sonner";
@@ -309,4 +308,3 @@ export function getCacheStats(): { size: number, entries: number, oldestEntry: n
 // Forward exports from financialService but NOT importing from here
 // to avoid circular dependencies
 export * from '@/services/financialService';
-
