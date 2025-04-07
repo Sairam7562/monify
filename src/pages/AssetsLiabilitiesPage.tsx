@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import AssetLiabilityForm from '@/components/finance/AssetLiabilityForm';
@@ -14,6 +13,7 @@ const AssetsLiabilitiesPage = () => {
   const { checkDatabaseStatus } = useDatabase();
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   const checkDb = async () => {
     setIsChecking(true);
@@ -33,8 +33,12 @@ const AssetsLiabilitiesPage = () => {
         // Clear any previous schema error
         sessionStorage.removeItem('db_schema_error');
         localStorage.setItem('db_connection_status', 'connected');
+        console.log('Database connection successful!');
       } else {
         localStorage.setItem('db_connection_status', 'disconnected');
+        if (connectionResult.reason === 'schema_error') {
+          console.warn('Connection failed due to schema mismatch. Make sure client is using the correct schema.');
+        }
       }
       
       return connectionStatus;
@@ -50,6 +54,7 @@ const AssetsLiabilitiesPage = () => {
 
   const handleRetryConnection = async () => {
     setIsChecking(true);
+    setRetryCount(prev => prev + 1);
     toast.info("Checking database connection...");
     
     try {
@@ -67,7 +72,11 @@ const AssetsLiabilitiesPage = () => {
       if (isConnected) {
         toast.success("Database connection restored!");
       } else {
-        toast.error("Still having connection issues. Your data will be saved locally.");
+        if (retryCount >= 2) {
+          toast.error("Persistent connection issues detected. Your data will be saved locally.");
+        } else {
+          toast.error("Still having connection issues. Your data will be saved locally.");
+        }
       }
     } catch (error) {
       console.error("Error retrying connection:", error);

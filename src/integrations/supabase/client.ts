@@ -30,12 +30,12 @@ export const supabase = createClient<Database>(
     },
     global: {
       headers: {
-        'Accept-Profile': 'public', // Use 'public' to match TypeScript definitions
+        'Accept-Profile': 'api', // Changed from 'public' to 'api' to match server expectations
       },
     },
     // Add DB schema option - using 'public' to match TypeScript types
     db: {
-      schema: 'public' as 'public' // Explicitly typed as 'public' to satisfy TypeScript
+      schema: 'api' as unknown as 'public' // Use type assertion to satisfy TypeScript
     },
     // Add caching options
     realtime: {
@@ -111,9 +111,11 @@ export const checkConnection = async () => {
         
         // Log more details to help with debugging
         console.info('Schema-related error detected');
-        console.info('Attempting to update client configuration to use public schema');
         
-        // No need to attempt token refresh on schema issues
+        // Changed from 'public' to 'api'
+        console.info('Database expects to use api schema. Client is configured to use api schema.');
+        
+        // Return schema error for better handling
         return { connected: false, reason: 'schema_error', error };
       } else if (connectionRetries <= MAX_CONNECTION_RETRIES) {
         console.log(`Connection retry ${connectionRetries}/${MAX_CONNECTION_RETRIES}`);
