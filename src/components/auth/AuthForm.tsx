@@ -10,7 +10,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast as sonnerToast } from 'sonner';
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle } from "lucide-react";
+import { AlertCircle, CheckCircle, RefreshCw } from "lucide-react";
+import { checkConnection } from '@/integrations/supabase/client';
 
 const AuthForm = () => {
   const [email, setEmail] = useState('');
@@ -20,6 +21,8 @@ const AuthForm = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isCheckingDb, setIsCheckingDb] = useState(false);
+  const [dbCheckFailed, setDbCheckFailed] = useState(false);
   const { toast } = useToast();
   const { loginWithEmail, registerUser, loginWithSocial, session, user } = useAuth();
   const navigate = useNavigate();
@@ -27,6 +30,20 @@ const AuthForm = () => {
   const isRegisterPage = location.pathname === '/register';
   const from = location.state?.from || '/dashboard';
   const [loginAttempts, setLoginAttempts] = useState(0);
+
+  // Check for database connection issues on component mount
+  useEffect(() => {
+    const checkDbConnection = async () => {
+      // Check if we've already detected a schema error
+      const hasSchemaError = sessionStorage.getItem('db_schema_error') === 'true';
+      
+      if (hasSchemaError) {
+        setDbCheckFailed(true);
+      }
+    };
+    
+    checkDbConnection();
+  }, []);
 
   // If user is already logged in, redirect them
   useEffect(() => {
@@ -45,10 +62,48 @@ const AuthForm = () => {
     setName('');
   }, [location.pathname]);
 
+  const handleRetryConnection = async () => {
+    setIsCheckingDb(true);
+    setDbCheckFailed(false);
+    setErrorMessage(null);
+    
+    try {
+      sonnerToast.info("Checking database connection...");
+      const result = await checkConnection();
+      
+      if (result.connected) {
+        sonnerToast.success("Database connection restored!");
+        sessionStorage.removeItem('db_schema_error');
+      } else {
+        sonnerToast.error("Still having database connection issues.");
+        setDbCheckFailed(true);
+        
+        if (result.reason === 'schema_error') {
+          setErrorMessage("Database schema mismatch detected. Please contact support.");
+        } else {
+          setErrorMessage("Could not connect to the database. Please try again later.");
+        }
+      }
+    } catch (error) {
+      console.error("Error checking database connection:", error);
+      sonnerToast.error("Connection check failed");
+      setDbCheckFailed(true);
+    } finally {
+      setIsCheckingDb(false);
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setErrorMessage(null);
     setIsLoading(true);
+
+    // If database check failed, don't attempt login
+    if (dbCheckFailed) {
+      setErrorMessage("Cannot login: Database connection issues. Please retry the connection first.");
+      setIsLoading(false);
+      return;
+    }
 
     try {
       if (isRegisterPage) {
@@ -173,7 +228,34 @@ const AuthForm = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
-          {errorMessage && (
+          {dbCheckFailed && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Database Connection Issue</AlertTitle>
+              <AlertDescription className="mt-2">
+                <p className="mb-2">We're experiencing issues connecting to our database.</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex items-center gap-1 mt-1"
+                  onClick={handleRetryConnection}
+                  disabled={isCheckingDb}
+                >
+                  {isCheckingDb ? (
+                    <>
+                      <Spinner className="mr-1 h-3 w-3" /> Checking...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="mr-1 h-3 w-3" /> Retry Connection
+                    </>
+                  )}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          {errorMessage && !dbCheckFailed && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Error</AlertTitle>
@@ -194,7 +276,7 @@ const AuthForm = () => {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    disabled={isLoading}
+                    disabled={isLoading || dbCheckFailed}
                     autoComplete="name"
                   />
                 </div>
@@ -207,7 +289,7 @@ const AuthForm = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoading}
+                  disabled={isLoading || dbCheckFailed}
                   autoComplete={isRegisterPage ? "email" : "username"}
                 />
               </div>
@@ -219,7 +301,7 @@ const AuthForm = () => {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
+                  disabled={isLoading || dbCheckFailed}
                   autoComplete={isRegisterPage ? "new-password" : "current-password"}
                 />
               </div>
@@ -231,14 +313,14 @@ const AuthForm = () => {
                     className="h-4 w-4"
                     checked={enableTwoFactor}
                     onChange={(e) => setEnableTwoFactor(e.target.checked)}
-                    disabled={isLoading}
+                    disabled={isLoading || dbCheckFailed}
                   />
                   <Label htmlFor="two-factor">Enable Two-Factor Authentication</Label>
                 </div>
               )}
             </div>
             <CardFooter className="flex justify-between mt-6 px-0">
-              <Button type="submit" disabled={isLoading}>
+              <Button type="submit" disabled={isLoading || dbCheckFailed}>
                 {isLoading ? (
                   <>
                     <Spinner className="mr-2 h-4 w-4" /> 
@@ -273,8 +355,8 @@ const AuthForm = () => {
             <div className="flex flex-col space-y-3 mt-4">
               <Button 
                 variant="outline" 
-                onClick={() => handleSocialLogin("google")}
-                disabled={isLoading}
+                onClick={() => loginWithSocial("google")}
+                disabled={isLoading || dbCheckFailed}
                 className="w-full"
               >
                 <img src="/google-logo.png" alt="Google" className="w-5 h-5 mr-2" />
@@ -282,8 +364,8 @@ const AuthForm = () => {
               </Button>
               <Button 
                 variant="outline" 
-                onClick={() => handleSocialLogin("microsoft")}
-                disabled={isLoading} 
+                onClick={() => loginWithSocial("microsoft")}
+                disabled={isLoading || dbCheckFailed}
                 className="w-full"
               >
                 <img src="/microsoft-logo.png" alt="Microsoft" className="w-5 h-5 mr-2" />
@@ -291,8 +373,8 @@ const AuthForm = () => {
               </Button>
               <Button 
                 variant="outline" 
-                onClick={() => handleSocialLogin("apple")}
-                disabled={isLoading}
+                onClick={() => loginWithSocial("apple")}
+                disabled={isLoading || dbCheckFailed}
                 className="w-full"
               >
                 <img src="/apple-logo.png" alt="Apple" className="w-5 h-5 mr-2" />
