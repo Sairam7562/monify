@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -30,7 +31,10 @@ type Liability = {
   name: string;
   amount: string;
   type: string;
-  description?: string;
+  interest_rate?: number | null;
+  associated_asset_id?: string | null;
+  ownership_percentage?: number | null;
+  description?: string; // Add this as optional since it's not in the DB schema
   isNew?: boolean;
   isDeleted?: boolean;
   isModified?: boolean;
@@ -100,7 +104,11 @@ const AssetLiabilityForm: React.FC<AssetLiabilityFormProps> = ({ persistDataOnTa
           name: liability.name,
           amount: liability.amount.toString(),
           type: liability.type,
-          description: liability.description || '',
+          // We'll store description in memory even if it's not in the DB schema
+          description: '',
+          interest_rate: liability.interest_rate,
+          associated_asset_id: liability.associated_asset_id,
+          ownership_percentage: liability.ownership_percentage
         }));
         
         setAssets(formattedAssets);
@@ -365,14 +373,14 @@ const AssetLiabilityForm: React.FC<AssetLiabilityFormProps> = ({ persistDataOnTa
     
     try {
       if (liability.isNew) {
-        // Create new liability
+        // Create new liability - only include fields that exist in the DB schema
         const { error } = await supabase
           .from('liabilities')
           .insert([{
             name: liability.name,
             amount: parseFloat(liability.amount),
             type: liability.type,
-            description: liability.description,
+            // Don't include description since it's not in the DB schema
             user_id: user.id
           }]);
           
@@ -389,14 +397,14 @@ const AssetLiabilityForm: React.FC<AssetLiabilityFormProps> = ({ persistDataOnTa
         
         toast.success('Liability saved to database');
       } else if (liability.isModified) {
-        // Update existing liability
+        // Update existing liability - only include fields that exist in the DB schema
         const { error } = await supabase
           .from('liabilities')
           .update({
             name: liability.name,
             amount: parseFloat(liability.amount),
             type: liability.type,
-            description: liability.description
+            // Don't include description since it's not in the DB schema
           })
           .eq('id', id);
           
@@ -483,7 +491,7 @@ const AssetLiabilityForm: React.FC<AssetLiabilityFormProps> = ({ persistDataOnTa
         if (error) throw error;
       }
       
-      // Create new liabilities
+      // Create new liabilities - exclude description field as it's not in the DB schema
       if (newLiabilities.length > 0) {
         const { error } = await supabase
           .from('liabilities')
@@ -492,7 +500,7 @@ const AssetLiabilityForm: React.FC<AssetLiabilityFormProps> = ({ persistDataOnTa
               name: l.name,
               amount: parseFloat(l.amount),
               type: l.type,
-              description: l.description,
+              // Don't include description
               user_id: user.id
             }))
           );
@@ -500,7 +508,7 @@ const AssetLiabilityForm: React.FC<AssetLiabilityFormProps> = ({ persistDataOnTa
         if (error) throw error;
       }
       
-      // Update modified liabilities
+      // Update modified liabilities - exclude description field as it's not in the DB schema
       for (const liability of modifiedLiabilities) {
         const { error } = await supabase
           .from('liabilities')
@@ -508,7 +516,7 @@ const AssetLiabilityForm: React.FC<AssetLiabilityFormProps> = ({ persistDataOnTa
             name: liability.name,
             amount: parseFloat(liability.amount),
             type: liability.type,
-            description: liability.description
+            // Don't include description
           })
           .eq('id', liability.id);
           
@@ -587,13 +595,16 @@ const AssetLiabilityForm: React.FC<AssetLiabilityFormProps> = ({ persistDataOnTa
         description: asset.description || '',
       }));
       
-      // Format liability data
+      // Format liability data - We don't have description in the DB schema so we initialize it as empty
       const formattedLiabilities = liabilityData.map(liability => ({
         id: liability.id,
         name: liability.name,
         amount: liability.amount.toString(),
         type: liability.type,
-        description: liability.description || '',
+        description: '', // Set to empty string as it's not in the DB
+        interest_rate: liability.interest_rate,
+        associated_asset_id: liability.associated_asset_id,
+        ownership_percentage: liability.ownership_percentage
       }));
       
       setAssets(formattedAssets);
@@ -1011,3 +1022,4 @@ const AssetLiabilityForm: React.FC<AssetLiabilityFormProps> = ({ persistDataOnTa
 };
 
 export default AssetLiabilityForm;
+
