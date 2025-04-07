@@ -85,7 +85,7 @@ export async function getAssets(userId: string) {
       return await supabase
         .from('assets')
         .select('*')
-        .eq('user_id', userId) as PostgrestSingleResponse<AssetItem[]>;
+        .eq('user_id', userId as any) as PostgrestSingleResponse<AssetItem[]>;
     },
     "Error fetching assets"
   );
@@ -98,7 +98,7 @@ export async function getLiabilities(userId: string) {
       return await supabase
         .from('liabilities')
         .select('*')
-        .eq('user_id', userId) as PostgrestSingleResponse<LiabilityItem[]>;
+        .eq('user_id', userId as any) as PostgrestSingleResponse<LiabilityItem[]>;
     },
     "Error fetching liabilities"
   );
@@ -111,7 +111,7 @@ export async function getIncome(userId: string) {
       return await supabase
         .from('income')
         .select('*')
-        .eq('user_id', userId) as PostgrestSingleResponse<IncomeItem[]>;
+        .eq('user_id', userId as any) as PostgrestSingleResponse<IncomeItem[]>;
     },
     "Error fetching income"
   );
@@ -124,7 +124,7 @@ export async function getExpenses(userId: string) {
       return await supabase
         .from('expenses')
         .select('*')
-        .eq('user_id', userId) as PostgrestSingleResponse<ExpenseItem[]>;
+        .eq('user_id', userId as any) as PostgrestSingleResponse<ExpenseItem[]>;
     },
     "Error fetching expenses"
   );
@@ -137,7 +137,7 @@ export async function getPersonalInfo(userId: string) {
       return await supabase
         .from('personal_info')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', userId as any)
         .maybeSingle() as PostgrestSingleResponse<any>;
     },
     "Error fetching personal info"
@@ -151,7 +151,7 @@ export async function getBusinessInfo(userId: string) {
       return await supabase
         .from('business_info')
         .select('*')
-        .eq('user_id', userId) as PostgrestSingleResponse<BusinessInfoItem[]>;
+        .eq('user_id', userId as any) as PostgrestSingleResponse<BusinessInfoItem[]>;
     },
     "Error fetching business info"
   );

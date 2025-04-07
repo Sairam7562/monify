@@ -30,12 +30,12 @@ export const supabase = createClient<Database>(
     },
     global: {
       headers: {
-        'Accept-Profile': 'api', // Changed from 'public' to 'api' to match schema error
+        'Accept-Profile': 'public', // Changed from 'api' to 'public' to match TypeScript definitions
       },
     },
     // Add DB schema option
     db: {
-      schema: 'api' // Changed from 'public' to 'api' to match schema error
+      schema: 'public' // Changed from 'api' to 'public' to match TypeScript definitions
     },
     // Add caching options
     realtime: {
@@ -111,7 +111,7 @@ export const checkConnection = async () => {
         
         // Log more details to help with debugging
         console.info('Schema-related error detected');
-        console.info('Attempting to update client configuration to use API schema');
+        console.info('Attempting to update client configuration to use public schema');
         
         // No need to attempt token refresh on schema issues
         return { connected: false, reason: 'schema_error', error };
