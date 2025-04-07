@@ -30,7 +30,7 @@ export async function safeQuery<T>(
       localStorageKey = `personal_info_${userId}`;
     }
     
-    let cachedLocalData = null;
+    let cachedLocalData: T | null = null;
     let cacheTimestamp = 0;
     
     if (localStorageKey) {
@@ -56,6 +56,8 @@ export async function safeQuery<T>(
         }
       } catch (err) {
         console.warn('Error parsing local data:', err);
+        // Reset cached data if parsing fails
+        cachedLocalData = null;
       }
     }
     
@@ -128,10 +130,30 @@ export async function safeQuery<T>(
       console.error('Network connectivity issue detected');
       sessionStorage.setItem('db_network_error', 'true');
       
-      // If we have locally cached data, use it during network outages
-      if (cachedLocalData) {
-        console.info("Network error caught, using cached data");
-        return { data: cachedLocalData, error, success: false, localData: cachedLocalData };
+      // Define a scope-accessible variable for cached data
+      let fallbackCachedData: T | null = null;
+      
+      // Try to get cached data for network outages
+      try {
+        const userId = localStorage.getItem('currentUserId');
+        let localStorageKey = null;
+        
+        if (cacheKey && userId) {
+          localStorageKey = `${cacheKey}_${userId}`;
+        } else if (errorMessage.includes('personal info') && userId) {
+          localStorageKey = `personal_info_${userId}`;
+        }
+        
+        if (localStorageKey) {
+          const storedData = localStorage.getItem(localStorageKey);
+          if (storedData) {
+            fallbackCachedData = JSON.parse(storedData);
+            console.info("Network error caught, using cached data");
+            return { data: fallbackCachedData, error, success: false, localData: fallbackCachedData };
+          }
+        }
+      } catch (cacheError) {
+        console.warn('Error retrieving cached data during network error:', cacheError);
       }
     }
     
@@ -287,3 +309,4 @@ export function getCacheStats(): { size: number, entries: number, oldestEntry: n
 // Forward exports from financialService but NOT importing from here
 // to avoid circular dependencies
 export * from '@/services/financialService';
+
