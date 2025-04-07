@@ -1,7 +1,7 @@
 
 import { ReactNode, useEffect, useState, useRef } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, checkConnection } from '@/integrations/supabase/client';
 import { User } from '@/services/userService';
 import AuthContext, { supabaseUserToUser } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -26,6 +26,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dbConnectionChecked, setDbConnectionChecked] = useState(false);
   const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
   const initializingAuth = useRef(true);
   const authInitialized = useRef(false);
@@ -45,6 +46,28 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       else toast.info(message);
     }
   };
+
+  // Check database connection on component mount
+  useEffect(() => {
+    const verifyDatabaseConnection = async () => {
+      try {
+        const result = await checkConnection();
+        setDbConnectionChecked(true);
+        
+        if (!result.connected) {
+          console.error("Database connection failed during auth initialization");
+          if (result.reason === 'schema_error') {
+            showThrottledToast('db-schema-error', 'error', 
+              "Database schema mismatch detected. This might affect application functionality.");
+          }
+        }
+      } catch (err) {
+        console.error("Error checking database connection:", err);
+      }
+    };
+    
+    verifyDatabaseConnection();
+  }, []);
 
   useEffect(() => {
     if (authInitialized.current) return;
@@ -96,6 +119,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           // Only show notifications for major events (not TOKEN_REFRESHED)
           if (authEvent === 'SIGNED_IN') {
             showThrottledToast('signed-in', 'success', "Signed in successfully!");
+            // Check database connection after sign-in
+            checkConnection().then(result => {
+              if (!result.connected) {
+                showThrottledToast('db-error', 'error', 
+                  "Database connection issues detected. Some features may be unavailable.");
+              }
+            });
           } else if (authEvent === 'SIGNED_OUT') {
             showThrottledToast('signed-out', 'success', "Signed out successfully");
           } else if (authEvent === 'USER_UPDATED') {
@@ -276,6 +306,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     registerUser,
     loginWithSocial,
     logout,
+    dbConnectionChecked
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

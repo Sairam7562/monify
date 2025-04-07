@@ -4,6 +4,10 @@ import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Spinner } from '@/components/ui/spinner';
 import { toast } from 'sonner';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertCircle, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { checkConnection } from '@/integrations/supabase/client';
 
 interface RouteGuardProps {
   children: ReactNode;
@@ -12,10 +16,11 @@ interface RouteGuardProps {
 }
 
 const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: RouteGuardProps) => {
-  const { user, loading, session } = useAuth();
+  const { user, loading, session, dbConnectionChecked } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isChecking, setIsChecking] = useState(true);
+  const [dbConnectionError, setDbConnectionError] = useState(false);
   const redirectAttempts = useRef(0);
   const lastRedirectTime = useRef(0);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -32,6 +37,50 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
     };
   }, []);
 
+  // Check database connection status
+  useEffect(() => {
+    const verifyDbConnection = async () => {
+      if (!requireAuth) {
+        setDbConnectionError(false);
+        return;
+      }
+
+      try {
+        const result = await checkConnection();
+        setDbConnectionError(!result.connected);
+        
+        if (!result.connected) {
+          console.warn("Database connection issue in RouteGuard:", result.reason);
+        }
+      } catch (err) {
+        console.error("Error checking DB connection in RouteGuard:", err);
+        setDbConnectionError(true);
+      }
+    };
+
+    if (dbConnectionChecked) {
+      verifyDbConnection();
+    }
+  }, [dbConnectionChecked, requireAuth]);
+
+  const handleRetryConnection = async () => {
+    try {
+      toast.info("Checking database connection...");
+      const result = await checkConnection();
+      
+      if (result.connected) {
+        toast.success("Database connection restored!");
+        setDbConnectionError(false);
+      } else {
+        toast.error("Connection issue persists. Please try again later.");
+        console.error("Connection retry failed:", result.reason);
+      }
+    } catch (err) {
+      console.error("Error during connection retry:", err);
+      toast.error("Failed to check database connection");
+    }
+  };
+
   useEffect(() => {
     const checkAuth = async () => {
       // Wait for auth loading to finish
@@ -44,7 +93,8 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
         sessionExists: !!session,
         userRole: user?.role,
         currentPath: location.pathname,
-        adminOverride: isAdminOverride
+        adminOverride: isAdminOverride,
+        dbConnectionError
       });
 
       // For special routes
@@ -138,7 +188,7 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
     };
 
     checkAuth();
-  }, [user, loading, requireAuth, requireAdmin, navigate, location, session, isAdminOverride]);
+  }, [user, loading, requireAuth, requireAdmin, navigate, location, session, isAdminOverride, dbConnectionError]);
 
   // Show loading spinner while checking authentication
   if (loading || isChecking) {
@@ -146,6 +196,34 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
       <div className="h-screen flex items-center justify-center">
         <Spinner size="lg" />
         <span className="ml-2">Verifying access...</span>
+      </div>
+    );
+  }
+
+  // Show database connection error
+  if (dbConnectionError && requireAuth) {
+    return (
+      <div className="h-screen flex items-center justify-center p-4">
+        <div className="max-w-md w-full">
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Database Connection Error</AlertTitle>
+            <AlertDescription>
+              <p className="mb-4">
+                There was an error connecting to the database. This may cause issues with loading your data.
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="flex items-center" 
+                onClick={handleRetryConnection}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" /> Retry Connection
+              </Button>
+            </AlertDescription>
+          </Alert>
+          {children}
+        </div>
       </div>
     );
   }
