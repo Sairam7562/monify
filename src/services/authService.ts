@@ -82,7 +82,6 @@ export async function registerUser(
   }
 }
 
-// Add the missing function for creating a user by admin
 export async function addUserByAdmin(
   name: string,
   email: string,
@@ -92,7 +91,6 @@ export async function addUserByAdmin(
 ): Promise<User | null> {
   try {
     // In a real implementation, this would use the admin API to create a user
-    // For this example, we're just creating a basic structure
     const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase();
     
     const { data, error } = await supabase.auth.admin.createUser({
