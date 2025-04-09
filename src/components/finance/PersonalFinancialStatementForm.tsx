@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -104,17 +105,49 @@ const PersonalFinancialStatementForm = () => {
         const statementData = await generateFinancialStatementData(user.id);
         
         if (statementData) {
+          // Map the data structure returned from the API to our form's expected shape
+          const personalInfo = statementData.personalInfo || {};
+          
           const formattedData = {
-            profileImage: statementData.profileImage,
-            fullName: statementData.fullName,
-            email: statementData.email,
-            phone: statementData.phone,
-            address: statementData.address,
+            profileImage: personalInfo.profile_image || null,
+            fullName: personalInfo.first_name && personalInfo.last_name 
+              ? `${personalInfo.first_name} ${personalInfo.last_name}` 
+              : '',
+            email: personalInfo.email || user.email || '',
+            phone: personalInfo.phone || '',
+            address: {
+              street: personalInfo.address || '',
+              city: personalInfo.city || '',
+              state: personalInfo.state || '',
+              zipCode: personalInfo.zip_code || '',
+              country: 'United States', // Default value
+              includeInReport: true
+            },
             statementDate: new Date().toISOString().slice(0, 10),
-            assets: statementData.assets,
-            liabilities: statementData.liabilities,
-            incomes: statementData.incomes,
-            expenses: statementData.expenses
+            assets: statementData.assets.map((asset: any) => ({
+              id: asset.id || `asset-${Math.random().toString(36).substring(2, 9)}`,
+              name: asset.name || '',
+              value: asset.value ? asset.value.toString() : '',
+              includeInReport: true
+            })),
+            liabilities: statementData.liabilities.map((liability: any) => ({
+              id: liability.id || `liability-${Math.random().toString(36).substring(2, 9)}`,
+              name: liability.name || '',
+              value: liability.amount ? liability.amount.toString() : '',
+              includeInReport: true
+            })),
+            incomes: statementData.income.map((inc: any) => ({
+              id: inc.id || `income-${Math.random().toString(36).substring(2, 9)}`,
+              name: inc.source || '',
+              value: inc.amount ? inc.amount.toString() : '',
+              includeInReport: true
+            })),
+            expenses: statementData.expenses.map((expense: any) => ({
+              id: expense.id || `expense-${Math.random().toString(36).substring(2, 9)}`,
+              name: expense.name || '',
+              value: expense.amount ? expense.amount.toString() : '',
+              includeInReport: true
+            }))
           };
           
           setFormData(prevData => ({
