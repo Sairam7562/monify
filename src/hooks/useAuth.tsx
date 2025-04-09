@@ -9,11 +9,13 @@ type AuthContextType = {
   supabaseUser: SupabaseUser | null;
   session: Session | null;
   loading: boolean;
-  dbConnectionChecked: boolean; // Add this property to track database connection status
+  dbConnectionChecked: boolean; // Track database connection status
+  dbConnectionError: boolean | null; // Track database connection error
   loginWithEmail: (email: string, password: string) => Promise<User | null>;
   registerUser: (name: string, email: string, password: string, enableTwoFactor: boolean) => Promise<User | null>;
   loginWithSocial: (provider: 'google' | 'github' | 'apple' | 'microsoft') => Promise<void>;
   logout: () => Promise<void>;
+  retryDatabaseConnection: () => Promise<boolean>; // Add retry function
 };
 
 // Create the auth context

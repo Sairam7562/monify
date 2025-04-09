@@ -1,313 +1,164 @@
 
-import { ReactNode, useEffect, useState, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase, checkConnection } from '@/integrations/supabase/client';
-import { User } from '@/services/userService';
 import AuthContext, { supabaseUserToUser } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import { User } from '@/services/userService';
+import { loginWithEmail, loginWithSocial, registerUser, logout } from '@/services/authService';
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
-
-// Define a type that includes all possible Supabase auth events, including custom ones
-type AuthChangeEvent = 
-  | 'INITIAL_SESSION'
-  | 'SIGNED_IN'
-  | 'SIGNED_OUT'
-  | 'TOKEN_REFRESHED'
-  | 'USER_UPDATED'
-  | 'PASSWORD_RECOVERY'
-  | 'USER_DELETED'  // Add this for explicit type safety
-  | 'MFA_CHALLENGE_VERIFIED';
-
-export const AuthProvider = ({ children }: AuthProviderProps) => {
-  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [dbConnectionChecked, setDbConnectionChecked] = useState(false);
-  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
-  const initializingAuth = useRef(true);
-  const authInitialized = useRef(false);
+  const [dbConnectionError, setDbConnectionError] = useState<boolean | null>(null);
   
-  // Prevent excessive toast notifications
-  const toastTimestamps = useRef<Record<string, number>>({});
-  
-  const showThrottledToast = (id: string, type: 'success' | 'error' | 'info', message: string) => {
-    const now = Date.now();
-    const lastShown = toastTimestamps.current[id] || 0;
-    
-    // Only show toast if it hasn't been shown in the last 5 seconds
-    if (now - lastShown > 5000) {
-      toastTimestamps.current[id] = now;
-      if (type === 'success') toast.success(message);
-      else if (type === 'error') toast.error(message);
-      else toast.info(message);
+  // Function to retry database connection
+  const retryDatabaseConnection = useCallback(async () => {
+    try {
+      const result = await checkConnection();
+      setDbConnectionError(!result.connected);
+      return result.connected;
+    } catch (error) {
+      console.error("Error retrying database connection:", error);
+      setDbConnectionError(true);
+      return false;
     }
-  };
+  }, []);
 
-  // Check database connection on component mount
+  // Check database connection
   useEffect(() => {
     const verifyDatabaseConnection = async () => {
       try {
+        console.info("Checking Supabase database connection...");
         const result = await checkConnection();
-        setDbConnectionChecked(true);
         
         if (!result.connected) {
-          console.error("Database connection failed during auth initialization");
+          console.warn("Initial database check: Connection failed - " + result.reason);
+          console.error("Error details:", result.error);
+          
+          // Store the error in session storage to persist across page reloads
           if (result.reason === 'schema_error') {
-            showThrottledToast('db-schema-error', 'error', 
-              "Database schema mismatch detected. This might affect application functionality.");
+            sessionStorage.setItem('db_schema_error', 'true');
           }
+          
+          setDbConnectionError(true);
+        } else {
+          sessionStorage.removeItem('db_schema_error');
+          setDbConnectionError(false);
         }
-      } catch (err) {
-        console.error("Error checking database connection:", err);
+        
+        setDbConnectionChecked(true);
+      } catch (error) {
+        console.error("Failed to check database connection:", error);
+        setDbConnectionError(true);
+        setDbConnectionChecked(true);
       }
     };
-    
-    verifyDatabaseConnection();
-  }, []);
 
+    // Only check database connection if we have a session
+    if (session) {
+      verifyDatabaseConnection();
+    }
+  }, [session]);
+
+  // Initialize auth and watch for changes
   useEffect(() => {
-    if (authInitialized.current) return;
-    authInitialized.current = true;
-    
     console.log("Setting up auth state listener");
     
-    // Check for hash params from email verification
-    const hasHashParams = window.location.hash && window.location.hash.includes('type=recovery');
-    if (hasHashParams) {
-      console.log("Hash parameters detected, handling authentication...");
-    }
-    
-    // Prevent multiple subscriptions
-    if (subscriptionRef.current) {
-      subscriptionRef.current.unsubscribe();
-    }
-    
-    // First get the current session before setting up the listener
-    // This ensures we have the most up-to-date session
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      console.log("Retrieved session:", currentSession ? "Session exists" : "No session");
-      setSession(currentSession);
-      setSupabaseUser(currentSession?.user ?? null);
-      setUser(currentSession?.user ? supabaseUserToUser(currentSession.user) : null);
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      console.log("Auth state changed:", _event);
+      setSession(newSession);
+      setSupabaseUser(newSession?.user ?? null);
+      setUser(supabaseUserToUser(newSession?.user ?? null));
       
-      // Set up the listener after we have the current session
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        (event, newSession) => {
-          console.log("Auth state change event:", event);
-          
-          if (initializingAuth.current) {
-            // Skip toast notifications during initial auth setup
-            console.log("Initializing auth, skipping notifications");
-            setSession(newSession);
-            setSupabaseUser(newSession?.user ?? null);
-            setUser(newSession?.user ? supabaseUserToUser(newSession.user) : null);
-            initializingAuth.current = false;
-            return;
-          }
-          
-          setSession(newSession);
-          setSupabaseUser(newSession?.user ?? null);
-          setUser(newSession?.user ? supabaseUserToUser(newSession.user) : null);
-          
-          // Use a type assertion to treat the event as our extended AuthChangeEvent type
-          const authEvent = event as AuthChangeEvent;
-          
-          // Only show notifications for major events (not TOKEN_REFRESHED)
-          if (authEvent === 'SIGNED_IN') {
-            showThrottledToast('signed-in', 'success', "Signed in successfully!");
-            // Check database connection after sign-in
-            checkConnection().then(result => {
-              if (!result.connected) {
-                showThrottledToast('db-error', 'error', 
-                  "Database connection issues detected. Some features may be unavailable.");
-              }
-            });
-          } else if (authEvent === 'SIGNED_OUT') {
-            showThrottledToast('signed-out', 'success', "Signed out successfully");
-          } else if (authEvent === 'USER_UPDATED') {
-            showThrottledToast('user-updated', 'success', "User profile updated");
-          } else if (authEvent === 'PASSWORD_RECOVERY') {
-            showThrottledToast('password-recovery', 'info', "Password recovery initiated");
-          } else if (authEvent === 'USER_DELETED') {
-            showThrottledToast('user-deleted', 'info', "Account deleted");
-          }
-        }
-      );
-      
-      subscriptionRef.current = subscription;
+      // When auth state changes, we should check database connection again
+      if (newSession) {
+        setDbConnectionChecked(false);
+      }
+    });
+
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      setSession(initialSession);
+      setSupabaseUser(initialSession?.user ?? null);
+      setUser(supabaseUserToUser(initialSession?.user ?? null));
       setLoading(false);
-      initializingAuth.current = false;
+    }).catch(error => {
+      console.error("Error getting session:", error);
+      setLoading(false);
     });
 
     return () => {
-      console.log("Cleaning up auth subscription");
-      if (subscriptionRef.current) {
-        subscriptionRef.current.unsubscribe();
-      }
+      subscription.unsubscribe();
     };
   }, []);
 
-  const loginWithEmail = async (email: string, password: string): Promise<User | null> => {
+  // Login with email/password
+  const handleLoginWithEmail = async (email: string, password: string) => {
     try {
-      setLoading(true);
-      console.log("Attempting to login with email:", email);
-      
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        console.error("Login error:", error);
-        toast.error(error.message);
-        return null;
-      }
-
-      if (data.user) {
-        console.log("Login successful for user:", data.user.id);
-        return supabaseUserToUser(data.user);
-      }
+      const user = await loginWithEmail(email, password);
+      return user;
+    } catch (error: any) {
+      const errorMessage = error.message || "Failed to login. Please try again.";
+      toast.error(errorMessage);
       return null;
-    } catch (error) {
-      console.error("Login error:", error);
-      toast.error("Login failed");
-      return null;
-    } finally {
-      setLoading(false);
     }
   };
 
-  const registerUser = async (
-    name: string, 
-    email: string, 
-    password: string, 
-    enableTwoFactor: boolean
-  ): Promise<User | null> => {
+  // Register new user
+  const handleRegisterUser = async (name: string, email: string, password: string, enableTwoFactor: boolean) => {
     try {
-      setLoading(true);
-      console.log("Attempting to register user:", email);
-      
-      // Set the redirect URL to the current domain for proper verification
-      const redirectTo = `${window.location.origin}/verify-email`;
-      
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name,
-            twoFactorEnabled: enableTwoFactor,
-            role: 'User',
-            plan: 'Basic',
-            status: 'active'
-          },
-          emailRedirectTo: redirectTo
-        }
-      });
-
-      if (error) {
-        console.error("Registration error:", error);
-        toast.error(error.message);
-        return null;
-      }
-
-      if (data.user) {
-        console.log("Registration successful for user:", data.user.id);
-        
-        if (data.session) {
-          toast.success("Registration successful! You are now logged in.");
-        } else {
-          toast.success("Registration successful! Please check your email to verify your account.");
-          console.log("Verification email sent to:", email);
-          console.log("Email redirect URL set to:", redirectTo);
-          
-          // Add additional toast with more details
-          toast.info("If you don't see the verification email, please check your spam/junk folder or try again later.", {
-            duration: 8000,
-          });
-        }
-        
-        return supabaseUserToUser(data.user);
-      }
+      const user = await registerUser(name, email, password, enableTwoFactor);
+      return user;
+    } catch (error: any) {
+      const errorMessage = error.message || "Failed to register. Please try again.";
+      toast.error(errorMessage);
       return null;
-    } catch (error) {
-      console.error("Registration error:", error);
-      toast.error("Registration failed");
-      return null;
-    } finally {
-      setLoading(false);
     }
   };
 
-  const loginWithSocial = async (provider: 'google' | 'github' | 'apple' | 'microsoft'): Promise<void> => {
+  // Login with social provider
+  const handleLoginWithSocial = async (provider: 'google' | 'github' | 'apple' | 'microsoft') => {
     try {
-      setLoading(true);
-      console.log(`Attempting to login with ${provider}`);
-      
-      const validProvider = provider === 'google' ? 'google' : 
-                          provider === 'github' ? 'github' : 
-                          provider === 'microsoft' ? 'azure' : 'apple';
-      
-      const redirectTo = `${window.location.origin}/dashboard`;
-      
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: validProvider,
-        options: {
-          redirectTo: redirectTo,
-          scopes: provider === 'google' ? 'profile email' : undefined
-        }
-      });
-
-      if (error) {
-        console.error(`${provider} login error:`, error);
-        toast.error(error.message);
-      }
-    } catch (error) {
-      console.error(`${provider} login error:`, error);
-      toast.error(`${provider} login failed`);
-    } finally {
-      setLoading(false);
+      await loginWithSocial(provider);
+    } catch (error: any) {
+      const errorMessage = error.message || `Failed to login with ${provider}. Please try again.`;
+      toast.error(errorMessage);
     }
   };
 
-  const logout = async (): Promise<void> => {
+  // Logout user
+  const handleLogout = async () => {
     try {
-      setLoading(true);
-      console.log("Attempting to log out");
-      
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        console.error("Logout error:", error);
-        toast.error(error.message);
-        return;
-      }
-      
-      // We don't need to manually update state here since onAuthStateChange will handle it
-      console.log("Logout successful");
-    } catch (error) {
-      console.error("Logout error:", error);
-      toast.error("Logout failed");
-    } finally {
-      setLoading(false);
+      await logout();
+      setUser(null);
+      setSupabaseUser(null);
+      setSession(null);
+    } catch (error: any) {
+      const errorMessage = error.message || "Failed to logout. Please try again.";
+      toast.error(errorMessage);
     }
   };
 
-  const value = {
-    user,
-    supabaseUser,
-    session,
-    loading,
-    loginWithEmail,
-    registerUser,
-    loginWithSocial,
-    logout,
-    dbConnectionChecked
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{
+      user,
+      supabaseUser,
+      session,
+      loading,
+      dbConnectionChecked,
+      dbConnectionError,
+      loginWithEmail: handleLoginWithEmail,
+      registerUser: handleRegisterUser,
+      loginWithSocial: handleLoginWithSocial,
+      logout: handleLogout,
+      retryDatabaseConnection
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };

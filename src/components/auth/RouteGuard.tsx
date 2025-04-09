@@ -24,6 +24,7 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
   const redirectAttempts = useRef(0);
   const lastRedirectTime = useRef(0);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [showError, setShowError] = useState(false);
 
   // Override admin check for demonstration purposes - comment this out in production
   const isAdminOverride = localStorage.getItem('adminCodeOverride') === 'true';
@@ -37,34 +38,45 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
     };
   }, []);
 
-  // Check database connection status
+  // Check database connection status after a short delay to allow auth to load first
   useEffect(() => {
-    const verifyDbConnection = async () => {
-      if (!requireAuth) {
-        setDbConnectionError(false);
-        return;
-      }
-
-      try {
-        const result = await checkConnection();
-        setDbConnectionError(!result.connected);
-        
-        if (!result.connected) {
-          console.warn("Database connection issue in RouteGuard:", result.reason);
-        }
-      } catch (err) {
-        console.error("Error checking DB connection in RouteGuard:", err);
-        setDbConnectionError(true);
-      }
-    };
-
-    if (dbConnectionChecked) {
-      verifyDbConnection();
+    if (!requireAuth) {
+      setDbConnectionError(false);
+      return;
     }
+
+    // Wait a bit for auth to settle before checking DB connection
+    // This prevents race conditions between auth and DB checks
+    const timer = setTimeout(() => {
+      const verifyDbConnection = async () => {
+        try {
+          const result = await checkConnection();
+          setDbConnectionError(!result.connected);
+          
+          if (!result.connected) {
+            console.warn("Database connection issue in RouteGuard:", result.reason);
+            // Show error after a delay if we're still on the same page
+            setTimeout(() => {
+              setShowError(true);
+            }, 1000);
+          }
+        } catch (err) {
+          console.error("Error checking DB connection in RouteGuard:", err);
+          setDbConnectionError(true);
+        }
+      };
+
+      if (dbConnectionChecked) {
+        verifyDbConnection();
+      }
+    }, 500);
+    
+    return () => clearTimeout(timer);
   }, [dbConnectionChecked, requireAuth]);
 
   const handleRetryConnection = async () => {
     try {
+      setShowError(false);
       toast.info("Checking database connection...");
       const result = await checkConnection();
       
@@ -74,10 +86,12 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
       } else {
         toast.error("Connection issue persists. Please try again later.");
         console.error("Connection retry failed:", result.reason);
+        setShowError(true);
       }
     } catch (err) {
       console.error("Error during connection retry:", err);
       toast.error("Failed to check database connection");
+      setShowError(true);
     }
   };
 
@@ -99,6 +113,12 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
 
       // For special routes
       if (location.pathname === '/admin-access') {
+        setIsChecking(false);
+        return;
+      }
+
+      // Always allow access to 404 page
+      if (location.pathname === '/404') {
         setIsChecking(false);
         return;
       }
@@ -142,7 +162,7 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
         return;
       }
       
-      // Prevent redirect loops
+      // Stop redirect loops by tracking attempts
       const now = Date.now();
       if (now - lastRedirectTime.current < 2000) { // Less than 2 seconds since last redirect
         redirectAttempts.current++;
@@ -162,7 +182,6 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
       if (requireAuth && !user) {
         lastRedirectTime.current = now;
         console.log("User not authenticated, redirecting to login");
-        toast.error("Please log in to access this page");
         
         // Add a small delay before redirecting to avoid potential race conditions
         timeoutRef.current = setTimeout(() => {
@@ -175,7 +194,6 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
       if (requireAdmin && user?.role?.toLowerCase() !== 'admin' && !isAdminOverride) {
         lastRedirectTime.current = now;
         console.log("User not admin, redirecting to admin access page");
-        toast.error("Admin access required. Please enter your admin code.");
         
         // Add a small delay before redirecting to avoid potential race conditions
         timeoutRef.current = setTimeout(() => {
@@ -201,7 +219,7 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
   }
 
   // Show database connection error
-  if (dbConnectionError && requireAuth) {
+  if (dbConnectionError && requireAuth && showError) {
     return (
       <div className="h-screen flex items-center justify-center p-4">
         <div className="max-w-md w-full">
