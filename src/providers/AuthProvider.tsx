@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase, checkConnection } from '@/integrations/supabase/client';
@@ -7,7 +6,6 @@ import { toast } from 'sonner';
 import { User } from '@/services/userService';
 import { loginWithEmail, loginWithSocial, registerUser } from '@/services/authService';
 
-// Add the missing logout function
 export const logout = async () => {
   try {
     const { error } = await supabase.auth.signOut();
@@ -27,7 +25,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [dbConnectionChecked, setDbConnectionChecked] = useState(false);
   const [dbConnectionError, setDbConnectionError] = useState<boolean | null>(null);
   
-  // Function to retry database connection
   const retryDatabaseConnection = useCallback(async () => {
     try {
       const result = await checkConnection();
@@ -40,7 +37,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  // Check database connection
   useEffect(() => {
     const verifyDatabaseConnection = async () => {
       try {
@@ -51,7 +47,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.warn("Initial database check: Connection failed - " + result.reason);
           console.error("Error details:", result.error);
           
-          // Store the error in session storage to persist across page reloads
           if (result.reason === 'schema_error') {
             sessionStorage.setItem('db_schema_error', 'true');
           }
@@ -70,30 +65,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    // Only check database connection if we have a session
     if (session) {
       verifyDatabaseConnection();
     }
   }, [session]);
 
-  // Initialize auth and watch for changes
   useEffect(() => {
     console.log("Setting up auth state listener");
     
-    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
       console.log("Auth state changed:", _event);
       setSession(newSession);
       setSupabaseUser(newSession?.user ?? null);
       setUser(supabaseUserToUser(newSession?.user ?? null));
       
-      // When auth state changes, we should check database connection again
       if (newSession) {
         setDbConnectionChecked(false);
       }
     });
 
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
       setSession(initialSession);
       setSupabaseUser(initialSession?.user ?? null);
@@ -109,7 +99,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Login with email/password
   const handleLoginWithEmail = async (email: string, password: string) => {
     try {
       const user = await loginWithEmail(email, password);
@@ -121,7 +110,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Register new user
   const handleRegisterUser = async (name: string, email: string, password: string, enableTwoFactor: boolean) => {
     try {
       const user = await registerUser(name, email, password, enableTwoFactor);
@@ -133,8 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Login with social provider
-  const handleLoginWithSocial = async (provider: 'google' | 'github' | 'apple') => {
+  const handleLoginWithSocial = async (provider: 'google' | 'github' | 'apple' | 'microsoft') => {
     try {
       await loginWithSocial(provider);
     } catch (error: any) {
@@ -143,7 +130,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Logout user
   const handleLogout = async () => {
     try {
       await logout();
