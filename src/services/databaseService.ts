@@ -1,3 +1,4 @@
+
 import { supabase, clearAllCaches } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PostgrestSingleResponse } from "@supabase/supabase-js";
@@ -308,7 +309,7 @@ export function getCacheStats(): { size: number, entries: number, oldestEntry: n
 export async function generateFinancialStatementData(userId: string) {
   try {
     const personalInfoResult = await safeQuery<any>(
-      () => supabase
+      async () => await supabase
         .from('personal_info')
         .select('*')
         .eq('user_id', userId)
@@ -317,7 +318,7 @@ export async function generateFinancialStatementData(userId: string) {
     );
     
     const assetsResult = await safeQuery<any[]>(
-      () => supabase
+      async () => await supabase
         .from('assets')
         .select('*')
         .eq('user_id', userId),
@@ -325,7 +326,7 @@ export async function generateFinancialStatementData(userId: string) {
     );
     
     const liabilitiesResult = await safeQuery<any[]>(
-      () => supabase
+      async () => await supabase
         .from('liabilities')
         .select('*')
         .eq('user_id', userId),
@@ -333,7 +334,7 @@ export async function generateFinancialStatementData(userId: string) {
     );
     
     const incomeResult = await safeQuery<any[]>(
-      () => supabase
+      async () => await supabase
         .from('income')
         .select('*')
         .eq('user_id', userId),
@@ -341,7 +342,7 @@ export async function generateFinancialStatementData(userId: string) {
     );
     
     const expensesResult = await safeQuery<any[]>(
-      () => supabase
+      async () => await supabase
         .from('expenses')
         .select('*')
         .eq('user_id', userId),
@@ -401,7 +402,7 @@ export async function generateFinancialStatementData(userId: string) {
 export async function getFinancialSummary(userId: string) {
   try {
     const assetsResult = await safeQuery<any[]>(
-      () => supabase
+      async () => await supabase
         .from('assets')
         .select('*')
         .eq('user_id', userId),
@@ -409,7 +410,7 @@ export async function getFinancialSummary(userId: string) {
     );
     
     const liabilitiesResult = await safeQuery<any[]>(
-      () => supabase
+      async () => await supabase
         .from('liabilities')
         .select('*')
         .eq('user_id', userId),
@@ -417,7 +418,7 @@ export async function getFinancialSummary(userId: string) {
     );
     
     const incomeResult = await safeQuery<any[]>(
-      () => supabase
+      async () => await supabase
         .from('income')
         .select('*')
         .eq('user_id', userId),
@@ -425,7 +426,7 @@ export async function getFinancialSummary(userId: string) {
     );
     
     const expensesResult = await safeQuery<any[]>(
-      () => supabase
+      async () => await supabase
         .from('expenses')
         .select('*')
         .eq('user_id', userId),
