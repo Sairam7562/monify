@@ -148,6 +148,17 @@ export const loginWithSocial = async (provider: 'google' | 'github' | 'apple'): 
   }
 };
 
+// Logout user
+export const logout = async (): Promise<void> => {
+  try {
+    await supabase.auth.signOut();
+    toast.success("Logout successful");
+  } catch (error) {
+    console.error("Logout error:", error);
+    toast.error("Logout failed");
+  }
+};
+
 // Admin functions
 export const addUserByAdmin = async (
   name: string, 

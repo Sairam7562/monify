@@ -1,5 +1,4 @@
 import { supabase, clearAllCaches } from "@/integrations/supabase/client";
-import { User } from '@/services/userService';
 import { toast } from "sonner";
 import { PostgrestSingleResponse } from "@supabase/supabase-js";
 
@@ -303,6 +302,213 @@ export function getCacheStats(): { size: number, entries: number, oldestEntry: n
     entries,
     oldestEntry: Date.now() - oldestTimestamp // age in ms
   };
+}
+
+// Generate financial statement data for a user
+export async function generateFinancialStatementData(userId: string) {
+  try {
+    const personalInfoResult = await safeQuery<any>(
+      () => supabase
+        .from('personal_info')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle(),
+      "Error fetching personal info"
+    );
+    
+    const assetsResult = await safeQuery<any[]>(
+      () => supabase
+        .from('assets')
+        .select('*')
+        .eq('user_id', userId),
+      "Error fetching assets"
+    );
+    
+    const liabilitiesResult = await safeQuery<any[]>(
+      () => supabase
+        .from('liabilities')
+        .select('*')
+        .eq('user_id', userId),
+      "Error fetching liabilities"
+    );
+    
+    const incomeResult = await safeQuery<any[]>(
+      () => supabase
+        .from('income')
+        .select('*')
+        .eq('user_id', userId),
+      "Error fetching income"
+    );
+    
+    const expensesResult = await safeQuery<any[]>(
+      () => supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', userId),
+      "Error fetching expenses"
+    );
+    
+    const personalInfo = personalInfoResult.data || {} as any;
+    
+    // Format data for financial statement component
+    return {
+      profileImage: personalInfo.profile_image || null,
+      fullName: `${personalInfo.first_name || ''} ${personalInfo.last_name || ''}`.trim() || 'Anonymous User',
+      email: personalInfo.email || '',
+      phone: personalInfo.phone || '',
+      address: {
+        street: personalInfo.address || '',
+        city: personalInfo.city || '',
+        state: personalInfo.state || '',
+        zipCode: personalInfo.zip_code || '',
+        country: 'United States', // Default
+        includeInReport: true
+      },
+      assets: ((assetsResult.data || []) as any[]).map((asset: any) => ({
+        id: asset.id,
+        name: asset.name,
+        value: asset.value?.toString() || '0',
+        includeInReport: true
+      })),
+      liabilities: ((liabilitiesResult.data || []) as any[]).map((liability: any) => ({
+        id: liability.id,
+        name: liability.name,
+        value: liability.amount?.toString() || '0',
+        includeInReport: true
+      })),
+      incomes: ((incomeResult.data || []) as any[]).map((income: any) => ({
+        id: income.id,
+        name: income.source,
+        value: income.amount?.toString() || '0',
+        includeInReport: true
+      })),
+      expenses: ((expensesResult.data || []) as any[]).map((expense: any) => ({
+        id: expense.id,
+        name: expense.name,
+        value: expense.amount?.toString() || '0',
+        includeInReport: true
+      })),
+      statementDate: new Date().toISOString().slice(0, 10)
+    };
+  } catch (error) {
+    console.error("Error generating financial statement data:", error);
+    toast.error("Could not generate financial statement");
+    return null;
+  }
+}
+
+// Get financial summary for the dashboard
+export async function getFinancialSummary(userId: string) {
+  try {
+    const assetsResult = await safeQuery<any[]>(
+      () => supabase
+        .from('assets')
+        .select('*')
+        .eq('user_id', userId),
+      "Error fetching assets"
+    );
+    
+    const liabilitiesResult = await safeQuery<any[]>(
+      () => supabase
+        .from('liabilities')
+        .select('*')
+        .eq('user_id', userId),
+      "Error fetching liabilities"
+    );
+    
+    const incomeResult = await safeQuery<any[]>(
+      () => supabase
+        .from('income')
+        .select('*')
+        .eq('user_id', userId),
+      "Error fetching income"
+    );
+    
+    const expensesResult = await safeQuery<any[]>(
+      () => supabase
+        .from('expenses')
+        .select('*')
+        .eq('user_id', userId),
+      "Error fetching expenses"
+    );
+    
+    // Calculate totals
+    const totalAssets = ((assetsResult.data || []) as any[]).reduce((sum, item) => 
+      sum + (parseFloat(item.value) || 0), 0);
+      
+    const totalLiabilities = ((liabilitiesResult.data || []) as any[]).reduce((sum, item) => 
+      sum + (parseFloat(item.amount) || 0), 0);
+      
+    const monthlyIncome = ((incomeResult.data || []) as any[]).reduce((sum, item) => {
+      const amount = parseFloat(item.amount) || 0;
+      // Convert to monthly equivalent based on frequency
+      if (item.frequency === 'annual') return sum + (amount / 12);
+      if (item.frequency === 'quarterly') return sum + (amount / 3);
+      if (item.frequency === 'weekly') return sum + (amount * 4.33);
+      if (item.frequency === 'bi-weekly') return sum + (amount * 2.17);
+      return sum + amount; // monthly
+    }, 0);
+    
+    const monthlyExpenses = ((expensesResult.data || []) as any[]).reduce((sum, item) => {
+      const amount = parseFloat(item.amount) || 0;
+      // Convert to monthly equivalent based on frequency
+      if (item.frequency === 'annual') return sum + (amount / 12);
+      if (item.frequency === 'quarterly') return sum + (amount / 3);
+      if (item.frequency === 'weekly') return sum + (amount * 4.33);
+      if (item.frequency === 'bi-weekly') return sum + (amount * 2.17);
+      return sum + amount; // monthly
+    }, 0);
+    
+    const netWorth = totalAssets - totalLiabilities;
+    const cashFlow = monthlyIncome - monthlyExpenses;
+    
+    // Calculate various financial ratios
+    const debtToAssetRatio = totalAssets > 0 ? (totalLiabilities / totalAssets) : 0;
+    const savingsRate = monthlyIncome > 0 ? ((monthlyIncome - monthlyExpenses) / monthlyIncome) : 0;
+    
+    // Estimate emergency fund ratio (assume 25% of assets are liquid)
+    const liquidAssets = totalAssets * 0.25;
+    const emergencyFundRatio = monthlyExpenses > 0 ? (liquidAssets / monthlyExpenses) : 0;
+    
+    // Housing cost ratio (assume 30% of expenses are housing)
+    const housingCosts = monthlyExpenses * 0.3;
+    const housingCostRatio = monthlyIncome > 0 ? (housingCosts / monthlyIncome) : 0;
+    
+    // Calculate percentage changes (mock data for demo)
+    const netWorthChange = 5.2; // 5.2% increase from previous period
+    const cashFlowChange = 3.8; // 3.8% increase from previous period
+    
+    return {
+      totalAssets,
+      totalLiabilities,
+      netWorth,
+      monthlyIncome,
+      monthlyExpenses,
+      cashFlow,
+      debtToAssetRatio,
+      savingsRate,
+      emergencyFundRatio,
+      housingCostRatio,
+      netWorthChange,
+      cashFlowChange
+    };
+  } catch (error) {
+    console.error("Error getting financial summary:", error);
+    return {
+      totalAssets: 0,
+      totalLiabilities: 0,
+      netWorth: 0,
+      monthlyIncome: 0,
+      monthlyExpenses: 0,
+      cashFlow: 0,
+      debtToAssetRatio: 0,
+      savingsRate: 0,
+      emergencyFundRatio: 0,
+      housingCostRatio: 0,
+      netWorthChange: 0,
+      cashFlowChange: 0
+    };
+  }
 }
 
 // Forward exports from financialService but NOT importing from here

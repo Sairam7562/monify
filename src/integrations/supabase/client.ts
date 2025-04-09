@@ -45,3 +45,30 @@ export async function checkConnection(): Promise<{
     };
   }
 }
+
+// Function to clear all caches
+export function clearAllCaches(): void {
+  // Clear any cached data in localStorage with app-specific prefixes
+  const cachePatterns = [
+    'personal_info_',
+    'business_info_',
+    'assets_',
+    'liabilities_',
+    'income_',
+    'expenses_'
+  ];
+  
+  // Find and remove all matching keys from localStorage
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    
+    // Check if any pattern matches this key
+    if (cachePatterns.some(pattern => key.startsWith(pattern))) {
+      localStorage.removeItem(key);
+      // Also remove any associated metadata
+      localStorage.removeItem(`${key}_meta`);
+      console.log(`Cleared cache: ${key}`);
+    }
+  }
+}

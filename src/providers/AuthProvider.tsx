@@ -122,7 +122,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Login with social provider
-  const handleLoginWithSocial = async (provider: 'google' | 'github' | 'apple' | 'microsoft') => {
+  const handleLoginWithSocial = async (provider: 'google' | 'github' | 'apple') => {
     try {
       await loginWithSocial(provider);
     } catch (error: any) {
