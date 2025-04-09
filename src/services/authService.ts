@@ -1,211 +1,83 @@
 
-import { toast } from "sonner";
-import { User, getUserByEmail, updateUser } from "./userService";
-import { hashPassword, verifyPassword } from "./securityService";
-import { sendVerificationEmail, sendWelcomeEmail } from "./emailService";
-import { supabase } from "@/integrations/supabase/client";
-import { Provider } from "@supabase/supabase-js";
+import { supabase } from '@/integrations/supabase/client';
+import { User } from './userService';
 
-// Current user management (client-side)
-let currentUser: User | null = null;
-
-export const setCurrentUser = (user: User | null) => {
-  currentUser = user;
-  if (user) {
-    localStorage.setItem('currentUser', JSON.stringify(user));
-  } else {
-    localStorage.removeItem('currentUser');
-  }
-};
-
-export const getCurrentUser = (): User | null => {
-  if (currentUser) return currentUser;
-  
-  const storedUser = localStorage.getItem('currentUser');
-  if (storedUser) {
-    currentUser = JSON.parse(storedUser);
-    return currentUser;
-  }
-  return null;
-};
-
-// Authentication functions
-export const loginWithEmail = async (email: string, password: string): Promise<User | null> => {
+export async function loginWithEmail(email: string, password: string): Promise<User | null> {
   try {
-    const user = await getUserByEmail(email);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
     
-    if (!user) {
-      toast.error("User not found");
-      return null;
-    }
+    if (error) throw error;
     
-    // Since user.password might not exist in the Supabase user object
-    const storedPassword = user.password || "";
-    const isPasswordValid = await verifyPassword(password, storedPassword);
-    
-    if (!isPasswordValid) {
-      toast.error("Invalid password");
-      return null;
-    }
-    
-    // Update last login time
-    if (user.id) {
-      await updateUser(user.id, {
-        lastLogin: new Date().toISOString().split('T')[0]
-      });
-    }
-    
-    toast.success("Login successful");
-    return user;
+    return data.user ? {
+      id: data.user.id,
+      name: data.user.user_metadata?.name || '',
+      email: data.user.email || '',
+      role: data.user.user_metadata?.role || 'User',
+      plan: data.user.user_metadata?.plan || 'Basic',
+      status: 'active',
+      lastLogin: new Date().toISOString().split('T')[0],
+      twoFactorEnabled: data.user.user_metadata?.twoFactorEnabled || false
+    } : null;
   } catch (error) {
-    console.error("Login error:", error);
-    toast.error("Login failed");
-    return null;
+    console.error('Error logging in:', error);
+    throw error;
   }
-};
+}
 
-export const registerUser = async (
+export async function loginWithSocial(provider: 'google' | 'github' | 'apple'): Promise<void> {
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+    
+    if (error) throw error;
+  } catch (error) {
+    console.error(`Error logging in with ${provider}:`, error);
+    throw error;
+  }
+}
+
+export async function registerUser(
   name: string, 
   email: string, 
   password: string, 
   enableTwoFactor: boolean
-): Promise<User | null> => {
+): Promise<User | null> {
   try {
-    // Check if user already exists
-    const existingUser = getUserByEmail(email);
-    if (existingUser) {
-      toast.error("User already exists");
-      return null;
-    }
-    
-    // Hash password
-    const hashedPassword = await hashPassword(password);
-    
-    // Create new user
-    const newUserId = Date.now().toString();
-    const newUser: User = {
-      id: newUserId,
-      name,
+    const { data, error } = await supabase.auth.signUp({
       email,
-      role: "User",
-      plan: "Basic",
-      status: "active",
-      lastLogin: new Date().toISOString().split('T')[0],
-      twoFactorEnabled: enableTwoFactor,
-      password: hashedPassword
-    };
+      password,
+      options: {
+        data: {
+          name,
+          twoFactorEnabled: enableTwoFactor,
+          role: 'User',
+          plan: 'Basic',
+          status: 'active'
+        }
+      }
+    });
     
-    // Store user (this would be done by userService in a real app)
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    users.push(newUser);
-    localStorage.setItem('users', JSON.stringify(users));
+    if (error) throw error;
     
-    // Send verification email
-    await sendVerificationEmail(email, name);
-    
-    // Send welcome email
-    await sendWelcomeEmail(email, name);
-    
-    toast.success("Registration successful");
-    return newUser;
-  } catch (error) {
-    console.error("Registration error:", error);
-    toast.error("Registration failed");
-    return null;
-  }
-};
-
-export const loginWithSocial = async (provider: 'google' | 'github' | 'apple'): Promise<User | null> => {
-  try {
-    // Map to valid Supabase provider
-    const validProvider: Provider = provider === 'google' ? 'google' : 
-                                   provider === 'github' ? 'github' : 'apple';
-                                   
-    // This would normally connect to the OAuth provider
-    // For demo purposes, we'll create a mock user
-    const mockUser: User = {
-      id: Date.now().toString(),
-      name: `${provider} User`,
-      email: `user_${Date.now()}@${provider.toLowerCase()}.example.com`,
-      role: "User",
-      plan: "Basic",
-      status: "active",
-      lastLogin: new Date().toISOString().split('T')[0],
-      twoFactorEnabled: false
-    };
-    
-    // Store the mock user
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    users.push(mockUser);
-    localStorage.setItem('users', JSON.stringify(users));
-    
-    toast.success(`Login with ${provider} successful`);
-    return mockUser;
-  } catch (error) {
-    console.error(`${provider} login error:`, error);
-    toast.error(`${provider} login failed`);
-    return null;
-  }
-};
-
-// Logout user
-export const logout = async (): Promise<void> => {
-  try {
-    await supabase.auth.signOut();
-    toast.success("Logout successful");
-  } catch (error) {
-    console.error("Logout error:", error);
-    toast.error("Logout failed");
-  }
-};
-
-// Admin functions
-export const addUserByAdmin = async (
-  name: string, 
-  email: string, 
-  role: string, 
-  plan: string
-): Promise<User | null> => {
-  try {
-    // Check if user exists
-    const existingUser = getUserByEmail(email);
-    if (existingUser) {
-      toast.error("User with this email already exists");
-      return null;
-    }
-    
-    // Generate temporary password
-    const tempPassword = Math.random().toString(36).slice(-8);
-    const hashedPassword = await hashPassword(tempPassword);
-    
-    // Create new user
-    const newUserId = Date.now().toString();
-    const newUser: User = {
-      id: newUserId,
-      name,
-      email,
-      role,
-      plan,
+    return data.user ? {
+      id: data.user.id,
+      name: data.user.user_metadata?.name || '',
+      email: data.user.email || '',
+      role: data.user.user_metadata?.role || 'User',
+      plan: data.user.user_metadata?.plan || 'Basic',
       status: 'active',
       lastLogin: new Date().toISOString().split('T')[0],
-      twoFactorEnabled: false,
-      password: hashedPassword,
-      temporaryPassword: tempPassword
-    };
-    
-    // Store user
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    users.push(newUser);
-    localStorage.setItem('users', JSON.stringify(users));
-    
-    // Simulate sending invitation email
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    toast.success(`User ${name} added successfully`);
-    return newUser;
+      twoFactorEnabled: data.user.user_metadata?.twoFactorEnabled || false
+    } : null;
   } catch (error) {
-    console.error("Add user error:", error);
-    toast.error("Failed to add user");
-    return null;
+    console.error('Error registering user:', error);
+    throw error;
   }
-};
+}

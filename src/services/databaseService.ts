@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { clearAllCaches } from '@/integrations/supabase/client';
 
@@ -29,6 +28,88 @@ export async function retryQuery(queryFn: () => Promise<any>): Promise<any> {
   } catch (error) {
     console.error("Retry query failed:", error);
     throw error;
+  }
+}
+
+// Get cache statistics for diagnostics
+export function getCacheStats(): { size: number, entries: number, oldestEntry: number } {
+  let size = 0;
+  let entries = 0;
+  let oldestEntryTimestamp = Date.now();
+  
+  const cachePatterns = [
+    'personal_info_',
+    'business_info_',
+    'assets_',
+    'liabilities_',
+    'income_',
+    'expenses_'
+  ];
+  
+  // Find all matching cache keys and analyze
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    
+    // Check if any pattern matches this key
+    if (cachePatterns.some(pattern => key.startsWith(pattern))) {
+      try {
+        const item = localStorage.getItem(key);
+        if (item) {
+          size += item.length / 1024; // Approximate size in KB
+          entries++;
+          
+          // Check for metadata with timestamp
+          const metaKey = `${key}_meta`;
+          const meta = localStorage.getItem(metaKey);
+          if (meta) {
+            try {
+              const metaData = JSON.parse(meta);
+              if (metaData.timestamp && metaData.timestamp < oldestEntryTimestamp) {
+                oldestEntryTimestamp = metaData.timestamp;
+              }
+            } catch (e) {
+              // Ignore parsing errors in metadata
+            }
+          }
+        }
+      } catch (e) {
+        console.error(`Error analyzing cache item ${key}:`, e);
+      }
+    }
+  }
+  
+  return {
+    size: Math.round(size * 100) / 100, // Round to 2 decimal places
+    entries,
+    oldestEntry: Date.now() - oldestEntryTimestamp // Age in milliseconds
+  };
+}
+
+// Clear all caches
+export function purgeAllCaches(): void {
+  // Clear any cached data in localStorage with app-specific prefixes
+  const cachePatterns = [
+    'personal_info_',
+    'business_info_',
+    'assets_',
+    'liabilities_',
+    'income_',
+    'expenses_'
+  ];
+  
+  // Find and remove all matching keys from localStorage
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    
+    // Check if any pattern matches this key
+    if (cachePatterns.some(pattern => key.startsWith(pattern))) {
+      localStorage.removeItem(key);
+      // Also remove any associated metadata
+      localStorage.removeItem(`${key}_meta`);
+      console.log(`Cleared cache: ${key}`);
+    }
   }
 }
 
@@ -217,6 +298,9 @@ export async function getFinancialStatementData(userId: string) {
     };
   }
 }
+
+// Alias for getFinancialStatementData to fix the import error
+export const generateFinancialStatementData = getFinancialStatementData;
 
 // Helper functions for calculations
 function calculateTotalAssets(assets: any[]) {

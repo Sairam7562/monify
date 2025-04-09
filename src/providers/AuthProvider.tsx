@@ -123,7 +123,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const handleLoginWithSocial = async (provider: 'google' | 'github' | 'apple' | 'microsoft') => {
     try {
-      await loginWithSocial(provider);
+      if (provider === 'microsoft') {
+        await supabase.auth.signInWithOAuth({
+          provider: 'azure',
+          options: {
+            redirectTo: window.location.origin
+          }
+        });
+      } else {
+        await loginWithSocial(provider as 'google' | 'github' | 'apple');
+      }
     } catch (error: any) {
       const errorMessage = error.message || `Failed to login with ${provider}. Please try again.`;
       toast.error(errorMessage);
