@@ -1,4 +1,3 @@
-
 import { supabase, clearAllCaches } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PostgrestSingleResponse } from "@supabase/supabase-js";
@@ -309,43 +308,53 @@ export function getCacheStats(): { size: number, entries: number, oldestEntry: n
 export async function generateFinancialStatementData(userId: string) {
   try {
     const personalInfoResult = await safeQuery<any>(
-      async () => await supabase
-        .from('personal_info')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle(),
+      async () => {
+        return await supabase
+          .from('personal_info')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+      },
       "Error fetching personal info"
     );
     
     const assetsResult = await safeQuery<any[]>(
-      async () => await supabase
-        .from('assets')
-        .select('*')
-        .eq('user_id', userId),
+      async () => {
+        return await supabase
+          .from('assets')
+          .select('*')
+          .eq('user_id', userId);
+      },
       "Error fetching assets"
     );
     
     const liabilitiesResult = await safeQuery<any[]>(
-      async () => await supabase
-        .from('liabilities')
-        .select('*')
-        .eq('user_id', userId),
+      async () => {
+        return await supabase
+          .from('liabilities')
+          .select('*')
+          .eq('user_id', userId);
+      },
       "Error fetching liabilities"
     );
     
     const incomeResult = await safeQuery<any[]>(
-      async () => await supabase
-        .from('income')
-        .select('*')
-        .eq('user_id', userId),
+      async () => {
+        return await supabase
+          .from('income')
+          .select('*')
+          .eq('user_id', userId);
+      },
       "Error fetching income"
     );
     
     const expensesResult = await safeQuery<any[]>(
-      async () => await supabase
-        .from('expenses')
-        .select('*')
-        .eq('user_id', userId),
+      async () => {
+        return await supabase
+          .from('expenses')
+          .select('*')
+          .eq('user_id', userId);
+      },
       "Error fetching expenses"
     );
     
@@ -402,34 +411,42 @@ export async function generateFinancialStatementData(userId: string) {
 export async function getFinancialSummary(userId: string) {
   try {
     const assetsResult = await safeQuery<any[]>(
-      async () => await supabase
-        .from('assets')
-        .select('*')
-        .eq('user_id', userId),
+      async () => {
+        return await supabase
+          .from('assets')
+          .select('*')
+          .eq('user_id', userId);
+      },
       "Error fetching assets"
     );
     
     const liabilitiesResult = await safeQuery<any[]>(
-      async () => await supabase
-        .from('liabilities')
-        .select('*')
-        .eq('user_id', userId),
+      async () => {
+        return await supabase
+          .from('liabilities')
+          .select('*')
+          .eq('user_id', userId);
+      },
       "Error fetching liabilities"
     );
     
     const incomeResult = await safeQuery<any[]>(
-      async () => await supabase
-        .from('income')
-        .select('*')
-        .eq('user_id', userId),
+      async () => {
+        return await supabase
+          .from('income')
+          .select('*')
+          .eq('user_id', userId);
+      },
       "Error fetching income"
     );
     
     const expensesResult = await safeQuery<any[]>(
-      async () => await supabase
-        .from('expenses')
-        .select('*')
-        .eq('user_id', userId),
+      async () => {
+        return await supabase
+          .from('expenses')
+          .select('*')
+          .eq('user_id', userId);
+      },
       "Error fetching expenses"
     );
     

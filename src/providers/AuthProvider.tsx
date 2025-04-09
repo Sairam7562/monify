@@ -5,7 +5,19 @@ import { supabase, checkConnection } from '@/integrations/supabase/client';
 import AuthContext, { supabaseUserToUser } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { User } from '@/services/userService';
-import { loginWithEmail, loginWithSocial, registerUser, logout } from '@/services/authService';
+import { loginWithEmail, loginWithSocial, registerUser } from '@/services/authService';
+
+// Add the missing logout function
+export const logout = async () => {
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+    return true;
+  } catch (error: any) {
+    console.error('Error logging out:', error.message);
+    throw error;
+  }
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
