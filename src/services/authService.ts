@@ -27,7 +27,7 @@ export async function loginWithEmail(email: string, password: string): Promise<U
   }
 }
 
-export async function loginWithSocial(provider: 'google' | 'github' | 'apple'): Promise<void> {
+export async function loginWithSocial(provider: 'google' | 'github' | 'apple' | 'microsoft'): Promise<void> {
   try {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
@@ -93,6 +93,8 @@ export async function addUserByAdmin(
     // In a real implementation, this would use the admin API to create a user
     const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8).toUpperCase();
     
+    // Use the appropriate method for your Supabase setup
+    // Note: this is a simplified version - actual implementation might differ
     const { data, error } = await supabase.auth.admin.createUser({
       email,
       password: tempPassword,

@@ -2,378 +2,171 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import PersonalInfoForm from '@/components/finance/PersonalInfoForm';
-import BusinessInfoForm from '@/components/finance/BusinessInfoForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { InfoIcon, AlertCircle, RefreshCw, DatabaseIcon, CheckCircle, WifiOff, Trash2 } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { Spinner } from '@/components/ui/spinner';
-import { useDatabase } from '@/hooks/useDatabase';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { supabase, checkConnection } from '@/integrations/supabase/client';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/hooks/useAuth';
+import { useDatabase } from '@/hooks/useDatabase';
 import { purgeAllCaches, getCacheStats } from '@/services/databaseService';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import BusinessInfoForm from '@/components/finance/BusinessInfoForm';
 
 const PersonalInfoPage = () => {
   const { user } = useAuth();
-  const { fetchPersonalInfo, checkDatabaseStatus } = useDatabase();
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasDatabaseError, setHasDatabaseError] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<boolean | null>(null);
-  const [attemptCount, setAttemptCount] = useState(0);
-  const [diagnosticInfo, setDiagnosticInfo] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("personal");
-  const [reconnectAttempting, setReconnectAttempting] = useState(false);
-  const [cacheStats, setCacheStats] = useState<{ size: number, entries: number, oldestEntry: number } | null>(null);
-
-  // Store the current user ID in localStorage for offline access
-  useEffect(() => {
-    if (user?.id) {
-      localStorage.setItem('currentUserId', user.id);
-    }
-    
-    // Check cache stats on initial load
-    if (user) {
-      setCacheStats(getCacheStats());
-    }
-  }, [user]);
-
-  // Add a timeout to prevent infinite loading state
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (isLoading) {
-        setIsLoading(false);
-        console.log("Loading timeout triggered - forcing UI to continue");
-      }
-    }, 5000);
-    
-    return () => clearTimeout(timeout);
-  }, [isLoading]);
-
-  const checkLocalStorage = () => {
-    if (!user) return "No user found";
-    
-    const userId = user.id?.toString();
-    const key = `personal_info_${userId}`;
-    const data = localStorage.getItem(key);
-    const meta = localStorage.getItem(`${key}_meta`);
-    
-    if (data) {
-      try {
-        const parsed = JSON.parse(data);
-        let metaInfo = "No timestamp";
-        
-        if (meta) {
-          const metaData = JSON.parse(meta);
-          if (metaData.timestamp) {
-            const age = Math.round((Date.now() - metaData.timestamp) / 1000 / 60);
-            metaInfo = `Age: ${age} minutes`;
-          }
-        }
-        
-        return `Found local data: First Name: ${parsed.firstName || 'N/A'}, Last Name: ${parsed.lastName || 'N/A'}, ${metaInfo}`;
-      } catch (e) {
-        return `Found corrupted data: ${data.substring(0, 50)}...`;
-      }
-    }
-    
-    return "No local data found";
-  };
-
-  const runConnectionDiagnostics = async () => {
-    if (!user) return;
-    
-    try {
-      setDiagnosticInfo("Running diagnostics...");
-      
-      const hasSchemaError = sessionStorage.getItem('db_schema_error') === 'true';
-      const hasAuthError = sessionStorage.getItem('db_auth_error') === 'true';
-      const hasNetworkError = sessionStorage.getItem('db_network_error') === 'true';
-      
-      let diagnosticText = `User: ${user.email || 'Unknown'}\n`;
-      diagnosticText += `Schema Error Flag: ${hasSchemaError ? 'Yes' : 'No'}\n`;
-      diagnosticText += `Auth Error Flag: ${hasAuthError ? 'Yes' : 'No'}\n`;
-      diagnosticText += `Network Error Flag: ${hasNetworkError ? 'Yes' : 'No'}\n`;
-      
-      const online = navigator.onLine;
-      diagnosticText += `Browser Online: ${online ? 'Yes' : 'No'}\n`;
-      
-      const connResult = await checkConnection();
-      diagnosticText += `Connection Check: ${connResult.connected ? 'Success' : 'Failed'}\n`;
-      
-      if (!connResult.connected) {
-        diagnosticText += `Failure Reason: ${connResult.reason || 'Unknown'}\n`;
-        if (connResult.error) {
-          diagnosticText += `Error: ${connResult.error.message || JSON.stringify(connResult.error)}\n`;
-        }
-      }
-      
-      // Get cache statistics
-      const stats = getCacheStats();
-      setCacheStats(stats);
-      
-      diagnosticText += `Cache Stats: ${stats.entries} entries, ${stats.size}KB, oldest entry: ${Math.round(stats.oldestEntry / 1000 / 60)} minutes ago\n`;
-      diagnosticText += `Local Storage: ${checkLocalStorage()}\n`;
-      
-      setDiagnosticInfo(diagnosticText);
-      return connResult.connected;
-    } catch (err) {
-      console.error('Diagnostic error:', err);
-      setDiagnosticInfo(`Error running diagnostics: ${err}`);
-      return false;
-    }
-  };
+  const [activeTab, setActiveTab] = useState('personal');
+  const { checkDatabaseStatus } = useDatabase();
+  const [isDbHealthy, setIsDbHealthy] = useState<boolean | null>(null);
+  const [cacheStats, setCacheStats] = useState<{
+    size: number;
+    entries: number;
+    oldestEntry: number;
+  }>({
+    size: 0,
+    entries: 0,
+    oldestEntry: 0
+  });
 
   useEffect(() => {
-    const initialize = async () => {
-      const schemaError = sessionStorage.getItem('db_schema_error') === 'true';
-      
-      try {
-        console.log("Running database diagnostics...");
-        const isConnected = await runConnectionDiagnostics();
-        setConnectionStatus(isConnected);
-        
-        if (!isConnected) {
-          console.warn("Database connection diagnostics failed");
-          setHasDatabaseError(true);
-        }
-        
-        if (schemaError) {
-          console.log("Found schema error in session storage");
-          setHasDatabaseError(true);
-          setIsLoading(false);
-          return;
-        }
-
-        if (user && !schemaError) {
-          setIsLoading(true);
-          console.log("Checking database status by fetching personal info...");
-          const { error, localData } = await fetchPersonalInfo();
-          
-          if (localData) {
-            console.log("Data was loaded from local storage", localData);
-          }
-          
-          if (error && typeof error === 'object' && (
-            error.code === 'PGRST106' || 
-            (error.message && error.message.includes('schema must be one of the following'))
-          )) {
-            console.log('Database schema not yet available:', error);
-            setHasDatabaseError(true);
-            
-            sessionStorage.setItem('db_schema_error', 'true');
-          } else if (error) {
-            console.error('Database error:', error);
-            setHasDatabaseError(true);
-          }
-        }
-      } catch (err) {
-        console.error('Error during initialization:', err);
-        setHasDatabaseError(true);
-      } finally {
-        // Always set loading to false to prevent UI from being stuck
-        setIsLoading(false);
-      }
+    const checkDb = async () => {
+      const healthy = await checkDatabaseStatus();
+      setIsDbHealthy(healthy);
     };
-
-    initialize();
-  }, [user, fetchPersonalInfo, attemptCount]);
-
-  const handleClearCaches = () => {
-    purgeAllCaches();
-    setCacheStats(getCacheStats());
-    toast.success("All caches cleared successfully");
-    runConnectionDiagnostics();
-  };
-
-  const handleManualRetry = async () => {
-    sessionStorage.removeItem('db_schema_error');
-    sessionStorage.removeItem('db_auth_error');
-    sessionStorage.removeItem('db_network_error');
     
-    setHasDatabaseError(false);
-    setIsLoading(true);
-    setReconnectAttempting(true);
+    checkDb();
     
+    // Update cache stats
+    const updateCacheStats = async () => {
+      const stats = await getCacheStats();
+      setCacheStats({
+        entries: stats.entries || 0,
+        size: parseInt(stats.size) || 0,
+        oldestEntry: new Date(stats.lastPurged).getTime() || 0
+      });
+    };
+    
+    updateCacheStats();
+  }, [checkDatabaseStatus]);
+
+  const handlePurgeCache = async () => {
     try {
-      if (user) {
-        const { data } = await supabase.auth.getSession();
-        if (data.session) {
-          await supabase.auth.refreshSession();
-          toast.info("Authentication session refreshed");
-        }
-      }
+      const success = await purgeAllCaches();
       
-      const connStatus = await checkDatabaseStatus();
-      setConnectionStatus(connStatus);
-      
-      if (connStatus) {
-        toast.success("Database connection successful!");
-        setAttemptCount(prev => prev + 1);
-      } else {
-        toast.error("Still unable to connect to the database.");
-        setHasDatabaseError(true);
+      if (success) {
+        toast.success('All application caches have been purged');
         
-        await runConnectionDiagnostics();
+        // Update cache stats after purge
+        const stats = await getCacheStats();
+        setCacheStats({
+          entries: stats.entries || 0,
+          size: parseInt(stats.size) || 0,
+          oldestEntry: new Date(stats.lastPurged).getTime() || 0
+        });
+      } else {
+        toast.error('Failed to purge application caches');
       }
-    } catch (err) {
-      console.error("Error during manual retry:", err);
-      toast.error("Error checking database connection.");
-      setHasDatabaseError(true);
-      setDiagnosticInfo(`Error: ${err}`);
-    } finally {
-      // Ensure we always exit loading and reconnect states
-      setIsLoading(false);
-      setReconnectAttempting(false);
+    } catch (error) {
+      console.error('Error purging caches:', error);
+      toast.error('An error occurred while purging caches');
     }
   };
-
-  if (isLoading) {
-    return (
-      <MainLayout>
-        <div className="flex flex-col items-center justify-center py-12">
-          <Spinner size="lg" />
-          <p className="mt-4 text-muted-foreground">Loading your information...</p>
-        </div>
-      </MainLayout>
-    );
-  }
-  
-  if (!user) {
-    return (
-      <MainLayout>
-        <Alert>
-          <InfoIcon className="h-4 w-4" />
-          <AlertTitle>Authentication Required</AlertTitle>
-          <AlertDescription>
-            You need to be logged in to view and edit your personal information.
-          </AlertDescription>
-        </Alert>
-      </MainLayout>
-    );
-  }
 
   return (
     <MainLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Personal & Business Information</h1>
+          <h1 className="text-2xl font-bold">Personal Information</h1>
           <p className="text-muted-foreground">
-            Enter your personal and business details to generate accurate financial statements. All sensitive information is encrypted and secure.
+            Manage your personal and business information
           </p>
         </div>
         
-        {connectionStatus === true && (
-          <Alert className="bg-green-50 border-green-200">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertTitle className="text-green-700">Database Connection Active</AlertTitle>
-            <AlertDescription className="text-green-600">
-              Your data will be saved to the database.
-              {cacheStats && (
-                <div className="mt-1 text-sm">
-                  Local cache: {cacheStats.entries} entries ({cacheStats.size} KB)
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+          <div className="md:col-span-2">
+            <Card>
+              <CardHeader>
+                <Tabs defaultValue="personal" value={activeTab} onValueChange={setActiveTab}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="personal">Personal Info</TabsTrigger>
+                    <TabsTrigger value="business">Business Info</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </CardHeader>
+              <CardContent>
+                <TabsContent value="personal" className={activeTab === 'personal' ? 'block' : 'hidden'}>
+                  <PersonalInfoForm />
+                </TabsContent>
+                <TabsContent value="business" className={activeTab === 'business' ? 'block' : 'hidden'}>
+                  <BusinessInfoForm />
+                </TabsContent>
+              </CardContent>
+            </Card>
+          </div>
+          
+          <div>
+            <Card>
+              <CardHeader>
+                <CardTitle>System Status</CardTitle>
+                <CardDescription>Database and cache information</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <h3 className="font-medium mb-1">Database Connection</h3>
+                  <div className="flex items-center gap-2">
+                    <div className={`h-3 w-3 rounded-full ${isDbHealthy === null ? 'bg-gray-300' : isDbHealthy ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span>{isDbHealthy === null ? 'Checking...' : isDbHealthy ? 'Connected' : 'Disconnected'}</span>
+                  </div>
                 </div>
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        {hasDatabaseError && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Database Connection Issue</AlertTitle>
-            <AlertDescription>
-              <p className="mb-4">There was an error connecting to the database. This might happen if you're using the app for the first time and the database tables haven't been fully set up yet.</p>
-              <p className="mb-4">Your information will be saved locally until the database is ready. You can continue filling out the form.</p>
-              <div className="flex flex-col md:flex-row gap-2">
-                <Button 
-                  onClick={handleManualRetry} 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex items-center"
-                  disabled={reconnectAttempting}
-                >
-                  {reconnectAttempting ? (
-                    <>
-                      <Spinner className="h-3 w-3 mr-2" /> Reconnecting...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2" /> Retry Connection
-                    </>
-                  )}
-                </Button>
-                <Button 
-                  onClick={runConnectionDiagnostics} 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex items-center"
-                >
-                  <DatabaseIcon className="h-4 w-4 mr-2" />
-                  Run Diagnostics
-                </Button>
-                <Button 
-                  onClick={handleClearCaches} 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex items-center"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Clear Caches
-                </Button>
-                {navigator.onLine === false && (
+                
+                <div>
+                  <h3 className="font-medium mb-1">Cache Status</h3>
+                  <div className="text-sm space-y-1">
+                    <p>Entries: {cacheStats.entries}</p>
+                    <p>Size: {cacheStats.size} KB</p>
+                    <p>Last Purged: {cacheStats.oldestEntry ? new Date(cacheStats.oldestEntry).toLocaleString() : 'Never'}</p>
+                  </div>
                   <Button 
-                    variant="ghost" 
                     size="sm" 
-                    className="flex items-center text-amber-600"
-                    disabled
+                    variant="outline" 
+                    className="mt-2 w-full"
+                    onClick={handlePurgeCache}
                   >
-                    <WifiOff className="h-4 w-4 mr-2" />
-                    Offline Mode
+                    Purge All Caches
                   </Button>
-                )}
-              </div>
-              
-              {diagnosticInfo && (
-                <div className="mt-4 p-2 bg-gray-100 rounded text-xs font-mono whitespace-pre-wrap">
-                  {diagnosticInfo}
                 </div>
-              )}
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        <Card>
-          <CardHeader>
-            <CardTitle>Instructions</CardTitle>
-            <CardDescription>
-              Fill out your personal and business information to begin building your financial profile.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="list-disc pl-5 space-y-2">
-              <li>All fields marked with * are required</li>
-              <li>Your Social Security Number (SSN) is optional but may be needed for some financial documents</li>
-              <li>You can toggle between Personal and Business Information using the tabs below</li>
-              <li>For business owners, add your business information to include in financial statements</li>
-              <li>All data is encrypted using AES-256 and stored securely</li>
-            </ul>
-          </CardContent>
-        </Card>
-        
-        <Tabs defaultValue="personal" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="personal">Personal Information</TabsTrigger>
-            <TabsTrigger value="business">Business Information</TabsTrigger>
-          </TabsList>
-          <TabsContent value="personal">
-            <PersonalInfoForm onSave={() => setActiveTab("business")} />
-          </TabsContent>
-          <TabsContent value="business">
-            <BusinessInfoForm />
-          </TabsContent>
-        </Tabs>
+                
+                {!isDbHealthy && (
+                  <div className="bg-amber-50 border border-amber-200 p-3 rounded-md mt-4">
+                    <p className="text-amber-800 text-sm">
+                      Your data will be saved locally until database connection is restored.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Profile Completion</CardTitle>
+                <CardDescription>Your profile information status</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {user ? (
+                  <div className="space-y-3">
+                    <p className="text-sm">Complete your profile to get the most out of your financial statements.</p>
+                    <div className="space-y-2">
+                      <div className="bg-gray-100 h-2 rounded-full">
+                        <div className="bg-blue-500 h-2 rounded-full w-3/4"></div>
+                      </div>
+                      <p className="text-xs text-right text-muted-foreground">75% Complete</p>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm">Please log in to track your profile completion.</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </MainLayout>
   );
