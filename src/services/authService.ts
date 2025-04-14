@@ -1,6 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { User } from './userService';
+import { Provider } from '@supabase/supabase-js';
 
 export async function loginWithEmail(email: string, password: string): Promise<User | null> {
   try {
@@ -27,10 +28,11 @@ export async function loginWithEmail(email: string, password: string): Promise<U
   }
 }
 
-export async function loginWithSocial(provider: 'google' | 'github' | 'apple' | 'microsoft'): Promise<void> {
+// Update the type to exclude 'microsoft' as it's not a valid Provider type
+export async function loginWithSocial(provider: 'google' | 'github' | 'apple'): Promise<void> {
   try {
     const { error } = await supabase.auth.signInWithOAuth({
-      provider,
+      provider: provider as Provider,
       options: {
         redirectTo: window.location.origin
       }
