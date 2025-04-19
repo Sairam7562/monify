@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import AssetLiabilityForm from '@/components/finance/AssetLiabilityForm';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Info, Database, RefreshCw } from 'lucide-react';
+import { Info, Database, RefreshCw, AlertCircle } from 'lucide-react';
 import { useDatabase } from '@/hooks/useDatabase';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -14,6 +15,7 @@ const AssetsLiabilitiesPage = () => {
   const [dbConnected, setDbConnected] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [schemaError, setSchemaError] = useState(false);
 
   const checkDb = async () => {
     setIsChecking(true);
@@ -29,19 +31,30 @@ const AssetsLiabilitiesPage = () => {
       if (connectionStatus) {
         sessionStorage.removeItem('db_schema_error');
         localStorage.setItem('db_connection_status', 'connected');
+        setSchemaError(false);
         console.log('Database connection successful!');
       } else {
         localStorage.setItem('db_connection_status', 'disconnected');
         if (connectionResult.reason === 'schema_error') {
           console.warn('Connection failed due to schema mismatch. Make sure client is using the correct schema.');
+          setSchemaError(true);
+          sessionStorage.setItem('db_schema_error', 'true');
         }
       }
       
       return connectionStatus;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error checking database status:", error);
       setDbConnected(false);
       localStorage.setItem('db_connection_status', 'disconnected');
+      
+      // Check if this is a schema error
+      if (error?.message?.includes('schema must be') || 
+          error?.code === 'PGRST106') {
+        setSchemaError(true);
+        sessionStorage.setItem('db_schema_error', 'true');
+      }
+      
       return false;
     } finally {
       setIsChecking(false);
@@ -67,7 +80,9 @@ const AssetsLiabilitiesPage = () => {
       if (isConnected) {
         toast.success("Database connection restored!");
       } else {
-        if (retryCount >= 2) {
+        if (schemaError) {
+          toast.error("Schema configuration issue detected. Data will be saved locally until resolved.");
+        } else if (retryCount >= 2) {
           toast.error("Persistent connection issues detected. Your data will be saved locally.");
         } else {
           toast.error("Still having connection issues. Your data will be saved locally.");
@@ -105,10 +120,10 @@ const AssetsLiabilitiesPage = () => {
         </div>
         
         {dbConnected === false && (
-          <Alert className="bg-amber-50 border-amber-200">
-            <Database className="h-4 w-4 text-amber-500" />
+          <Alert className={schemaError ? "bg-red-50 border-red-200" : "bg-amber-50 border-amber-200"}>
+            <Database className={`h-4 w-4 ${schemaError ? "text-red-500" : "text-amber-500"}`} />
             <AlertTitle className="flex items-center justify-between">
-              <span>Database Connection Notice</span>
+              <span>{schemaError ? "Database Schema Error" : "Database Connection Notice"}</span>
               <Button 
                 size="sm" 
                 variant="outline" 
@@ -121,7 +136,9 @@ const AssetsLiabilitiesPage = () => {
               </Button>
             </AlertTitle>
             <AlertDescription>
-              We're experiencing temporary database connection issues. Your data will be saved locally and synced when the connection is restored.
+              {schemaError 
+                ? "We've detected a schema configuration issue. Your data will be saved locally until this is resolved. The system needs access to the 'api' schema."
+                : "We're experiencing temporary database connection issues. Your data will be saved locally and synced when the connection is restored."}
             </AlertDescription>
           </Alert>
         )}

@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { User } from './userService';
 
@@ -5,9 +6,10 @@ import { User } from './userService';
 export async function fetchAssets(userId: string) {
   try {
     const { data, error } = await supabase
-      .from('assets')  // Use correct table name in public schema
+      .from('assets')
       .select('*')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .schema('api'); // Explicitly set schema to 'api' as required by error message
       
     if (error) {
       console.error("Error fetching assets:", error);
@@ -25,9 +27,10 @@ export async function fetchAssets(userId: string) {
 export async function fetchLiabilities(userId: string) {
   try {
     const { data, error } = await supabase
-      .from('liabilities')  // Use correct table name in public schema
+      .from('liabilities')
       .select('*')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .schema('api'); // Explicitly set schema to 'api'
       
     if (error) {
       console.error("Error fetching liabilities:", error);
@@ -45,9 +48,10 @@ export async function fetchLiabilities(userId: string) {
 export async function fetchIncome(userId: string) {
   try {
     const { data, error } = await supabase
-      .from('income')  // Use correct table name in public schema
+      .from('income')
       .select('*')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .schema('api'); // Explicitly set schema to 'api'
       
     if (error) {
       console.error("Error fetching income:", error);
@@ -65,9 +69,10 @@ export async function fetchIncome(userId: string) {
 export async function fetchExpenses(userId: string) {
   try {
     const { data, error } = await supabase
-      .from('expenses')  // Use correct table name in public schema
+      .from('expenses')
       .select('*')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .schema('api'); // Explicitly set schema to 'api'
       
     if (error) {
       console.error("Error fetching expenses:", error);
