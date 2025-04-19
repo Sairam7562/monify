@@ -88,17 +88,19 @@ const PersonalInfoPage = () => {
                     <TabsTrigger value="personal">Personal Info</TabsTrigger>
                     <TabsTrigger value="business">Business Info</TabsTrigger>
                   </TabsList>
-                
-                  <CardContent className="pt-6">
-                    <TabsContent value="personal">
-                      <PersonalInfoForm />
-                    </TabsContent>
-                    <TabsContent value="business">
-                      <BusinessInfoForm />
-                    </TabsContent>
-                  </CardContent>
                 </Tabs>
               </CardHeader>
+                
+              <CardContent className="pt-6">
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                  <TabsContent value="personal">
+                    <PersonalInfoForm />
+                  </TabsContent>
+                  <TabsContent value="business">
+                    <BusinessInfoForm />
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
             </Card>
           </div>
           
