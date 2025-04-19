@@ -27,6 +27,25 @@ export async function checkConnection(): Promise<{
     
     if (error) {
       console.error("Database connection error:", error.message);
+      
+      // Check if this is a schema-related error
+      if (error.message?.includes('schema') || error.code === 'PGRST106') {
+        return { 
+          connected: false, 
+          reason: 'schema_error', 
+          error 
+        };
+      }
+      
+      // Check if this is an auth-related error
+      if (error.message?.includes('JWT') || error.message?.includes('auth') || error.code === '42501') {
+        return { 
+          connected: false, 
+          reason: 'auth_error', 
+          error 
+        };
+      }
+      
       return { 
         connected: false, 
         reason: 'connection_error', 
@@ -70,4 +89,30 @@ export function clearAllCaches(): void {
       console.log(`Cleared cache: ${key}`);
     }
   }
+}
+
+// Function to retry connecting with exponential backoff
+export async function retryConnection(maxAttempts = 3): Promise<boolean> {
+  let attempts = 0;
+  
+  while (attempts < maxAttempts) {
+    const { connected } = await checkConnection();
+    
+    if (connected) {
+      console.log(`Connection established after ${attempts + 1} attempts`);
+      return true;
+    }
+    
+    attempts++;
+    
+    if (attempts < maxAttempts) {
+      // Exponential backoff - wait longer between each retry
+      const delay = Math.pow(2, attempts) * 1000;
+      console.log(`Connection failed, retrying in ${delay}ms (attempt ${attempts}/${maxAttempts})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  console.error(`Failed to connect after ${maxAttempts} attempts`);
+  return false;
 }
