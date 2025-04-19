@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/components/layout/MainLayout';
 import PersonalInfoForm from '@/components/finance/PersonalInfoForm';
@@ -84,7 +83,7 @@ const PersonalInfoPage = () => {
           <div className="md:col-span-2">
             <Card>
               <CardHeader>
-                <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="personal">Personal Info</TabsTrigger>
                     <TabsTrigger value="business">Business Info</TabsTrigger>
