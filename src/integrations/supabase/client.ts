@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 
 // Supabase client setup
@@ -16,6 +17,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     headers: {
       'x-application-name': 'Monify'
     }
+  },
+  db: {
+    schema: 'public' // Explicitly set schema to public to avoid schema-related issues
   },
   realtime: {
     timeout: 60000
@@ -54,8 +58,13 @@ export async function checkConnection(): Promise<{
         };
       }
       
-      // Check if this is a schema-related error
-      if (error.message?.includes('schema') || error.code === 'PGRST106') {
+      // Enhanced schema error detection
+      if (error.message?.includes('schema') || 
+          error.message?.includes('relation') || 
+          error.code === 'PGRST106' || 
+          error.code === '42P01') {
+        console.error("Schema configuration issue detected:", error.message);
+        localStorage.setItem('db_schema_error', 'true');
         return { 
           connected: false, 
           reason: 'schema_error', 
@@ -79,6 +88,8 @@ export async function checkConnection(): Promise<{
       };
     }
     
+    // Clear schema error flag if connection successful
+    localStorage.removeItem('db_schema_error');
     console.log("Database connection check successful");
     return { connected: true };
   } catch (err) {
@@ -137,6 +148,19 @@ export async function retryConnection(maxAttempts = 3, initialDelay = 1000): Pro
       // Continue anyway, we still want to try the connection
     }
     
+    // Try explicit schema switch to fix schema issues
+    try {
+      // Execute an RPC call to switch schema
+      await supabase.rpc('set_schema', { schema_name: 'public' })
+        .then(({ error }) => {
+          if (error) console.warn("Error setting schema:", error);
+          else console.log("Schema explicitly set to public");
+        });
+    } catch (e) {
+      console.warn("Could not set schema via RPC:", e);
+      // Continue trying other approaches
+    }
+    
     // Check connection
     const { connected, reason } = await checkConnection();
     
@@ -148,6 +172,10 @@ export async function retryConnection(maxAttempts = 3, initialDelay = 1000): Pro
     // If rate limited, use a longer delay
     if (reason === 'rate_limit_error') {
       currentDelay = Math.min(currentDelay * 3, 30000); // Max 30 seconds for rate limits
+    } else if (reason === 'schema_error') {
+      // For schema errors, try a different approach on next iteration
+      console.log("Schema error detected, will try schema reset on next attempt");
+      localStorage.setItem('db_schema_error', 'true');
     } else {
       currentDelay = Math.min(currentDelay * 2, 10000); // Normal exponential backoff, max 10 seconds
     }
@@ -164,9 +192,12 @@ export async function retryConnection(maxAttempts = 3, initialDelay = 1000): Pro
   return false;
 }
 
-// Function to test and initialize connection
+// Enhanced function to test and initialize connection
 export async function initializeConnection(): Promise<boolean> {
   console.log("Initializing database connection...");
+  
+  // Remove any schema error flags before trying
+  localStorage.removeItem('db_schema_error');
   
   // Clear any stale sessions that might be causing issues
   const storedSession = localStorage.getItem('supabase.auth.token');
@@ -186,5 +217,31 @@ export async function initializeConnection(): Promise<boolean> {
     }
   }
   
-  return await retryConnection(3);
+  // Try to set up a new connection with explicit schema settings
+  try {
+    // Create a temporary client with explicit schema setting to test connection
+    const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
+      db: {
+        schema: 'public'
+      }
+    });
+    
+    const { error } = await tempClient.from('profiles').select('id').limit(1);
+    
+    if (!error) {
+      console.log("Connection successful with explicit schema setting");
+      // Update our main client configuration
+      Object.assign(supabase.options, {
+        db: {
+          schema: 'public'
+        }
+      });
+      return true;
+    }
+  } catch (e) {
+    console.warn("Error testing with explicit schema:", e);
+  }
+  
+  // Fall back to normal retry mechanism
+  return await retryConnection(5, 1000);
 }

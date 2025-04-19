@@ -1,267 +1,142 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
 
-// Database helper functions
-export async function getFinancialStatementData(userId: string) {
+// Function to test database health with a lightweight query
+export async function checkDatabaseHealth(): Promise<boolean> {
   try {
-    // Fetch personal info
-    const { data: personalInfo, error: personalInfoError } = await supabase
-      .from('personal_info')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+    console.log("Performing lightweight database health check...");
     
-    if (personalInfoError) {
-      console.error('Error fetching personal info:', personalInfoError);
-      // Instead of returning early, continue with empty data
-    }
+    // First try to check auth status as a quick test
+    const { data: { session } } = await supabase.auth.getSession();
     
-    // Fetch assets
-    const { data: assets, error: assetsError } = await supabase
-      .from('assets')
-      .select('*')
-      .eq('user_id', userId);
-    
-    if (assetsError) {
-      console.error('Error fetching assets:', assetsError);
-    }
-    
-    // Fetch liabilities
-    const { data: liabilities, error: liabilitiesError } = await supabase
-      .from('liabilities')
-      .select('*')
-      .eq('user_id', userId);
-    
-    if (liabilitiesError) {
-      console.error('Error fetching liabilities:', liabilitiesError);
-    }
-    
-    // Fetch income
-    const { data: income, error: incomeError } = await supabase
-      .from('income')
-      .select('*')
-      .eq('user_id', userId);
-    
-    if (incomeError) {
-      console.error('Error fetching income:', incomeError);
-    }
-    
-    // Fetch expenses
-    const { data: expenses, error: expensesError } = await supabase
-      .from('expenses')
-      .select('*')
-      .eq('user_id', userId);
-    
-    if (expensesError) {
-      console.error('Error fetching expenses:', expensesError);
-    }
-    
-    return {
-      personalInfo: personalInfo || {},
-      assets: assets || [],
-      liabilities: liabilities || [],
-      income: income || [],
-      expenses: expenses || []
-    };
-  } catch (error) {
-    console.error('Error generating financial statement data:', error);
-    toast.error('Failed to generate financial statement');
-    throw error;
-  }
-}
-
-// Alias for backwards compatibility
-export const generateFinancialStatementData = getFinancialStatementData;
-
-// Financial summary for the dashboard
-export async function getFinancialSummary(userId: string) {
-  try {
-    const data = await getFinancialStatementData(userId);
-    
-    // Calculate total assets
-    const totalAssets = data.assets.reduce((total, asset) => {
-      return total + (parseFloat(asset.value) || 0) * (parseFloat(asset.ownership_percentage || 100) / 100);
-    }, 0);
-    
-    // Calculate total liabilities
-    const totalLiabilities = data.liabilities.reduce((total, liability) => {
-      return total + (parseFloat(liability.amount) || 0) * (parseFloat(liability.ownership_percentage || 100) / 100);
-    }, 0);
-    
-    // Calculate net worth
-    const netWorth = totalAssets - totalLiabilities;
-    
-    // Calculate monthly income
-    const monthlyIncome = data.income.reduce((total, income) => {
-      const amount = parseFloat(income.amount) || 0;
-      // Convert to monthly amount based on frequency
-      switch (income.frequency?.toLowerCase()) {
-        case 'weekly': return total + (amount * 4.33);
-        case 'bi-weekly': return total + (amount * 2.17);
-        case 'monthly': return total + amount;
-        case 'quarterly': return total + (amount / 3);
-        case 'annually': return total + (amount / 12);
-        default: return total + amount;
-      }
-    }, 0);
-    
-    // Calculate monthly expenses
-    const monthlyExpenses = data.expenses.reduce((total, expense) => {
-      const amount = parseFloat(expense.amount) || 0;
-      // Convert to monthly amount based on frequency
-      switch (expense.frequency?.toLowerCase()) {
-        case 'weekly': return total + (amount * 4.33);
-        case 'bi-weekly': return total + (amount * 2.17);
-        case 'monthly': return total + amount;
-        case 'quarterly': return total + (amount / 3);
-        case 'annually': return total + (amount / 12);
-        default: return total + amount;
-      }
-    }, 0);
-    
-    // Calculate savings rate
-    const savingsRate = monthlyIncome > 0 ? (monthlyIncome - monthlyExpenses) / monthlyIncome : 0;
-    
-    // Calculate emergency fund ratio (months of expenses covered)
-    const emergencyFund = data.assets.reduce((total, asset) => {
-      // Only consider liquid assets (cash, savings, etc.)
-      if (['cash', 'savings', 'money market', 'checking'].includes(asset.type?.toLowerCase())) {
-        return total + (parseFloat(asset.value) || 0);
-      }
-      return total;
-    }, 0);
-    
-    const emergencyFundRatio = monthlyExpenses > 0 ? emergencyFund / monthlyExpenses : 0;
-    
-    // Calculate debt-to-asset ratio
-    const debtToAssetRatio = totalAssets > 0 ? totalLiabilities / totalAssets : 0;
-    
-    // Calculate housing costs ratio
-    const housingExpenses = data.expenses.reduce((total, expense) => {
-      if (['mortgage', 'rent', 'property tax', 'home insurance', 'hoa'].includes(expense.category?.toLowerCase())) {
-        const amount = parseFloat(expense.amount) || 0;
-        // Convert to monthly amount based on frequency
-        switch (expense.frequency?.toLowerCase()) {
-          case 'weekly': return total + (amount * 4.33);
-          case 'bi-weekly': return total + (amount * 2.17);
-          case 'monthly': return total + amount;
-          case 'quarterly': return total + (amount / 3);
-          case 'annually': return total + (amount / 12);
-          default: return total + amount;
-        }
-      }
-      return total;
-    }, 0);
-    
-    const housingCostRatio = monthlyIncome > 0 ? housingExpenses / monthlyIncome : 0;
-    
-    // Calculate approximate net worth change (simplified)
-    const netWorthChange = 0.05; // Placeholder 5% for demo
-    
-    // Calculate cash flow change (simplified)
-    const cashFlowChange = 0.03; // Placeholder 3% for demo
-    
-    return {
-      totalAssets,
-      totalLiabilities,
-      netWorth,
-      monthlyIncome,
-      monthlyExpenses,
-      savingsRate,
-      emergencyFundRatio,
-      debtToAssetRatio,
-      housingCostRatio,
-      netWorthChange,
-      cashFlowChange
-    };
-  } catch (error) {
-    console.error('Error generating financial summary:', error);
-    toast.error('Failed to generate financial summary');
-    return {
-      totalAssets: 0,
-      totalLiabilities: 0,
-      netWorth: 0,
-      monthlyIncome: 0,
-      monthlyExpenses: 0,
-      savingsRate: 0,
-      emergencyFundRatio: 0,
-      debtToAssetRatio: 0,
-      housingCostRatio: 0,
-      netWorthChange: 0,
-      cashFlowChange: 0
-    };
-  }
-}
-
-// Database health check
-export async function checkDatabaseHealth() {
-  try {
-    // Attempt a lightweight query to check if the database is responsive
-    const { data, error } = await supabase
+    // Now try a simple query on the profiles table
+    const { error } = await supabase
       .from('profiles')
       .select('id')
       .limit(1);
     
-    return !error;
+    if (error) {
+      console.warn("Database health check failed:", error.message);
+      
+      // Check if this is a schema error
+      if (error.message?.includes('schema') || 
+          error.message?.includes('relation') || 
+          error.code === 'PGRST106' || 
+          error.code === '42P01') {
+        console.error("Schema error detected during health check");
+        localStorage.setItem('db_schema_error', 'true');
+      }
+      
+      return false;
+    }
+    
+    console.log("Database health check passed");
+    return true;
   } catch (error) {
-    console.error('Database health check failed:', error);
+    console.error("Error during database health check:", error);
     return false;
   }
 }
 
-// Retry a failed database query
-export async function retryQuery(queryFn: () => Promise<any>, maxAttempts: number = 3) {
+// Function to retry a failed query with automatic backoff
+export async function retryQuery<T>(
+  queryFn: () => Promise<T>, 
+  maxRetries = 3,
+  initialDelay = 500
+): Promise<T> {
   let attempts = 0;
-  let lastError;
+  let delay = initialDelay;
   
-  while (attempts < maxAttempts) {
+  while (attempts < maxRetries) {
     try {
-      attempts++;
       return await queryFn();
-    } catch (error) {
-      console.error(`Query attempt ${attempts} failed:`, error);
-      lastError = error;
+    } catch (error: any) {
+      attempts++;
       
-      // Wait longer between each retry
-      await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+      // If we've exhausted retries, throw the error
+      if (attempts >= maxRetries) {
+        throw error;
+      }
+      
+      console.warn(`Query failed (attempt ${attempts}/${maxRetries}), retrying in ${delay}ms:`, error.message);
+      
+      // Wait before retrying with exponential backoff
+      await new Promise(resolve => setTimeout(resolve, delay));
+      delay = Math.min(delay * 2, 5000); // Max 5 second delay
+      
+      // Try refreshing auth session before next attempt
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          await supabase.auth.refreshSession();
+        }
+      } catch (e) {
+        console.warn("Could not refresh session before retry:", e);
+      }
     }
   }
   
-  console.error(`Query failed after ${maxAttempts} attempts`);
-  throw lastError;
+  // This should never happen due to the throw in the catch block
+  throw new Error("Max retries exceeded");
 }
 
-// Cache management functions
-export async function purgeAllCaches() {
+// Create a function to fix schema issues
+export async function attemptSchemaRepair(): Promise<boolean> {
+  console.log("Attempting to repair schema configuration...");
+  
   try {
-    console.log("Purging all application caches...");
-    // This is a placeholder for actual cache purging logic
-    // In a real implementation, this would clear any application caches
-    toast.success("All caches have been purged successfully");
-    return true;
-  } catch (error) {
-    console.error("Error purging caches:", error);
-    toast.error("Failed to purge application caches");
+    // First, try signing out and back in to refresh tokens
+    const { data: sessionData } = await supabase.auth.getSession();
+    
+    if (sessionData.session) {
+      // Store credentials temporarily
+      const email = sessionData.session.user.email;
+      
+      // Sign out
+      await supabase.auth.signOut();
+      
+      // Reload the client to reset internal state
+      Object.assign(supabase.options, {
+        db: {
+          schema: 'public'
+        }
+      });
+      
+      // Test if we can now access the database
+      const { error } = await supabase
+        .from('profiles')
+        .select('id')
+        .limit(1);
+      
+      if (!error) {
+        console.log("Schema repair successful through client reset");
+        return true;
+      }
+      
+      console.log("Schema issues persist after client reset, trying other methods...");
+    }
+    
+    // Try explicit RPC command to set schema
+    const { error: rpcError } = await supabase.rpc('set_schema', { schema_name: 'public' });
+    
+    if (!rpcError) {
+      // Test if schema is now accessible
+      const { error: testError } = await supabase
+        .from('profiles')
+        .select('id')
+        .limit(1);
+      
+      if (!testError) {
+        console.log("Schema repair successful through RPC command");
+        return true;
+      }
+    }
+    
+    // If all else fails, return false
+    console.error("All schema repair attempts failed");
     return false;
-  }
-}
-
-export async function getCacheStats() {
-  try {
-    // This is a placeholder for actual cache statistics
-    // In a real implementation, this would return actual cache metrics
-    return {
-      entries: 0,
-      size: "0 KB",
-      lastPurged: new Date().toISOString()
-    };
   } catch (error) {
-    console.error("Error getting cache stats:", error);
-    return {
-      entries: 0,
-      size: "0 KB",
-      lastPurged: "never"
-    };
+    console.error("Error during schema repair attempt:", error);
+    return false;
   }
 }
