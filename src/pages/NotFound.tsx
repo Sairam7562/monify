@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { 
@@ -8,17 +8,21 @@ import {
   Shield, 
   AlertTriangle,
   Search,
-  RefreshCw
+  RefreshCw,
+  RotateCcw
 } from 'lucide-react';
-import { checkConnection } from '@/integrations/supabase/client';
+import { checkConnection, initializeConnection } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const NotFound = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const isAdminOverride = localStorage.getItem('adminCodeOverride') === 'true';
-  const [connectionChecked, setConnectionChecked] = React.useState(false);
-  const [hasConnectionError, setHasConnectionError] = React.useState(false);
+  const [connectionChecked, setConnectionChecked] = useState(false);
+  const [hasConnectionError, setHasConnectionError] = useState(false);
+  const [retryAttempts, setRetryAttempts] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [connectionErrorReason, setConnectionErrorReason] = useState<string | null>(null);
 
   useEffect(() => {
     console.error(
@@ -31,6 +35,23 @@ const NotFound = () => {
       const result = await checkConnection();
       setHasConnectionError(!result.connected);
       setConnectionChecked(true);
+      
+      if (!result.connected && result.reason) {
+        // Set a more user-friendly error message based on the reason
+        switch (result.reason) {
+          case 'auth_error':
+            setConnectionErrorReason("Authentication error. Your session may have expired.");
+            break;
+          case 'schema_error':
+            setConnectionErrorReason("Database schema configuration issue.");
+            break;
+          case 'rate_limit_error':
+            setConnectionErrorReason("Rate limit reached. Please wait a moment and try again.");
+            break;
+          default:
+            setConnectionErrorReason("General connection issue. Please check your internet connection.");
+        }
+      }
     };
     
     verifyConnection();
@@ -45,6 +66,9 @@ const NotFound = () => {
   };
 
   const handleRetryConnection = async () => {
+    setIsRetrying(true);
+    setRetryAttempts(prev => prev + 1);
+    
     toast.info("Checking database connection...");
     const result = await checkConnection();
     
@@ -54,7 +78,37 @@ const NotFound = () => {
       // Try going back to the previous page or dashboard
       navigate(-1);
     } else {
-      toast.error("Connection issue persists. Please try again later.");
+      toast.error(`Connection issue persists: ${connectionErrorReason || 'Unknown error'}`);
+    }
+    
+    setIsRetrying(false);
+  };
+  
+  const handleFullReset = async () => {
+    setIsRetrying(true);
+    try {
+      toast.info("Performing full connection reset...");
+      
+      // Clear any session data that might be causing issues
+      localStorage.removeItem('supabase.auth.token');
+      localStorage.removeItem('supabase.auth.expires_at');
+      sessionStorage.removeItem('db_schema_error');
+      
+      // Initialize a completely fresh connection
+      const success = await initializeConnection();
+      
+      if (success) {
+        toast.success("Connection successfully reset!");
+        // Redirect to login page
+        navigate('/login');
+      } else {
+        toast.error("Unable to restore connection. Please try logging out and back in.");
+      }
+    } catch (error) {
+      console.error("Error during full reset:", error);
+      toast.error("Reset failed. Please try refreshing the page manually.");
+    } finally {
+      setIsRetrying(false);
     }
   };
 
@@ -79,16 +133,37 @@ const NotFound = () => {
             </div>
             <h1 className="text-3xl font-bold mb-2 text-amber-500">Connection Error</h1>
             <p className="text-gray-600 mb-6">
-              We're having trouble connecting to the database. This might be why you're seeing this page.
+              {connectionErrorReason || "We're having trouble connecting to the database. This might be why you're seeing this page."}
             </p>
             <div className="flex flex-col space-y-3">
               <Button 
                 variant="default"
                 className="w-full"
                 onClick={handleRetryConnection}
+                disabled={isRetrying}
               >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Retry Connection
+                <RefreshCw className={`mr-2 h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />
+                {isRetrying ? 'Retrying...' : 'Retry Connection'}
+              </Button>
+              
+              {retryAttempts >= 2 && (
+                <Button 
+                  variant="destructive"
+                  className="w-full"
+                  onClick={handleFullReset}
+                  disabled={isRetrying}
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Reset Connection & Go to Login
+                </Button>
+              )}
+              
+              <Button 
+                variant="outline"
+                className="w-full"
+                onClick={() => navigate('/login')}
+              >
+                Go to Login Page
               </Button>
             </div>
           </>

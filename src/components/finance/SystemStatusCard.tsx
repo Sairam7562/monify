@@ -1,10 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Database, ShieldAlert } from 'lucide-react';
+import { RefreshCw, Database, ShieldAlert, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
-import { retryConnection } from '@/integrations/supabase/client';
+import { retryConnection, initializeConnection } from '@/integrations/supabase/client';
 
 interface SystemStatusCardProps {
   isDbHealthy: boolean | null;
@@ -18,22 +18,66 @@ interface SystemStatusCardProps {
 
 const SystemStatusCard = ({ isDbHealthy, cacheStats, onPurgeCache }: SystemStatusCardProps) => {
   const [isRetrying, setIsRetrying] = useState(false);
+  const [totalRetries, setTotalRetries] = useState(0);
+  const [lastRetry, setLastRetry] = useState<number | null>(null);
+  
+  useEffect(() => {
+    // Check if last retry was recent (within 5 minutes)
+    if (lastRetry && Date.now() - lastRetry < 5 * 60 * 1000) {
+      // If we've had multiple retries recently, try a more aggressive approach
+      if (totalRetries >= 3 && !isRetrying && !isDbHealthy) {
+        handleFullReset();
+      }
+    }
+  }, [isDbHealthy, totalRetries, lastRetry]);
   
   const handleRetryConnection = async () => {
     setIsRetrying(true);
+    setTotalRetries(prev => prev + 1);
+    setLastRetry(Date.now());
+    
     try {
       toast.info("Attempting to reconnect to database...");
       const success = await retryConnection(3);
       
       if (success) {
         toast.success("Database connection restored!");
+        localStorage.setItem('db_connection_status', 'connected');
         // We'll let the parent component update isDbHealthy through its normal checks
       } else {
         toast.error("Still unable to connect to database. Please try again later.");
+        localStorage.setItem('db_connection_status', 'disconnected');
       }
     } catch (error) {
       console.error("Error retrying connection:", error);
       toast.error("Connection attempt failed. Please try refreshing the page.");
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+  
+  const handleFullReset = async () => {
+    setIsRetrying(true);
+    try {
+      toast.info("Performing full connection reset...");
+      
+      // Clear any session data that might be causing issues
+      localStorage.removeItem('supabase.auth.token');
+      localStorage.removeItem('supabase.auth.expires_at');
+      sessionStorage.removeItem('db_schema_error');
+      
+      // Initialize a completely fresh connection
+      const success = await initializeConnection();
+      
+      if (success) {
+        toast.success("Connection successfully reset and restored!");
+        window.location.reload(); // Reload the page for a fresh start
+      } else {
+        toast.error("Unable to restore connection. Please try logging out and back in.");
+      }
+    } catch (error) {
+      console.error("Error during full reset:", error);
+      toast.error("Reset failed. Please try refreshing the page manually.");
     } finally {
       setIsRetrying(false);
     }
@@ -54,18 +98,37 @@ const SystemStatusCard = ({ isDbHealthy, cacheStats, onPurgeCache }: SystemStatu
               <span>{isDbHealthy === null ? 'Checking...' : isDbHealthy ? 'Connected' : 'Disconnected'}</span>
             </div>
             {isDbHealthy === false && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="flex items-center gap-1 text-xs h-7 px-2"
-                onClick={handleRetryConnection}
-                disabled={isRetrying}
-              >
-                <RefreshCw className={`h-3 w-3 ${isRetrying ? 'animate-spin' : ''}`} />
-                {isRetrying ? 'Retrying...' : 'Retry'}
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex items-center gap-1 text-xs h-7 px-2"
+                  onClick={handleRetryConnection}
+                  disabled={isRetrying}
+                >
+                  <RefreshCw className={`h-3 w-3 ${isRetrying ? 'animate-spin' : ''}`} />
+                  {isRetrying ? 'Retrying...' : 'Retry'}
+                </Button>
+                {totalRetries >= 2 && (
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    className="flex items-center gap-1 text-xs h-7 px-2"
+                    onClick={handleFullReset}
+                    disabled={isRetrying}
+                  >
+                    <AlertTriangle className="h-3 w-3" />
+                    Reset
+                  </Button>
+                )}
+              </div>
             )}
           </div>
+          {totalRetries > 0 && !isDbHealthy && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Retry attempts: {totalRetries}
+            </p>
+          )}
         </div>
         
         <div>
