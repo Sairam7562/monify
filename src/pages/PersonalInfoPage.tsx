@@ -84,21 +84,22 @@ const PersonalInfoPage = () => {
           <div className="md:col-span-2">
             <Card>
               <CardHeader>
-                <Tabs defaultValue="personal" value={activeTab} onValueChange={setActiveTab}>
+                <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="personal">Personal Info</TabsTrigger>
                     <TabsTrigger value="business">Business Info</TabsTrigger>
                   </TabsList>
+                
+                  <CardContent className="pt-6">
+                    <TabsContent value="personal">
+                      <PersonalInfoForm />
+                    </TabsContent>
+                    <TabsContent value="business">
+                      <BusinessInfoForm />
+                    </TabsContent>
+                  </CardContent>
                 </Tabs>
               </CardHeader>
-              <CardContent>
-                <TabsContent value="personal" className={activeTab === 'personal' ? 'block' : 'hidden'}>
-                  <PersonalInfoForm />
-                </TabsContent>
-                <TabsContent value="business" className={activeTab === 'business' ? 'block' : 'hidden'}>
-                  <BusinessInfoForm />
-                </TabsContent>
-              </CardContent>
             </Card>
           </div>
           
