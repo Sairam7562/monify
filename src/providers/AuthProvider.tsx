@@ -24,6 +24,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [dbConnectionChecked, setDbConnectionChecked] = useState(false);
   const [dbConnectionError, setDbConnectionError] = useState<boolean | null>(null);
+  const [lastActivity, setLastActivity] = useState<number>(Date.now());
   
   const retryDatabaseConnection = useCallback(async () => {
     try {
@@ -36,6 +37,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
   }, []);
+
+  useEffect(() => {
+    const updateActivity = () => {
+      setLastActivity(Date.now());
+    };
+
+    window.addEventListener('click', updateActivity);
+    window.addEventListener('keydown', updateActivity);
+    window.addEventListener('mousemove', updateActivity);
+    window.addEventListener('touchstart', updateActivity);
+
+    return () => {
+      window.removeEventListener('click', updateActivity);
+      window.removeEventListener('keydown', updateActivity);
+      window.removeEventListener('mousemove', updateActivity);
+      window.removeEventListener('touchstart', updateActivity);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    
+    const checkSessionInterval = setInterval(async () => {
+      const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+      
+      if (lastActivity > fiveMinutesAgo) {
+        try {
+          console.log("Refreshing session due to recent activity...");
+          const { data } = await supabase.auth.refreshSession();
+          if (data.session) {
+            console.log("Session refreshed successfully");
+          }
+        } catch (err) {
+          console.error("Failed to refresh session:", err);
+        }
+      }
+    }, 4 * 60 * 1000);
+
+    return () => clearInterval(checkSessionInterval);
+  }, [session, lastActivity]);
 
   useEffect(() => {
     const verifyDatabaseConnection = async () => {
@@ -75,20 +116,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
       console.log("Auth state changed:", _event);
-      setSession(newSession);
-      setSupabaseUser(newSession?.user ?? null);
-      setUser(supabaseUserToUser(newSession?.user ?? null));
+      
+      if (_event === 'SIGNED_OUT') {
+        setSession(null);
+        setSupabaseUser(null);
+        setUser(null);
+      } else {
+        setSession(newSession);
+        setSupabaseUser(newSession?.user ?? null);
+        setUser(supabaseUserToUser(newSession?.user ?? null));
+      }
       
       if (newSession) {
         setDbConnectionChecked(false);
+        setLastActivity(Date.now());
       }
     });
 
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      console.log("Initial session check:", initialSession ? "Session found" : "No session");
       setSession(initialSession);
       setSupabaseUser(initialSession?.user ?? null);
       setUser(supabaseUserToUser(initialSession?.user ?? null));
       setLoading(false);
+      
+      if (initialSession) {
+        supabase.auth.refreshSession().then(({ data, error }) => {
+          if (error) {
+            console.error("Error refreshing session on startup:", error);
+          } else if (data.session) {
+            console.log("Session refreshed on startup");
+          }
+        });
+      }
     }).catch(error => {
       console.error("Error getting session:", error);
       setLoading(false);

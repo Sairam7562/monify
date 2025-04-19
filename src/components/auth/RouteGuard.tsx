@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { checkConnection } from '@/integrations/supabase/client';
+import { checkConnection, supabase } from '@/integrations/supabase/client';
 
 interface RouteGuardProps {
   children: ReactNode;
@@ -37,6 +37,16 @@ const RouteGuard = ({ children, requireAuth = true, requireAdmin = false }: Rout
       }
     };
   }, []);
+
+  // Try to refresh the session on route changes
+  useEffect(() => {
+    if (requireAuth && session) {
+      // Silently refresh the token on navigation
+      supabase.auth.refreshSession().catch(err => {
+        console.error("Error refreshing session on navigation:", err);
+      });
+    }
+  }, [location.pathname, session, requireAuth]);
 
   // Check database connection status after a short delay to allow auth to load first
   useEffect(() => {
