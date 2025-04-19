@@ -10,10 +10,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     storage: localStorage,
-  },
-  db: {
-    schema: 'public', // Using 'public' schema instead of 'api'
-  },
+  }
 });
 
 // Function to check database connection

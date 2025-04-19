@@ -8,8 +8,7 @@ export async function fetchAssets(userId: string) {
     const { data, error } = await supabase
       .from('assets')
       .select('*')
-      .eq('user_id', userId)
-      .schema('api'); // Explicitly set schema to 'api' as required by error message
+      .eq('user_id', userId);
       
     if (error) {
       console.error("Error fetching assets:", error);
@@ -29,8 +28,7 @@ export async function fetchLiabilities(userId: string) {
     const { data, error } = await supabase
       .from('liabilities')
       .select('*')
-      .eq('user_id', userId)
-      .schema('api'); // Explicitly set schema to 'api'
+      .eq('user_id', userId);
       
     if (error) {
       console.error("Error fetching liabilities:", error);
@@ -50,8 +48,7 @@ export async function fetchIncome(userId: string) {
     const { data, error } = await supabase
       .from('income')
       .select('*')
-      .eq('user_id', userId)
-      .schema('api'); // Explicitly set schema to 'api'
+      .eq('user_id', userId);
       
     if (error) {
       console.error("Error fetching income:", error);
@@ -71,8 +68,7 @@ export async function fetchExpenses(userId: string) {
     const { data, error } = await supabase
       .from('expenses')
       .select('*')
-      .eq('user_id', userId)
-      .schema('api'); // Explicitly set schema to 'api'
+      .eq('user_id', userId);
       
     if (error) {
       console.error("Error fetching expenses:", error);

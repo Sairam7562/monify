@@ -27,7 +27,6 @@ const ProfileCompletionCard = ({ user }: ProfileCompletionCardProps) => {
           .from('personal_info')
           .select('*')
           .eq('user_id', user.id)
-          .schema('api') // Use api schema explicitly
           .single();
           
         if (error) {
