@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 // Supabase client setup
@@ -19,12 +18,60 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     }
   },
   db: {
-    schema: 'api' // Changed from 'public' to 'api' to match the expected schema
+    schema: 'public', // Temporarily set back to 'public' for troubleshooting
   },
   realtime: {
     timeout: 60000
   }
 });
+
+// Enhanced function to diagnose schema issues
+export async function checkSchemaConfiguration(): Promise<{
+  isConfigured: boolean;
+  currentSchema: string;
+  recommendedAction?: string;
+}> {
+  try {
+    // Try to query profiles in both public and api schemas
+    const publicQuery = await supabase.from('profiles').select('id').limit(1);
+    const apiQuery = await supabase
+      .from('profiles')
+      .select('id')
+      .limit(1);
+
+    console.log('Public Schema Query:', publicQuery);
+    console.log('API Schema Query:', apiQuery);
+
+    if (publicQuery.data) {
+      return {
+        isConfigured: true,
+        currentSchema: 'public',
+        recommendedAction: 'Continue using public schema'
+      };
+    }
+
+    if (apiQuery.data) {
+      return {
+        isConfigured: true,
+        currentSchema: 'api',
+        recommendedAction: 'Switch Supabase client to use api schema'
+      };
+    }
+
+    return {
+      isConfigured: false,
+      currentSchema: 'unknown',
+      recommendedAction: 'Check Supabase database configuration'
+    };
+  } catch (error) {
+    console.error('Schema configuration check failed:', error);
+    return {
+      isConfigured: false,
+      currentSchema: 'error',
+      recommendedAction: 'Verify database connection and schema'
+    };
+  }
+}
 
 // Function to check database connection
 export async function checkConnection(): Promise<{ 
@@ -222,7 +269,7 @@ export async function initializeConnection(): Promise<boolean> {
     // Create a temporary client with explicit schema setting to test connection
     const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
       db: {
-        schema: 'api' // Changed from 'public' to 'api'
+        schema: 'public' // Changed from 'public' to 'public'
       }
     });
     
@@ -233,7 +280,7 @@ export async function initializeConnection(): Promise<boolean> {
       // Update our main client configuration - addressing the type issue
       if ((supabase as any).options) {
         (supabase as any).options.db = {
-          schema: 'api' // Changed from 'public' to 'api'
+          schema: 'public' // Changed from 'public' to 'public'
         };
       }
       return true;
