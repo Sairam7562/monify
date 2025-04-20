@@ -230,12 +230,12 @@ export async function initializeConnection(): Promise<boolean> {
     
     if (!error) {
       console.log("Connection successful with explicit schema setting");
-      // Update our main client configuration
-      Object.assign(supabase.options, {
-        db: {
+      // Update our main client configuration - addressing the type issue
+      if ((supabase as any).options) {
+        (supabase as any).options.db = {
           schema: 'public'
-        }
-      });
+        };
+      }
       return true;
     }
   } catch (e) {
