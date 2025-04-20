@@ -19,7 +19,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     }
   },
   db: {
-    schema: 'public' // Explicitly set schema to public to avoid schema-related issues
+    schema: 'api' // Changed from 'public' to 'api' to match the expected schema
   },
   realtime: {
     timeout: 60000
@@ -222,7 +222,7 @@ export async function initializeConnection(): Promise<boolean> {
     // Create a temporary client with explicit schema setting to test connection
     const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
       db: {
-        schema: 'public'
+        schema: 'api' // Changed from 'public' to 'api'
       }
     });
     
@@ -233,7 +233,7 @@ export async function initializeConnection(): Promise<boolean> {
       // Update our main client configuration - addressing the type issue
       if ((supabase as any).options) {
         (supabase as any).options.db = {
-          schema: 'public'
+          schema: 'api' // Changed from 'public' to 'api'
         };
       }
       return true;
