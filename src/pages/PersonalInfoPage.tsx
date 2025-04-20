@@ -34,11 +34,11 @@ const PersonalInfoPage = () => {
     
     // Update cache stats
     const updateCacheStats = async () => {
-      const stats = await getCacheStats();
+      const stats = getCacheStats();
       setCacheStats({
-        entries: stats.entries || 0,
-        size: parseInt(stats.size) || 0,
-        oldestEntry: new Date(stats.lastPurged).getTime() || 0
+        entries: stats.count || 0,
+        size: stats.size || 0,
+        oldestEntry: stats.lastPurged ? new Date(stats.lastPurged).getTime() : 0
       });
     };
     
@@ -47,21 +47,17 @@ const PersonalInfoPage = () => {
 
   const handlePurgeCache = async () => {
     try {
-      const success = await purgeAllCaches();
+      purgeAllCaches(); // This is a void function, doesn't return a value
       
-      if (success) {
-        toast.success('All application caches have been purged');
-        
-        // Update cache stats after purge
-        const stats = await getCacheStats();
-        setCacheStats({
-          entries: stats.entries || 0,
-          size: parseInt(stats.size) || 0,
-          oldestEntry: new Date(stats.lastPurged).getTime() || 0
-        });
-      } else {
-        toast.error('Failed to purge application caches');
-      }
+      toast.success('All application caches have been purged');
+      
+      // Update cache stats after purge
+      const stats = getCacheStats();
+      setCacheStats({
+        entries: stats.count || 0,
+        size: stats.size || 0,
+        oldestEntry: stats.lastPurged ? new Date(stats.lastPurged).getTime() : 0
+      });
     } catch (error) {
       console.error('Error purging caches:', error);
       toast.error('An error occurred while purging caches');
