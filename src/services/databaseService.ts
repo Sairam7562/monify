@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { clearAllCaches } from '@/integrations/supabase/client';
 import { calculateNetWorth, calculateSavingsRate, calculateDebtToAssetRatio, calculateEmergencyFundRatio } from '@/utils/financialUtils';
@@ -340,13 +339,17 @@ export function purgeAllCaches(): void {
       console.log(`Removed cache: ${key}`);
     }
   }
+  
+  // Set last purged timestamp
+  localStorage.setItem('cache_last_purged', new Date().toISOString());
 }
 
 // Function to get cache statistics
-export function getCacheStats(): { count: number, size: number, items: string[] } {
+export function getCacheStats(): { count: number, size: number, items: string[], lastPurged?: string } {
   let count = 0;
   let size = 0;
   const items: string[] = [];
+  const lastPurged = localStorage.getItem('cache_last_purged');
   
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
@@ -368,6 +371,7 @@ export function getCacheStats(): { count: number, size: number, items: string[] 
   return {
     count,
     size: Math.round(size / 1024), // Convert to KB
-    items
+    items,
+    lastPurged: lastPurged || undefined
   };
 }

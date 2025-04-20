@@ -101,3 +101,47 @@ export function calculateCategoryExpenses(
       return sum + convertToMonthly(amount, frequency);
     }, 0);
 }
+
+/**
+ * Calculate net worth (total assets minus total liabilities)
+ * @param totalAssets The total value of all assets
+ * @param totalLiabilities The total value of all liabilities
+ * @returns Net worth value
+ */
+export function calculateNetWorth(totalAssets: number, totalLiabilities: number): number {
+  return totalAssets - totalLiabilities;
+}
+
+/**
+ * Calculate savings rate (savings as a percentage of income)
+ * @param monthlyIncome Total monthly income
+ * @param monthlyExpenses Total monthly expenses
+ * @returns Savings rate as a decimal (e.g., 0.25 for 25%)
+ */
+export function calculateSavingsRate(monthlyIncome: number, monthlyExpenses: number): number {
+  if (monthlyIncome <= 0) return 0;
+  const savingsAmount = monthlyIncome - monthlyExpenses;
+  return savingsAmount > 0 ? savingsAmount / monthlyIncome : 0;
+}
+
+/**
+ * Calculate debt-to-asset ratio (total debt divided by total assets)
+ * @param totalLiabilities Total debt/liabilities
+ * @param totalAssets Total assets
+ * @returns Debt-to-asset ratio as a decimal
+ */
+export function calculateDebtToAssetRatio(totalLiabilities: number, totalAssets: number): number {
+  if (totalAssets <= 0) return 0;
+  return totalLiabilities / totalAssets;
+}
+
+/**
+ * Calculate emergency fund ratio (liquid savings divided by monthly expenses)
+ * @param liquidAssets Total liquid assets (cash, savings)
+ * @param monthlyExpenses Total monthly expenses
+ * @returns Number of months expenses covered by emergency fund
+ */
+export function calculateEmergencyFundRatio(liquidAssets: number, monthlyExpenses: number): number {
+  if (monthlyExpenses <= 0) return 0;
+  return liquidAssets / monthlyExpenses;
+}
