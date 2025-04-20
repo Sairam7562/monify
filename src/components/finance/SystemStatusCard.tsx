@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,7 +12,7 @@ interface SystemStatusCardProps {
     entries: number;
     oldestEntry: number;
   };
-  onPurgeCache: () => Promise<void>;
+  onPurgeCache: () => void;
 }
 
 const SystemStatusCard = ({ isDbHealthy, cacheStats, onPurgeCache }: SystemStatusCardProps) => {

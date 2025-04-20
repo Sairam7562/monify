@@ -33,7 +33,7 @@ const PersonalInfoPage = () => {
     checkDb();
     
     // Update cache stats
-    const updateCacheStats = async () => {
+    const updateCacheStats = () => {
       const stats = getCacheStats();
       setCacheStats({
         entries: stats.count || 0,
@@ -45,7 +45,7 @@ const PersonalInfoPage = () => {
     updateCacheStats();
   }, [checkDatabaseStatus]);
 
-  const handlePurgeCache = async () => {
+  const handlePurgeCache = () => {
     try {
       purgeAllCaches(); // This is a void function, doesn't return a value
       
